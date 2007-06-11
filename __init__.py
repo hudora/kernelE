@@ -22,7 +22,7 @@ UnitLoad_mapper = mapper(UnitLoad, unit_load_table,
     properties = {
         'open_movements': relation(Movement, backref='moving_unitloads',
                           primaryjoin=and_(unit_load_table.c.mui==movement_table.c.unit_load_id, 
-                          movement_table.c.done==False)),
+                          movement_table.c.done==False, viewonly=True)),
         'picks':           relation(Pick, backref='unit_load'),
     })
 
@@ -31,7 +31,7 @@ StorageLocation_mapper = mapper(StorageLocation, storage_location_table,
         'unit_loads':     relation(UnitLoad, backref='storage_location'),
         'open_movements': relation(Movement,
                            primaryjoin=and_(or_(storage_location_table.c.id==movement_table.c.from_location_id,
-                                                storage_location_table.c.id==movement_table.c.to_location_id),
+                                                storage_location_table.c.id==movement_table.c.to_location_id, viewonly=True),
                            movement_table.c.done==False)),
         'movements':       relation(Movement,
                            primaryjoin=and_(storage_location_table.c.id==movement_table.c.from_location_id,
