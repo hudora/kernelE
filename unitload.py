@@ -62,9 +62,9 @@ class UnitLoad(object):
         return False
     is_moving = property(_get_is_moving)
     
-    def __str__(self):
-        ret = ["%r/%s/%r" % (self.mui, self.productkey, self.quantity)]
-        return ' '.join(ret)
+    def __unicode__(self):
+        ret = [u"%r/%s/%r" % (self.mui, self.productkey, self.quantity)]
+        return u' '.join(ret)
     
     def __repr__(self):
         ret = ["%r/%s/%r" % (self.mui, self.productkey, self.quantity)]
@@ -81,6 +81,6 @@ class UnitLoad(object):
             # self.save()
             # TODO: how can we force to be sabed?
             pass
-        return str(self.mui)
+        return unicode(self.mui)
     muistr = property(_get_muistr)
     

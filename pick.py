@@ -46,8 +46,8 @@ class Pick(object):
         self.productkey = unit_load.productkey
         self.quantity = quantity
     
-    def __str__(self):
-        ret = "%d x %s from %s" % (self.quantity, self.productkey, self.storage_location)
+    def __unicode__(self):
+        ret = u"%d x %s from %s" % (self.quantity, self.productkey, self.storage_location)
         if self.anbruch:
             ret += ', anbruch'
         return ret
@@ -57,7 +57,7 @@ class PickList(object):
         super(PickList, self).__init__()
         self.warehouse = warehouse
     
-    def __str__(self):
-        return "PickList %d: %r" % (self.id, [str(x) for x in self.picks])
+    def __unicode__(self):
+        return u"PickList %d: %r" % (self.id, [unicode(x) for x in self.picks])
     
 
