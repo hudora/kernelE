@@ -1,11 +1,19 @@
+% Record definitions
+
 % dies stellt einen Lagerplatz im Regal dar.
--record(location, {name,             % platznummer
-                   height,           % platzhöhe in mm
-                   floorlevel,       % kann der platz ohne Stapler bedient werden?
-                   allocated_by,     % liste der muis, die diesen platz belegen
-                   reserved_for,     % liste der muis, die auf dem weg zu diesem platz sind
-                   preference,       % plätze mit höherer preference werden bevorzugt befüllt, sollte zwischen 0-9 liegen
-                   description}).    % anmerkungen
+-record(location, {
+    name,             % platznummer
+    height,           % platzhöhe in mm
+    floorlevel,       % kann der platz ohne Stapler bedient werden?
+    allocated_by,     % liste der muis, die diesen platz belegen
+    reserved_for,     % liste der muis, die auf dem weg zu diesem platz sind
+    preference,       % plätze mit höherer preference werden bevorzugt befüllt, sollte zwischen 0-9 liegen
+    description,      % anmerkungen
+    attributes        % Liste von attributen: [
+                      % no_picks - von diesm Platz darf nicht komissioniert werden (z.B. EINLAG)
+                      %            keine picks und retrievals
+                      % ]
+                   }).    
 
 % dies stellt eine palette dar
 -record(unit, {mui,             % eindeutige Numer, z.B. NVE,
