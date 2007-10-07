@@ -14,10 +14,7 @@
 -include("mypl.hrl").
 
 -export([start/0, stop/0, init_mypl/0, store_at_location/5, retrive/1,
- 
-init_movement/2, init_movement_to_good_location/1, commit_movement/1
-
-%  for testing
+ init_movement/2, init_movement_to_good_location/1, commit_movement/1
 ]).
 
 
@@ -42,9 +39,9 @@ stop() ->
 
 init_table_info(Status, TableName) ->
     case Status of
-        {atomic,ok} ->
+        {atomic, ok} ->
             ?DEBUG("table '~w' created", [TableName]);
-        {aborted,{already_exists,TableName}} ->
+        {aborted, {already_exists, TableName}} ->
             ?DEBUG("using existing table '~w'", [TableName]);
         _ ->
             ?ERROR("cannot create table '~w'", [TableName], Status)
@@ -157,7 +154,7 @@ store_at_location(Location, Unit) when Unit#unit.quantity > 0 ->
         % check no unit record with this mui exists
         case mnesia:read({unit, Unit#unit.mui}) of
             [_ExistingUnitload] ->
-                {error, duplicate_mui};
+                {error, duplicate_mui, {Location, Unit}};
             [] ->
                 % generate unit record
                 mnesia:write(Unit),
@@ -168,7 +165,7 @@ store_at_location(Location, Unit) when Unit#unit.quantity > 0 ->
                         Newloc = Location#location{allocated_by=[Unit#unit.mui|Location#location.allocated_by]}
                 end,
             mnesia:write(Newloc),
-            log_articleaudit(Unit#unit.quantity, Unit#unit.product,
+            mypl_audit:articleaudit(Unit#unit.quantity, Unit#unit.product,
                              "Warenzugang auf " ++ Location#location.name, Unit#unit.mui),
             {ok, Unit#unit.mui}
         end
@@ -186,11 +183,11 @@ store_at_location(Locname, Mui, Quantity, Product, Height) when Quantity > 0 ->
         % check that location exists
         case mnesia:read({location, Locname}) of
             [] ->
-                {error, unknown_location};
+                {error, unknown_location, {Locname}};
             [Location] ->
                 Unit = #unit{mui=Mui, quantity=Quantity, product=Product, height=Height, pick_quantity=0,
                              created_at=calendar:universal_time()},
-                log_unitaudit(Unit, "Erzeugt auf " ++ Location#location.name),
+                mypl_audit:unitaudit(Unit, "Erzeugt auf " ++ Location#location.name),
                 store_at_location(Location, Unit)
         end
     end,
@@ -214,8 +211,8 @@ retrive(Mui) ->
         % delete unit record
         mnesia:delete({unit, Mui}),
         % log
-        log_unitaudit(Unit, "Aufgeloeesst auf " ++ Location#location.name),
-        log_articleaudit(-1 * Unit#unit.quantity, Unit#unit.product,
+        mypl_audit:unitaudit(Unit, "Aufgeloeesst auf " ++ Location#location.name),
+        mypl_audit:articleaudit(-1 * Unit#unit.quantity, Unit#unit.product,
                          "Warenabgang auf " ++ Location#location.name, Unit#unit.mui),
         {Unit#unit.quantity, Unit#unit.product}
     end,
@@ -238,7 +235,7 @@ init_movement(Mui, DestinationName) ->
         % check that mui is movable
         case mypl_db_util:unit_movable(Unit) of
             no ->
-                {error, not_movable};
+                {error, not_movable, {Mui}};
             yes ->
                 % now we can write to the database
                 mnesia:write(Destination#location{reserved_for=Destination#location.reserved_for ++ [Mui]}),
@@ -247,7 +244,7 @@ init_movement(Mui, DestinationName) ->
                                      from_location=Source#location.name,
                                      to_location=Destination#location.name},
                 mnesia:write(Movement),
-                log_unitaudit(Unit, "Umlagerung von " ++ Source#location.name ++ " nach "
+                mypl_audit:unitaudit(Unit, "Umlagerung von " ++ Source#location.name ++ " nach "
                               ++ Destination#location.name ++ " initialisiert", Movement#movement.id),
                 {ok, Movement#movement.id}
         end
@@ -265,9 +262,13 @@ init_movement(Mui, DestinationName) ->
 init_movement_to_good_location(Mui) ->
     % chooses the best location for an MUI and starts moving it there
     Fun = fun() ->
-        [Unit] = mnesia:read({unit, Mui}),
-        Destination = mypl_db_util:best_location(Unit),
-        init_movement(Mui, Destination#location.name)
+        case mnesia:read({unit, Mui}) of 
+            [] ->
+                {error, unknown_mui, {Mui}};
+            [Unit] ->
+                Destination = mypl_db_util:best_location(Unit),
+                init_movement(Mui, Destination#location.name)
+        end
     end,
     {atomic, Ret} = mnesia:transaction(Fun),
     Ret.
@@ -293,7 +294,7 @@ commit_movement(MovementId) ->
         teleport(Unit, Source, Destination),
         % delete movement
         mnesia:delete({movement, MovementId}),
-        log_unitaudit(Unit, "Umlagerung von " ++ Source#location.name ++ " nach "
+        mypl_audit:unitaudit(Unit, "Umlagerung von " ++ Source#location.name ++ " nach "
                       ++ Destination#location.name ++ " comitted", Movement#movement.id),
         Destination#location.name
     end,
@@ -320,9 +321,9 @@ rollback_movement(MovementId) ->
         mnesia:write(Newdestination),
         % delete movement
         mnesia:delete({movement, MovementId}),
-        log_unitaudit(Unit, "Umlagerung von " ++ Source#location.name ++ " nach "
+        mypl_audit:unitaudit(Unit, "Umlagerung von " ++ Source#location.name ++ " nach "
                       ++ Destination#location.name ++ " abgebrochen", Movement#movement.id),
-        Destination#location.name
+        Source#location.name
     end,
     {atomic, Ret} = mnesia:transaction(Fun),
     {ok, Ret}.
@@ -338,7 +339,7 @@ init_pick(Quantity, Mui) when is_integer(Quantity) ->
         if
             UnitPickQuantity > Unit#unit.quantity ->
                 % this really shouldn't happen
-                {error, not_enough_goods};
+                {error, not_enough_goods, {Quantity, Mui, UnitPickQuantity}};
             true ->
                 % update Unit
                 mnesia:write(Unit#unit{pick_quantity=UnitPickQuantity}),
@@ -376,60 +377,6 @@ teleport(Unit, Source, Destination) ->
 
 
 
-%%%
-%%% auditlog - to be called whenever goods enter or leave the warehouse
-%%%
-
-%% @private
-%% @spec log_articleaudit(integer(), product(), string(), muiID(), string(), externalReferences()) -> {ok, atomic}
-%% @doc dump information about changes of stock.
-%%
-%% Transaction can be an movementID or an pickID.
-log_articleaudit(Quantity, Product, Text, Mui, Transaction, References) ->
-    Fun = fun() ->
-            % check that location exists
-            mnesia:write(#articleaudit{id="a" ++ mypl_util:oid(), quantity=Quantity, product=Product,
-                                   text=Text, mui=Mui, transaction=Transaction,
-                                   references=References, created_at=calendar:universal_time()})
-          end,
-    mnesia:transaction(Fun).
-
-%% @private
-%% @spec log_articleaudit(integer(), product(), string(), muiID(), all()) -> {ok, atomic}
-%% @doc dump information about changes of stock
-log_articleaudit(Quantity, Product, Text, Mui, Transaction) ->
-    log_articleaudit(Quantity, Product, Text, Mui, Transaction, []).
-
-%% @private
-%% @spec log_articleaudit(integer(), product(), string(), muiID()) -> {ok, atomic}
-%% @doc dump information about changes of stock
-log_articleaudit(Quantity, Product, Text, Mui) ->
-    log_articleaudit(Quantity, Product, Text, Mui, undefined).
-
-%% @private
-%% @spec log_unitaudit(unitRecord(), string(), string(), externalReferences()) -> {ok, atomic}
-%% @doc to be called whenever Units are moved in the warehouse.
-log_unitaudit(Unit, Text, Transaction, References) ->
-    Fun = fun() ->
-            % check that location exists
-            mnesia:write(#unitaudit{id="A" ++ mypl_util:oid(),
-                                    mui=Unit#unit.mui, quantity=Unit#unit.quantity, product=Unit#unit.product,
-                                    text=Text, transaction=Transaction,
-                                    references=References, created_at=calendar:universal_time()})
-          end,
-    mnesia:transaction(Fun).
-
-%% @spec log_unitaudit(unitRecord(), string(), string()) -> {ok, atomic}
-%% @doc to be called whenever Units are moved in the warehouse.
-log_unitaudit(Unit, Text, Transaction) ->
-    log_unitaudit(Unit, Text, Transaction, []).
-
-%% @spec log_unitaudit(unitRecord(), string()) -> {ok, atomic}
-%% @doc to be called whenever Units are moved in the warehouse.
-log_unitaudit(Unit, Text) ->
-    log_unitaudit(Unit, Text, undefined).
-
-
 
 % ~~ Unit tests
 -ifdef(EUNIT).
@@ -465,49 +412,45 @@ mypl_simple_movement_test() ->
     test_init(),
     % generate a MUI for testing
     Mui = "14601-" ++ mypl_util:generate_mui(),
-    ?DEBUG("X", []),
     % generate and Store Unit of 5*14601 (1200mm high) on "EINLAG"
     {ok, Mui} = store_at_location("EINLAG", Mui, 5, "14601", 1200),
-    ?DEBUG("X", []),
     
     % start movement to "010101".
     {ok, Movement1} = init_movement(Mui, "010101"),
     % finish movement
-    "010101" = commit_movement(Movement1),
+    {ok,"010101"} = commit_movement(Movement1),
     % check that Unit now is on the new Location
     Location1 = mypl_db_util:get_mui_location(Mui),
     ?assert(Location1#location.name == "010101"),
     
-    ?DEBUG("X", []),    
     % now move it to the best location the system can find for this Unit
     {ok, Movement2} = init_movement_to_good_location(Mui),
     % finish movement & check that Unit now is on the new Location - 010103 is best because it is lowest (1200mm)
-    "010103" = commit_movement(Movement2),
+    {ok, "010103"} = commit_movement(Movement2),
     
-    % now try again with lot's of checks
+    % now try again to move to a "good" location - with lot's of checks
     {ok, Movement3} = init_movement_to_good_location(Mui),
     % while movement is initialized the unit is still booked on the old location
     Location2 = mypl_db_util:get_mui_location(Mui),
     
-    ?DEBUG("X", []),    
     % try to initiate an other movement on that Mui - shouldn't be possible
-    {error, not_movable} = init_movement(Mui, "010101"),
+    {error, not_movable, _} = init_movement(Mui, "010101"),
     Location2 = mypl_db_util:get_mui_location(Mui),
     
     % we rollback the whole thing ... so the unit should still be in it's old location
-    Location2 = rollback_movement(Movement3),
+    {ok, "010103"} = rollback_movement(Movement3),
     
-    ?DEBUG("X", []),    
     % check issues with two units
     Mui2 = "14601-" ++ mypl_util:generate_mui(),
     % generate and Store Unit of 6*14601 (1200mm high) on "EINLAG"
-    store_at_location("EINLAG", Mui, 6, "14601", 1200),
-    {ok, Movement3} = init_movement_to_good_location(Mui),
-    {ok, Movement4} = init_movement_to_good_location(Mui2),
-    commit_movement(Movement3),
+    {ok, Mui2} = store_at_location("EINLAG", Mui2, 6, "14601", 1200),
+    {ok, Movement4} = init_movement_to_good_location(Mui),
+    {ok, Movement5} = init_movement_to_good_location(Mui2),
+    commit_movement(Movement5),
     commit_movement(Movement4),
     
-    % remove Mui from warehouse
-    {5, "14601"} = retrive(Mui).
+    % remove Muis from warehouse
+    {5, "14601"} = retrive(Mui),
+    {6, "14601"} = retrive(Mui2).
 
 -endif.

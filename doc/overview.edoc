@@ -54,12 +54,9 @@ By using an algorithm which isn't based on shared counting  one can get rid of a
 
 === Audit Logs ===
 
-kernel-E saves two kind of audit logs: changes of stock of inventory and creation, movement and removal of Units/MUIs/NVEs. It is expected that higher layers implement their own logging and that kernel-E logs are only used for debugging.
+kernel-E saves two kind of audit logs: changes of stock of inventory and creation, movement and removal of Units/MUIs/NVEs. It is expected that higher layers implement their own logging and that kernel-E logs are only used for debugging. All operations changing stock of inventory are coupled with the generation of  articleaudit entries in an transaction and thus should succeed or fail always together - even in the presence of software errors. The same goes for "unitaudit" entries.
 
-The stock of inventory audit log (called "articleaudit") saves (quantity, product date) and possibly additional references. By consulting the articleaudit log we should always be able to calculate the current amount of goods in stock. All operations changing stock of inventory are couplet with the generation of  articleaudit entries in an transaction and thus should succeed or fail always booth - even in the presence of software errors.
-
-The "unitaudit" log documents all creation, movement and disbandment of Units/MUIs/NVEs. Log entries contain a timestamp, the Unit-ID, the quantity and the product on the unit and possible additional references.
-
+Please check {@link mypl_audit} for further information.
 
 == API ==
 

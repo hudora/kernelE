@@ -29,6 +29,7 @@ doc:
         ${ERLPATH} \
         -eval 'edoc:application(${APPNAME}, ".", [${DOCOPT}]).' \
         -s init stop
+	@rsync -rz doc b.23.nu:/var/www/static/md/Files/myPL
 
 .PHONY : logs
 logs:
