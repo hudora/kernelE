@@ -63,4 +63,4 @@ The "unitaudit" log documents all creation, movement and disbandment of Units/MU
 
 == API ==
 
-TBD
+{@link mypl_db} implements all storage and retrieval functionality. It also documents the data types used by myPL/kernel-E.

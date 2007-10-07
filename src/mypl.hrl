@@ -72,3 +72,21 @@
                     created_at
                    }).
 
+
+% Trace utilities from adviserl
+
+-ifdef(LOG_DEBUG).
+
+-define(DEBUG(Msg, Params),   mypl_util:log(?MODULE, ?LINE, dbg, Msg, Params)).
+-define(INFO(Msg, Params),    mypl_util:log(?MODULE, ?LINE, dbg, Msg, Params)).
+-define(WARNING(Msg, Params), mypl_util:log(?MODULE, ?LINE, dbg, Msg, Params)).
+-define(ERROR(Msg, Params, Exception), mypl_util:log(?MODULE, ?LINE, dbg, Msg, Params), throw(Exception)).
+
+-else.
+
+-define(DEBUG(Msg, Params),   true).
+-define(INFO(Msg, Params),    mypl_util:log(?MODULE, ?LINE, inf, Msg, Params)).
+-define(WARNING(Msg, Params), mypl_util:log(?MODULE, ?LINE, wrn, Msg, Params)).
+-define(ERROR(Msg, Params, Exception), mypl_util:log(?MODULE, ?LINE, err, Msg, Params), throw(Exception)).
+
+-endif.

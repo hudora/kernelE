@@ -14,14 +14,6 @@ testbefuellung(L) ->
 
 generate_locations() ->
     Fun = fun() ->
-        mnesia:write(#location{name="EINLAG", height=6000, floorlevel=true,  preference=0, allocated_by=[], reserved_for=[], attributes=[no_picks]}),
-        mnesia:write(#location{name="AUSLAG", height=6000, floorlevel=true,  preference=0, allocated_by=[], reserved_for=[], attributes=[no_picks]}),
-        mnesia:write(#location{name="010101", height=2000, floorlevel=true,  preference=6, allocated_by=[], reserved_for=[], attributes=[]}),
-        mnesia:write(#location{name="010102", height=1950, floorlevel=false, preference=6, allocated_by=[], reserved_for=[], attributes=[]}),
-        mnesia:write(#location{name="010103", height=1200, floorlevel=false, preference=5, allocated_by=[], reserved_for=[], attributes=[]}),
-        mnesia:write(#location{name="010201", height=2000, floorlevel=true,  preference=7, allocated_by=[], reserved_for=[], attributes=[]}),
-        mnesia:write(#location{name="010202", height=1950, floorlevel=false, preference=5, allocated_by=[], reserved_for=[], attributes=[]}),
-        mnesia:write(#location{name="010203", height=1200, floorlevel=false, preference=5, allocated_by=[], reserved_for=[], attributes=[]}),
         mnesia:write(#location{name="010301", height=1950, floorlevel=true,  preference=3, allocated_by=[], reserved_for=[], attributes=[]}),
         mnesia:write(#location{name="010302", height=1950, floorlevel=false, preference=3, allocated_by=[], reserved_for=[], attributes=[]}),
         mnesia:write(#location{name="010303", height=1950, floorlevel=false, preference=3, allocated_by=[], reserved_for=[], attributes=[]}),

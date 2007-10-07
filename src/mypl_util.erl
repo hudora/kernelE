@@ -8,13 +8,15 @@
 -module(mypl_util).
 
 %% API
--export([oid/0, choose/2, choose/3, spawn_and_register/2]).
+-export([oid/0, generate_mui/0, choose/2, choose/3, spawn_and_register/2, log/5]).
 
 % generate unique object ID
 oid() -> 
     {MS,S,US} = erlang:now(),
     lists:flatten([integer_to_list(MS-1190),"-",integer_to_list(S),"-",integer_to_list(US), "-", atom_to_list(node())]).
 
+generate_mui() ->
+    oid().
 
 %% a bunch of functions ot get all permutations of how to select boods from the warehouse.
 %% suppose you have 4 crates of 4kg toothpaste, 2 crates of 2kg toothpase, 1 crate of 3 and 4kg.
@@ -91,3 +93,54 @@ spawn_and_register(Atom, Fun) when is_atom(Atom), is_function(Fun, 0) ->
         {already_running, Pid} -> 
             already_running 
     end.
+
+
+% from adviserl
+
+%%% @doc  Add information in the log streams.
+%%% If Level is <em>dbg</em>, print message on <em>stdout</em>; else use the standard application <em>error_logger</em> (levels stands for info, warning and error).<br/>
+%%% This function is used through applications macros (<em>adviserl.hrl</em>) which automaticaly capture <em>Level</em>, <em>Module</em> and <em>Line</em>.
+%%% @spec (Module::atom(), Line::integer(), Level, Msg::string(), Params) -> integer()
+%%%   Level = debug|dbg | normal|inf | warn|wrn | error|err
+%%%   Params = [term()]
+%%% @end
+log(Module, Line, debug, Msg, Params) ->
+    io:format(
+        "Debug:~p:~p: " ++ Msg ++ "~n",
+        [Module, Line] ++ Params
+    );
+log(Module, Line, dbg, Msg, Params) ->
+    io:format(
+        "Debug:~p:~p: " ++ Msg ++ "~n",
+        [Module, Line] ++ Params
+    );
+log(Module, Line, normal, Msg, Params) ->
+    error_logger:info_msg(
+        "~p:~p: " ++ Msg ++ "~n",
+        [Module, Line] ++ Params
+    );
+log(Module, Line, inf, Msg, Params) ->
+    error_logger:info_msg(
+        "~p:~p: " ++ Msg ++ "~n",
+        [Module, Line] ++ Params
+    );
+log(Module, Line, warn, Msg, Params) ->
+    error_logger:warning_msg(
+        "~p:~p: " ++ Msg ++ "~n",
+        [Module, Line] ++ Params
+    );
+log(Module, Line, wrn, Msg, Params) ->
+    error_logger:warning_msg(
+        "~p:~p: " ++ Msg ++ "~n",
+        [Module, Line] ++ Params
+    );
+log(Module, Line, error, Msg, Params) ->
+    error_logger:error_msg(
+        "~p:~p: " ++ Msg ++ "~n",
+        [Module, Line] ++ Params
+    );
+log(Module, Line, err, Msg, Params) ->
+    error_logger:error_msg(
+        "~p:~p: " ++ Msg ++ "~n",
+        [Module, Line] ++ Params
+    ).
