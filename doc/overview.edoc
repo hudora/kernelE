@@ -1,0 +1,66 @@
+@title myPL/kernel-E
+@version 0.1
+@copyright 2007 HUDORA GmbH
+@author Maximillian Dornseif <md@hudora.de>
+
+@doc
+== Introduction ==
+
+myPL/kernel-E is a database specific to warehouse management. It is not meant as a Warehouse Management System
+(WMS), but a building block for a WMS. Functionality of kernel-E is kept as simple as possible. It is assumed that advanced functionality and interfacing to legacy systems is provided by higher layers of the myPL stack possible not being coded in Erlang.
+
+It is expected that kernel-E never directly interacts with the user but that everything is mediated to a higher myPL layer which offers high level WMS services to command line tools and Web Applications.
+
+
+=== Terminology ===
+
+The basic objects in the warehouse and thus the basic terms are:
+
+<dl>
+<dt>units</dt>
+<dd>things to be moved in the warehouse. Sometimes called UnitLoad. At the moment roughly the same as an pallets. Units have an UID called the MUI (Movable unit ID - maybe it is a SSCC/NVE), a height in mm used to choose a fitting location and possibly a string encoding the product, a quantity of products.</dd>
+
+<dt>locations</dt>
+<dd>locations are spaces where unit loads are stored. A location has a name to identify it, a height im mm
+encoding the maximum size of unit load to be placed there, a flag encoding if the location can be accessed
+without forklift, a preference (locations with higher preference get filled first). A location can with
+preference 0 gets never filled automatically.</dd>
+
+<dt>movements</dt>
+<dd>representing the movement of units between locations. We use the term "retrieval" for movements out of the
+Warehouse ("Auslagerung").</dd>
+
+<dt>picks</dt>
+<dd>representing products to be removed from an unit. Unit with unfinished picks are considered unavailable
+for movements. We use the term "provisionings" to describe picks and retrievals.</dd>
+</dl>
+
+
+=== IDs ===
+
+All objects handled by kernel-E are identified by unique IDs. For Units this IDs must be supplied by the caller. For all other Objects the IDs are created automatically. This IDs are rather long and hard to type and remember, e.g. ```1-685581-381576-testnode@testhost''' Higher layers of the myPL stack should handle this as opaque identifiers without any special meaning. The only guarantee is that IDs for the same object type sort in the order in which they are created. So when you sort by ID you automatically have also a list sorted by age.
+
+It is expected that higher layers of the myPL stack map these IDs to sequential IDs for usage on documents.
+
+
+==== Why these unwieldily IDs ? ====
+
+Sequential IDs are nice and easy to handle for humans but don't map very well to distributed systems. Even with an SQL Database server one has trouble generating sequential IDs unless one manages to have the database to generate the IDs for the caller. For databases which do not provide this capability you are in deep trouble.
+
+In a distributed system running on several servers they have to coordinate between them which is the next free number. This is a hard problem and while good solutions are readily available they make the system more complex and slow it down. So we have to partition the key space between nodes/servers. If one uses two nodes we could decide that the first node hands out the keys 1, 3, 5, 7, ... while the second node hands out 2, 4, 6, 8, ... - this works well until we add a third server. We have to rewrite the generation code on the two existing nodes. And we have to ensure that we update them at exactly at the same time. If you get to dozens of nodes and some machines being offline during addition of new nodes this gets very nasty very fast.
+
+By using an algorithm which isn't based on shared counting  one can get rid of all this issues and concentrate on the more interesting problems.
+
+
+=== Audit Logs ===
+
+kernel-E saves two kind of audit logs: changes of stock of inventory and creation, movement and removal of Units/MUIs/NVEs. It is expected that higher layers implement their own logging and that kernel-E logs are only used for debugging.
+
+The stock of inventory audit log (called "articleaudit") saves (quantity, product date) and possibly additional references. By consulting the articleaudit log we should always be able to calculate the current amount of goods in stock. All operations changing stock of inventory are couplet with the generation of  articleaudit entries in an transaction and thus should succeed or fail always booth - even in the presence of software errors.
+
+The "unitaudit" log documents all creation, movement and disbandment of Units/MUIs/NVEs. Log entries contain a timestamp, the Unit-ID, the quantity and the product on the unit and possible additional references.
+
+
+== API ==
+
+TBD

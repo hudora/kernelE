@@ -24,12 +24,51 @@
                created_at
                }). % TBD
 
--record(movement, {id, mui, from_location, to_location}).
+
+-record(movement, {id,
+                   mui,
+                   from_location,
+                   to_location,
+                   references   % list of tuples to be used by the client application, not used by the myPL kernel
+                   }).
+
 
 -record(pick, {id,              % eindeutiger bezeichner
-               picklist,        % dient der zusammenfassung von picks
                product,         % product das gepickt werden soll
                quantity,        % menge, die gepickt werden soll
-               from_location    % ort von dem gepickt werden soll
+               from_unit,       % unit von der gepickt werden soll
+               created_at
                }). 
+
+
+-record(picklist, {id,         % eindeutiger bezeichner
+                   picks,      % list of picks belonging to this picklist
+                   movements,  % list of movement/retrieval ids belonging to this picklist
+                   priority,   % how urgend is this pick to be executed
+                   references  % list of tuples to be used by the client application, not used by the myPL kernel
+                   }).
+
+
+% speichert alle Warenbewegungen zu Protokollzwecken
+-record(articleaudit, {id,           % eindeutiger Bezeichner
+                       quantity,     % Einkeiten des produkts
+                       product,      % ArtNr
+                       text,         % text describing the transaction
+                       mui,          % bebuchte Unit
+                       transaction,  % movement or pick ID
+                       references,   % list of tuples to be used by the client application, not used by the myPL kernel
+                       created_at
+                   }).
+
+
+% speichert alle Unitbewegungen zu Protokollzwecken
+-record(unitaudit, {id,           % eindeutiger Bezeichner
+                    mui,          % bebuchte Unit
+                    quantity,     % Einkeiten des produkts
+                    product,      % ArtNr
+                    text,         % text describing the transaction
+                    transaction,  % movement or pick ID
+                    references,   % list of tuples to be used by the client application, not used by the myPL kernel
+                    created_at
+                   }).
 

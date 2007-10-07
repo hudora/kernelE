@@ -14,7 +14,8 @@ testbefuellung(L) ->
 
 generate_locations() ->
     Fun = fun() ->
-        mnesia:write(#location{name="EINLAG", height=3000, floorlevel=true,  preference=0, allocated_by=[], reserved_for=[], attributes=[no_picks]}),
+        mnesia:write(#location{name="EINLAG", height=6000, floorlevel=true,  preference=0, allocated_by=[], reserved_for=[], attributes=[no_picks]}),
+        mnesia:write(#location{name="AUSLAG", height=6000, floorlevel=true,  preference=0, allocated_by=[], reserved_for=[], attributes=[no_picks]}),
         mnesia:write(#location{name="010101", height=2000, floorlevel=true,  preference=6, allocated_by=[], reserved_for=[], attributes=[]}),
         mnesia:write(#location{name="010102", height=1950, floorlevel=false, preference=6, allocated_by=[], reserved_for=[], attributes=[]}),
         mnesia:write(#location{name="010103", height=1200, floorlevel=false, preference=5, allocated_by=[], reserved_for=[], attributes=[]}),
@@ -128,9 +129,9 @@ test() ->
     test_utils(),
     
     io:format("reinit data store ...~n"),
-    clear_table(location),
     clear_table(movement),
     clear_table(unit),
+    clear_table(location),
     % mypl_manager:init_mypl(),
     mypl:start(),
     
