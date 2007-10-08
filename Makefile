@@ -6,12 +6,12 @@ CMD_ERLC     = erlc
 CMD_DIALYZER = dialyzer
 APPNAME      = myPL
 
-ERLPATH=-pa ebin
+ERLPATH=-pa ebin -pa vendor/eunit/ebin
 
 DOCOPT={todo, true}, {private, true}
 
 APP_MOD    = $(patsubst src/%.erl,ebin/%.beam,$(wildcard src/*.erl))
-VENDOR_MOD = $(patsubst vendor/array/src/%.erl,vendor/array/ebin/%.beam,$(wildcard vendor/array/src/*.erl))
+VENDOR_MOD = $(patsubst vendor/eunit/src/%.erl,vendor/eunit/ebin/%.beam,$(wildcard vendor/eunit/src/*.erl))
 TEST_MOD   = $(patsubst test/src/%.erl,test/ebin/%.beam,$(wildcard test/src/*.erl))
 
 default: devbuild
@@ -144,8 +144,8 @@ ebin/%.beam : src/%.erl
 test/ebin/%.beam : test/src/%.erl
 	${CMD_ERLC} ${BUILDOPT} -o test/ebin $<
 
-vendor/array/ebin/%.beam : vendor/array/src/%.erl
-	${CMD_ERLC} ${BUILDOPT} -o vendor/array/ebin $<
+vendor/eunit/ebin/%.beam : vendor/eunit/src/%.erl
+	${CMD_ERLC} ${BUILDOPT} -o vendor/eunit/ebin $<
 
 
 # Testing

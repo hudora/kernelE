@@ -200,7 +200,7 @@ store_at_location(Locname, Mui, Quantity, Product, Height) when Quantity > 0 ->
     Ret.
     
 
-%% @spec retrive(muID()) -> {Quantity::integer(), Product::string()}
+%% @spec retrive(muID()) -> {ok, {Quantity::integer(), Product::string()}}
 %% @doc remove a Unit and the goods on it from the warehouse
 %%
 %% This actually makes goods vanish from the warehouse!
@@ -208,7 +208,7 @@ store_at_location(Locname, Mui, Quantity, Product, Height) when Quantity > 0 ->
 retrive(Mui) ->
     Fun = fun() ->
         Location = mypl_db_util:get_mui_location(Mui),
-        [Unit] = mnesia:read({unit, Mui}),
+        Unit = mypl_db_util:mui_to_unit(Mui),
         % TODO: check no open picks exist.
         
         % update location
@@ -220,7 +220,7 @@ retrive(Mui) ->
         mypl_audit:unitaudit(Unit, "Aufgeloeesst auf " ++ Location#location.name),
         mypl_audit:articleaudit(-1 * Unit#unit.quantity, Unit#unit.product,
                          "Warenabgang auf " ++ Location#location.name, Unit#unit.mui),
-        {Unit#unit.quantity, Unit#unit.product}
+        {ok, {Unit#unit.quantity, Unit#unit.product}}
     end,
     {atomic, Ret} = mnesia:transaction(Fun),
     Ret.
@@ -235,7 +235,7 @@ retrive(Mui) ->
 init_movement(Mui, DestinationName) ->
     Fun = fun() ->
         % get unit for Mui & get current location of mui
-        [Unit] = mnesia:read({unit, Mui}),
+        Unit = mypl_db_util:mui_to_unit(Mui),
         Source = mypl_db_util:get_mui_location(Mui),
         % check destination exists
         [Destination] = mnesia:read({location, DestinationName}),
@@ -269,13 +269,9 @@ init_movement(Mui, DestinationName) ->
 init_movement_to_good_location(Mui) ->
     % chooses the best location for an MUI and starts moving it there
     Fun = fun() ->
-        case mnesia:read({unit, Mui}) of 
-            [] ->
-                {error, unknown_mui, {Mui}};
-            [Unit] ->
-                Destination = mypl_db_util:best_location(Unit),
-                init_movement(Mui, Destination#location.name)
-        end
+        Unit = mypl_db_util:mui_to_unit(Mui),
+        Destination = mypl_db_util:best_location(Unit),
+        init_movement(Mui, Destination#location.name)
     end,
     {atomic, Ret} = mnesia:transaction(Fun),
     Ret.
@@ -292,7 +288,7 @@ commit_movement(MovementId) ->
     Fun = fun() ->
         [Movement] = mnesia:read({movement, MovementId}),
         % get unit for Mui & get current location of mui
-        [Unit] = mnesia:read({unit, Movement#movement.mui}),
+        Unit = mypl_db_util:mui_to_unit(Movement#movement.mui),
         Source = mypl_db_util:get_mui_location(Movement#movement.mui),
         % TODO: check Movement#movement.from_location = Source#location.name,
         % check destination exists
@@ -319,7 +315,7 @@ rollback_movement(MovementId) ->
     Fun = fun() ->
         [Movement] = mnesia:read({movement, MovementId}),
         % get unit for Mui & get current location of mui
-        [Unit] = mnesia:read({unit, Movement#movement.mui}),
+        Unit = mypl_db_util:mui_to_unit(Movement#movement.mui),
         Source = mypl_db_util:get_mui_location(Movement#movement.mui),
         % fix destination
         [Destination] = mnesia:read({location, Movement#movement.to_location}),
@@ -342,7 +338,7 @@ rollback_movement(MovementId) ->
 init_pick(Quantity, Mui) when is_integer(Quantity) ->
     Fun = fun() ->
         % get unit for Mui & get current location of mui
-        [Unit] = mnesia:read({unit, Mui}),
+        Unit = mypl_db_util:mui_to_unit(Mui),
         UnitPickQuantity = Unit#unit.pick_quantity + Quantity,
         if
             UnitPickQuantity > Unit#unit.quantity ->
@@ -366,7 +362,7 @@ init_pick(Quantity, Mui) when is_integer(Quantity) ->
     Ret.
     
 
-%% @spec commit_pick(pickID()) -> {ok, }{Quantity::integer(), Product::string()}}
+%% @spec commit_pick(pickID()) -> {ok, {Quantity::integer(), Product::string()}}
 %% @see rollback_pick/1
 %% @doc finish a a pick - this actually makes goods vanish from the warehouse!
 %%
@@ -377,7 +373,7 @@ commit_pick(PickId) ->
     Fun = fun() ->
         % get Pick for PickId
         [Pick] = mnesia:read({pick, PickId}),
-        [Unit] = mnesia:read({unit, Pick#pick.from_unit}),
+        Unit = mypl_db_util:mui_to_unit(Pick#pick.from_unit),
         NewUnit = Unit#unit{quantity=Unit#unit.quantity - Pick#pick.quantity,
                             pick_quantity=Unit#unit.pick_quantity - Pick#pick.quantity},
         if
@@ -412,7 +408,7 @@ rollback_pick(PickId) ->
     Fun = fun() ->
         % get Pick for PickId
         [Pick] = mnesia:read({pick, PickId}),
-        [Unit] = mnesia:read({unit, Pick#pick.from_unit}),
+        Unit = mypl_db_util:mui_to_unit(Pick#pick.from_unit),
         NewUnit = Unit#unit{pick_quantity=Unit#unit.quantity - Pick#pick.quantity},
         if
             NewUnit#unit.pick_quantity < 0 ->
@@ -522,8 +518,8 @@ mypl_simple_movement_test() ->
     commit_movement(Movement4),
     
     % remove Muis from warehouse
-    {5, "14601"} = retrive(Mui),
-    {6, "14601"} = retrive(Mui2).
+    {ok, {5, "14601"}} = retrive(Mui),
+    {ok, {6, "14601"}} = retrive(Mui2).
     
 
 %%% @hidden
@@ -533,32 +529,27 @@ mypl_simple_pick_test() ->
     Mui = "14601-" ++ mypl_util:generate_mui(),
     % generate and Store Unit of 5*14601 (1200mm high) on "EINLAG"
     {ok, Mui} = store_at_location("010101", Mui, 70, "14602", 1950),
-    ?DEBUG("Z", []),
     % start picking.
     {ok, Pick1} = init_pick(30, Mui),
-    ?DEBUG("Z", []),
     
     %% try to initiate an movement on that Mui - shouldn't be possible with open picks
     {error, not_movable, _} = init_movement_to_good_location(Mui),
-    
-    ?DEBUG("Z", []),
+    % because of the open pick the unit shouldn't be movable
+    no = mypl_db_util:unit_movable(mypl_db_util:mui_to_unit(Mui)),    
     % commit it.
     {ok, {30, "14602"}} = commit_pick(Pick1),
-    % TODO: test is_movable
-    
-    ?DEBUG("Z", []),
+    % now ot should be movable again
+    yes = mypl_db_util:unit_movable(mypl_db_util:mui_to_unit(Mui)),
+     
     % start picking.
     {ok, Pick2} = init_pick(25, Mui),
-    % TODO: check not movable
-    % TODO: check not retrivable
     ?DEBUG("Z", []),
     % commit it.
     {ok, {25, "14602"}} = commit_pick(Pick2),
     %TODO: test rollback
     
     % check if enough is left on unit
-    % TODO: change retrive to also return ok
-    {15, "14602"} = retrive(Mui).
+    {ok, {15, "14602"}} = retrive(Mui).
     
 
 mypl_testrunner() ->
