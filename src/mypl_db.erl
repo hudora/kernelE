@@ -10,7 +10,7 @@
 
 -module(mypl_db).
 
--include_lib("/opt/local/lib/erlang/lib/stdlib-1.14.5/include/qlc.hrl").
+-include_lib("stdlib/include/qlc.hrl").
 -include("include/mypl.hrl").
 
 -export([run_me_once/0, store_at_location/5, retrive/1,

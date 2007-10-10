@@ -27,7 +27,7 @@
 
 -module(mypl_audit).
 
--include_lib("/opt/local/lib/erlang/lib/stdlib-1.14.5/include/qlc.hrl").
+-include_lib("stdlib/include/qlc.hrl").
 -include("mypl.hrl").
 
 -export([articleaudit/6, articleaudit/5, articleaudit/4, unitaudit/4, unitaudit/3, unitaudit/2]).

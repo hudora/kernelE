@@ -15,7 +15,7 @@ APP_MOD    = $(patsubst src/%.erl,ebin/%.beam,$(wildcard src/*.erl))
 # Main targets
 
 .PHONY : prodbuild
-prodbuild : BUILDOPT = -smp
+prodbuild : BUILDOPT = 
 prodbuild : vendor_build ${APP_MOD}
 
 .PHONY : doc

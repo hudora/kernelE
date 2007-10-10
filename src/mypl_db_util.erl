@@ -18,7 +18,7 @@
 
 -module(mypl_db_util).
 
--include_lib("/opt/local/lib/erlang/lib/stdlib-1.14.5/include/qlc.hrl").
+-include_lib("stdlib/include/qlc.hrl").
 -include("mypl.hrl").
 
 %% API
