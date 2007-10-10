@@ -11,32 +11,12 @@
 -module(mypl_db).
 
 -include_lib("/opt/local/lib/erlang/lib/stdlib-1.14.5/include/qlc.hrl").
--include("mypl.hrl").
+-include("include/mypl.hrl").
 
--export([start/0, stop/0, init_mypl/0, store_at_location/5, retrive/1,
+-export([run_me_once/0, store_at_location/5, retrive/1,
  init_movement/2, init_movement_to_good_location/1, commit_movement/1, rollback_movement/1,
- init_pick/2, commit_pick/1, rollback_pick/1
-]).
+ init_pick/2, commit_pick/1, rollback_pick/1]).
 
-
-
-start() ->
-    % start mnesia if needed
-    ok = case mnesia:system_info(is_running) of
-        no ->
-            ?DEBUG("Starting mnesia", []),
-            mnesia:create_schema([node()]), %TODO may fail, don't care (already exists)?
-            application:start(mnesia);
-        yes ->
-            ?DEBUG("mnesia is already running", [])
-    end,
-    movementsuggestions_loop_start().
-    
-
-stop() ->
-    movementsuggestions_loop_stop(),
-    mnesia:stop().
-    
 
 init_table_info(Status, TableName) ->
     case Status of
@@ -49,7 +29,8 @@ init_table_info(Status, TableName) ->
     end,
     Status.
     
-init_mypl() ->
+%% @doc should be run before mnesia is started for the first time.
+run_me_once() ->
     mnesia:create_schema([node()]),
     mnesia:start(),
     % the main tables are koept in RAM with a disk copy for fallback
@@ -63,50 +44,6 @@ init_mypl() ->
     init_table_info(mnesia:create_table(unitaudit,    [{disc_only_copies, [node()]}, {attributes, record_info(fields, unitaudit)}]), unitaudit),
     ok = mnesia:wait_for_tables([location, unit, movement, pick, picklist, articleaudit, unitaudit], 5000),
     ok.
-    
-    
-%% Infrastructure for keeping a Queue of what to be moved
-
-add_movementsuggestion(Suggestion) ->
-    movementsuggestions ! {self(), {in, Suggestion}}.
-    
-
-get_movementsuggestion() ->
-    movementsuggestions ! {self(), {out}},
-    receive
-        Foo ->
-            Foo
-    end.
-    
-
-movementsuggestions_loop_start() ->
-    mypl_util:spawn_and_register(movementsuggestions, fun() -> movementsuggestions_loop() end).
-
-movementsuggestions_loop_stop() ->
-    movementsuggestions ! {self(), {finished}},
-    receive
-        {finished, Queue} ->
-            io:format("Left over movementsuggestions: ~w~n", [queue:to_list(Queue)])
-    end.
-    
-
-movementsuggestions_loop() ->
-    movementsuggestions_loop(queue:new()).
-movementsuggestions_loop(Queue) ->
-    receive
-        {From, {finished}} ->
-            io:format("exiting~n"),
-            From ! {finished, Queue}; % return Queue and exit
-        {_From, {in, Foo}} ->
-            io:format("adding to queue~w~n", [Foo]),
-            NewQueue = queue:in(Foo, Queue), 
-            movementsuggestions_loop(NewQueue);
-        {From, {out}}  ->
-            {Ret, NewQueue} = queue:out(Queue),
-            io:format("returning ~w~n", [Ret]),
-            From ! Ret,
-            movementsuggestions_loop(NewQueue)
-    end.
     
 
 
@@ -453,7 +390,7 @@ teleport(Unit, Source, Destination) ->
 
 %%% @hidden
 test_init() ->
-    init_mypl(),
+    run_me_once(),
     % flush database
     mnesia:start(),
     mnesia:clear_table(unit),
@@ -472,7 +409,6 @@ test_init() ->
         mnesia:write(#location{name="010103", height=1200, floorlevel=false, preference=5, allocated_by=[], reserved_for=[], attributes=[]}),
         mnesia:write(#location{name="010201", height=2000, floorlevel=true,  preference=7, allocated_by=[], reserved_for=[], attributes=[]})
     end),
-    mypl_db:start(),
     ok.
 
 %%% @hidden
@@ -527,7 +463,7 @@ mypl_simple_pick_test() ->
     test_init(),
     % generate a MUI for testing
     Mui = "14601-" ++ mypl_util:generate_mui(),
-    % generate and Store Unit of 5*14601 (1200mm high) on "EINLAG"
+    % generate and Store Unit of 5*14601 (1200mm high) on "010101"
     {ok, Mui} = store_at_location("010101", Mui, 70, "14602", 1950),
     % start picking.
     {ok, Pick1} = init_pick(30, Mui),

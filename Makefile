@@ -2,7 +2,7 @@
 # snatched from adviserl
 
 CMD_ERL      = erl
-CMD_ERLC     = erlc
+CMD_ERLC     = erlc -Ivendor
 CMD_DIALYZER = dialyzer
 APPNAME      = myPL
 
