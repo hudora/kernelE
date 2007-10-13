@@ -8,7 +8,12 @@
                         mypl_db_util,
                         mypl_requesttracker,
                         mypl_server,
-                        mypl_util]},
+                        mypl_util,
+                        mypl_tcp_session,
+                        generic_tcp_server]},
               {registered,[mypl_requesttracker]},
               {applications,[kernel,stdlib]},
-              {mod,{mypl_app,[]}}]}.
+              {mod,{mypl_app,[]}},
+              {env, [{listen_host, "0.0.0.0"},
+                    {listen_port, 5711}]}
+]}.

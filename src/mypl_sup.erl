@@ -27,6 +27,8 @@ start_link(Args) ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, Args).
 
 init([]) ->
+    {ok, Host} = application:get_env(listen_host),
+    {ok, Port} = application:get_env(listen_port),
     {ok, {{one_for_one, 3, 10},
           [{tag1, 
             {mypl_requesttracker, start_link, []},
@@ -39,11 +41,21 @@ init([]) ->
             permanent, 
             10000, 
             worker, 
-            [mypl_server]}
+            [mypl_server]},
+           {tag3,
+            {generic_tcp_server, start_link, [mypl_tcp_session, Host, Port,
+                                              [list,
+                                                {active, false},
+                                                {packet, line},
+                                                {reuseaddr, true}],
+                                               []]},
+            permanent,
+            10000,
+            worker,
+            [generic_tcp_server]}
           ]}
          }.
     
-
 
 %% When the supervisor is started, it calls init(Arg).
 %% This function should return {ok, {SupFlags, Children}}.

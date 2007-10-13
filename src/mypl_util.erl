@@ -96,10 +96,9 @@ spawn_and_register(Atom, Fun) when is_atom(Atom), is_function(Fun, 0) ->
 
 
 % from adviserl
-
 %%% @doc  Add information in the log streams.
 %%% If Level is <em>dbg</em>, print message on <em>stdout</em>; else use the standard application <em>error_logger</em> (levels stands for info, warning and error).<br/>
-%%% This function is used through applications macros (<em>adviserl.hrl</em>) which automaticaly capture <em>Level</em>, <em>Module</em> and <em>Line</em>.
+%%% This function is used through applications macros (<em>mypl.hrl</em>) which automaticaly capture <em>Level</em>, <em>Module</em> and <em>Line</em>.
 %%% @spec (Module::atom(), Line::integer(), Level, Msg::string(), Params) -> integer()
 %%%   Level = debug|dbg | normal|inf | warn|wrn | error|err
 %%%   Params = [term()]

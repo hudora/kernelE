@@ -22,7 +22,7 @@
 -include("mypl.hrl").
 
 %% API
--export([do/1, get_mui_location/1, mui_to_unit/1, unit_movable/1, best_location/1]).
+-export([do/1, get_mui_location/1, mui_to_unit/1, unit_moving/1, unit_movable/1, best_location/1]).
 
 %% @private
 %% @doc helper function for wraping {@link qlc} queries in an {@link mnesia} transaction.
@@ -59,6 +59,18 @@ mui_to_unit(Mui) ->
     
 
 %% @private
+%% @spec unit_moving(unitRecord()) -> atom()
+%% @doc checks if a Unit can be moved, returns yes if so, else no
+unit_moving(Unit) ->
+    % check for no open movements
+    L = do(qlc:q([X || X <- mnesia:table(movement), X#movement.mui =:= Unit#unit.mui])),
+    if
+        L =:= [] -> no;
+        true -> yes
+    end.
+
+
+%% @private
 %% @spec unit_movable(unitRecord()) -> atom()
 %% @doc checks if a Unit can be moved, returns yes if so, else no
 unit_movable(Unit) ->
@@ -67,12 +79,12 @@ unit_movable(Unit) ->
         % check for no open picks
         Unit#unit.pick_quantity =< 0 -> 
             % check for no open movements
-            L = do(qlc:q([X || X <- mnesia:table(movement), X#movement.mui =:= Unit#unit.mui])),
-            if
-                L =:= [] -> yes;
-                true -> no
+            case unit_moving(Unit) of
+                yes -> no;
+                no -> yes
             end;
-        true -> no
+        true -> 
+            no
     end.
 
 %% @private

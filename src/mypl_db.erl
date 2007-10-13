@@ -13,7 +13,8 @@
 -include_lib("stdlib/include/qlc.hrl").
 -include("include/mypl.hrl").
 
--export([run_me_once/0, store_at_location/5, retrive/1,
+-export([run_me_once/0, init_location/5, location_info/1, location_list/0,
+ store_at_location/5, retrive/1,
  init_movement/2, init_movement_to_good_location/1, commit_movement/1, rollback_movement/1,
  init_pick/2, commit_pick/1, rollback_pick/1]).
 
@@ -21,7 +22,7 @@
 init_table_info(Status, TableName) ->
     case Status of
         {atomic, ok} ->
-            ?DEBUG("table '~w' created", [TableName]);
+            ?WARNING("table '~w' created", [TableName]);
         {aborted, {already_exists, TableName}} ->
             ?DEBUG("using existing table '~w'", [TableName]);
         _ ->
@@ -31,6 +32,7 @@ init_table_info(Status, TableName) ->
     
 %% @doc should be run before mnesia is started for the first time.
 run_me_once() ->
+    ?WARNING("run_me_once() called", []),
     mnesia:create_schema([node()]),
     mnesia:start(),
     % the main tables are koept in RAM with a disk copy for fallback
@@ -43,13 +45,12 @@ run_me_once() ->
     init_table_info(mnesia:create_table(articleaudit, [{disc_only_copies, [node()]}, {attributes, record_info(fields, articleaudit)}]), articleaudit),
     init_table_info(mnesia:create_table(unitaudit,    [{disc_only_copies, [node()]}, {attributes, record_info(fields, unitaudit)}]), unitaudit),
     ok = mnesia:wait_for_tables([location, unit, movement, pick, picklist, articleaudit, unitaudit], 5000),
+    init_location("EINLAG", 6000, true,  0, [no_picks]),
+    init_location("AUSLAG", 6000, true,  0, [no_picks]),
     ok.
     
 
 
-%%%%
-%%%% main myPL API - storage
-%%%%
 
 %%% @type locationName() = string().
 %%%     Unique, human readable name of an location.
@@ -69,7 +70,6 @@ run_me_once() ->
 %%% @type product() = string().
 %%%     Opaque ID for an product. Artikelnummer/Item Number/SKU or EAN.
 
-
 %%% @type locationRecord() = tuple().
 %%%     A record describing a Location.
 
@@ -81,7 +81,78 @@ run_me_once() ->
 %%% A list of two-tuples encoding external references.
 
 
+%%%%
+%%%% main myPL API - location data
+%%%%
 
+%% @spec init_location(locationName(), heigthMM(), floorlevel, preference, attributes)  -> term()
+%% @doc creates a new Location or updates an existing one.
+%% 
+%% Locations can be created at any time - even when the myPL bristles with activity..
+%% There is no way of deleting Locations. Set their preference to 0 and let them rot.
+%% returns {ok, created|updated}
+init_location(Name, Height, Floorlevel, Preference, Attributes) 
+    when is_integer(Height), is_boolean(Floorlevel), is_integer(Preference), 
+         Preference >= 0, Preference < 10, is_list(Attributes) ->
+    KnownAttributes = [no_picks],
+    case lists:filter(fun(X) -> not lists:member(X, KnownAttributes) end, Attributes) of
+        [] ->
+            Fun = fun() ->
+                Ret = case mnesia:read({location, Name}) of
+                    [] ->
+                        Location = #location{allocated_by=[], reserved_for=[], description=""},
+                        ?WARNING("Location ~w beeing created", [Name]),
+                        created;
+                    [Location] ->
+                        updated
+                end,
+                NewLocation = Location#location{name=Name, height=Height, floorlevel=Floorlevel,
+                                                preference=Preference,
+                                                description=Location#location.description,
+                                                allocated_by=Location#location.allocated_by,
+                                                reserved_for=Location#location.reserved_for},
+                mnesia:write(NewLocation),
+                ?WARNING("Location ~w saved", [Name]),
+                Ret
+            end,
+            {atomic, Ret} = mnesia:transaction(Fun),
+            {ok, Ret};
+        UnknownAttributes ->
+            {error, unknown_attributes, {UnknownAttributes}}
+    end.
+    
+
+%% @spec location_info(locationName()) -> tuple()
+%% @doc gets a tuple with information concerning a location
+location_info(Locname) -> 
+    Fun = fun() ->
+        case mnesia:read({location, Locname}) of
+            [] ->
+                {error, unknown_location, {Locname}};
+            [Location] ->
+                {{name,          Location#location.name},
+                 {height,        Location#location.height},
+                 {floorlevel,    Location#location.floorlevel},
+                 {preference,    Location#location.preference},
+                 {description,   Location#location.description},
+                 {attributes,    Location#location.attributes},
+                 {allocated_by,  Location#location.allocated_by},
+                 {reserved_for,  Location#location.reserved_for}
+                }
+            end
+    end,
+    {atomic, Ret} = mnesia:transaction(Fun),
+    {ok, Ret}.
+    
+
+%% @doc Get a list of all location names
+location_list() ->
+    {atomic, Ret} = mnesia:transaction(fun() -> mnesia:all_keys(location) end),
+    Ret.
+
+%%%%
+%%%% main myPL API - storage
+%%%%
 
 
 %% @private
@@ -346,7 +417,7 @@ rollback_pick(PickId) ->
         % get Pick for PickId
         [Pick] = mnesia:read({pick, PickId}),
         Unit = mypl_db_util:mui_to_unit(Pick#pick.from_unit),
-        NewUnit = Unit#unit{pick_quantity=Unit#unit.quantity - Pick#pick.quantity},
+        NewUnit = Unit#unit{pick_quantity=Unit#unit.pick_quantity - Pick#pick.quantity},
         if
             NewUnit#unit.pick_quantity < 0 ->
                 % this really shouldn't happen
@@ -385,7 +456,7 @@ teleport(Unit, Source, Destination) ->
 
 % ~~ Unit tests
 -ifdef(EUNIT).
-% -compile(export_all).
+-compile(export_all).
 
 %%% @hidden
 test_init() ->
@@ -400,23 +471,31 @@ test_init() ->
     mnesia:clear_table(articleaudit),
     mnesia:clear_table(unitaudit),  
     % regenerate locations
-    {atomic,ok} = mnesia:transaction(fun() ->
-        mnesia:write(#location{name="EINLAG", height=6000, floorlevel=true,  preference=0, allocated_by=[], reserved_for=[], attributes=[no_picks]}),
-        mnesia:write(#location{name="AUSLAG", height=6000, floorlevel=true,  preference=0, allocated_by=[], reserved_for=[], attributes=[no_picks]}),
-        mnesia:write(#location{name="010101", height=2000, floorlevel=true,  preference=6, allocated_by=[], reserved_for=[], attributes=[]}),
-        mnesia:write(#location{name="010102", height=1950, floorlevel=false, preference=6, allocated_by=[], reserved_for=[], attributes=[]}),
-        mnesia:write(#location{name="010103", height=1200, floorlevel=false, preference=5, allocated_by=[], reserved_for=[], attributes=[]}),
-        mnesia:write(#location{name="010201", height=2000, floorlevel=true,  preference=7, allocated_by=[], reserved_for=[], attributes=[]})
-    end),
+    % init_location(Name, Height, Floorlevel, Preference, Attributes)
+    init_location("EINLAG", 6000, true,  0, [no_picks]),
+    init_location("AUSLAG", 6000, true,  0, [no_picks]),
+    init_location("010101", 2000, true,  6, []),
+    init_location("010102", 1950, false, 6, []),
+    init_location("010103", 1200, false, 5, []),
+    init_location("010201", 2000, true,  7, []),
+    true = is_list(location_list()),
+    {ok, {{name, "EINLAG"},
+          {height, 6000},
+          {floorlevel, true},
+          {preference, 0},
+          {description, []},
+          {attributes, undefined},
+          {allocated_by, []},
+          {reserved_for, []}}} = mypl_db:location_info("EINLAG"),
     ok.
 
 %%% @hidden
 mypl_simple_movement_test() ->
     test_init(),
     % generate a MUI for testing
-    Mui = "14601-" ++ mypl_util:generate_mui(),
+    Mui = "a0001-" ++ mypl_util:generate_mui(),
     % generate and Store Unit of 5*14601 (1200mm high) on "EINLAG"
-    {ok, Mui} = store_at_location("EINLAG", Mui, 5, "14601", 1200),
+    {ok, Mui} = store_at_location("EINLAG", Mui, 5, "a0001", 1200),
     
     % start movement to "010101".
     {ok, Movement1} = init_movement(Mui, "010101"),
@@ -424,7 +503,7 @@ mypl_simple_movement_test() ->
     {ok,"010101"} = commit_movement(Movement1),
     % check that Unit now is on the new Location
     Location1 = mypl_db_util:get_mui_location(Mui),
-    %?assert(Location1#location.name == "010101"),
+    ?assert(Location1#location.name == "010101"),
     
     % now move it to the best location the system can find for this Unit
     {ok, Movement2} = init_movement_to_good_location(Mui),
@@ -446,33 +525,33 @@ mypl_simple_movement_test() ->
     % check issues with two units
     Mui2 = "14601-" ++ mypl_util:generate_mui(),
     % generate and Store Unit of 6*14601 (1200mm high) on "EINLAG"
-    {ok, Mui2} = store_at_location("EINLAG", Mui2, 6, "14601", 1200),
+    {ok, Mui2} = store_at_location("EINLAG", Mui2, 6, "a0001", 1200),
     {ok, Movement4} = init_movement_to_good_location(Mui),
     {ok, Movement5} = init_movement_to_good_location(Mui2),
     commit_movement(Movement5),
     commit_movement(Movement4),
     
     % remove Muis from warehouse
-    {ok, {5, "14601"}} = retrive(Mui),
-    {ok, {6, "14601"}} = retrive(Mui2).
+    {ok, {5, "a0001"}} = retrive(Mui),
+    {ok, {6, "a0001"}} = retrive(Mui2).
     
 
 %%% @hidden
 mypl_simple_pick_test() ->
     test_init(),
     % generate a MUI for testing
-    Mui = "14601-" ++ mypl_util:generate_mui(),
+    Mui = "a0002-" ++ mypl_util:generate_mui(),
     % generate and Store Unit of 5*14601 (1200mm high) on "010101"
-    {ok, Mui} = store_at_location("010101", Mui, 70, "14602", 1950),
+    {ok, Mui} = store_at_location("010101", Mui, 70, "a0002", 1950),
     % start picking.
     {ok, Pick1} = init_pick(30, Mui),
     
     %% try to initiate an movement on that Mui - shouldn't be possible with open picks
     {error, not_movable, _} = init_movement_to_good_location(Mui),
     % because of the open pick the unit shouldn't be movable
-    no = mypl_db_util:unit_movable(mypl_db_util:mui_to_unit(Mui)),    
+    no = mypl_db_util:unit_movable(mypl_db_util:mui_to_unit(Mui)),
     % commit it.
-    {ok, {30, "14602"}} = commit_pick(Pick1),
+    {ok, {30, "a0002"}} = commit_pick(Pick1),
     % now ot should be movable again
     yes = mypl_db_util:unit_movable(mypl_db_util:mui_to_unit(Mui)),
      
@@ -480,14 +559,14 @@ mypl_simple_pick_test() ->
     {ok, Pick2} = init_pick(25, Mui),
     ?DEBUG("Z", []),
     % commit it.
-    {ok, {25, "14602"}} = commit_pick(Pick2),
+    {ok, {25, "a0002"}} = commit_pick(Pick2),
     %TODO: test rollback
     
     % check if enough is left on unit
-    {ok, {15, "14602"}} = retrive(Mui).
+    {ok, {15, "a0002"}} = retrive(Mui).
     
 
-mypl_testrunner() ->
+testrunner() ->
     mypl_simple_movement_test(),
     mypl_simple_pick_test().
     

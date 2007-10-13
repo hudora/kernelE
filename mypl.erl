@@ -132,35 +132,6 @@ movementsuggestions_loop(Queue) ->
 %%%% main myPL API - counting
 %%%%
 
-% internal use only
-% @private
-count_product_helper([]) -> 0;
-count_product_helper(L) ->
-    [P|T] = L,
-    P#unit.quantity + count_product_helper(T).
-% get the Quantity of Product
-count_product(Product) ->
-    L = do(qlc:q([X || X <- mnesia:table(unit), X#unit.product =:= Product])),
-    count_product_helper(L).
-    
-
-% internal use only
-% @private
-count_products_helper([], D) -> dict:to_list(D);
-count_products_helper(L, D) ->
-    [P|T] = L,
-    NewDict = dict:update_counter(P#unit.product, P#unit.quantity, D),
-    count_products_helper(T, NewDict).
-% get the Quantity of all Products as a dict
-count_products() ->
-    L = do(qlc:q([X || X <- mnesia:table(unit)])),
-    D = dict:new(),
-    count_products_helper(L, D).
-    
-
-% get (quantity, Product) of all products
-find_product(Product) ->
-    do(qlc:q([{X#unit.quantity, X#unit.mui} || X <- mnesia:table(unit), X#unit.product =:= Product])).
     
 
 %%%%

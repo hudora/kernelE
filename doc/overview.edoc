@@ -58,6 +58,16 @@ kernel-E saves two kind of audit logs: changes of stock of inventory and creatio
 
 Please check {@link mypl_audit} for further information.
 
+== Data Model ==
+
+...
+
 == API ==
 
 {@link mypl_db} implements all storage and retrieval functionality. It also documents the data types used by myPL/kernel-E.
+
+{@link mypl_db_query} implements query functionality. It also documents how counting in myPL/kernel-E occurs.
+
+Function Names ending in a `*' are meant for internal use only.
+
+ 

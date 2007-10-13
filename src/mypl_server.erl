@@ -16,6 +16,7 @@
 
 %% API
 -export([start_link/0, start/0, stop/0,
+init_location/5, location_info/1, location_list/0,
 store_at_location/5, retrive/1,
 init_movement/2, init_movement_to_good_location/1, commit_movement/1, rollback_movement/1,
 init_pick/2, commit_pick/1, rollback_pick/1]).
@@ -41,6 +42,15 @@ start() ->
 
 stop() -> 
     gen_server:cast(?SERVER, stop). 
+
+init_location(Name, Height, Floorlevel, Preference, Attributes) ->
+    gen_server:call(?SERVER, {init_location, Name, Height, Floorlevel, Preference, Attributes}).
+
+location_info(Locname) ->
+    gen_server:call(?SERVER, {location_info, Locname}).
+
+location_list() ->
+    gen_server:call(?SERVER, {location_list}).
 
 store_at_location(Locname, Mui, Quantity, Product, Height) when Quantity > 0 ->
     gen_server:call(?SERVER, {store_at_location, Locname, Mui, Quantity, Product, Height}).
@@ -68,6 +78,15 @@ commit_pick(PickId) ->
 
 rollback_pick(PickId) ->
     gen_server:call(?SERVER, {rollback_pick, PickId}).
+
+% counting API
+% quantities -> (quantity, pick_quantity, movement_quantity, available_quantity)
+% count_products() -> [{product, quantities}, ...]
+% count_article(Product) -> [{location, quantities, units}}
+% location_info() -> ???
+% unit_info(unit) -> (quantities, picks, movement, location)
+% pick_info
+% movement_info
 
 %%====================================================================
 %% gen_server callbacks
@@ -101,6 +120,18 @@ init([]) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
+handle_call({init_location, Name, Height, Floorlevel, Preference, Attributes}, _From, State) ->
+    Ret = mypl_db:init_location(Name, Height, Floorlevel, Preference, Attributes),
+    {reply, Ret, State};
+
+handle_call({location_info, Locname}, _From, State) -> 
+    Ret = mypl_db:location_info(Locname),
+    {reply, Ret, State};
+
+handle_call({location_list}, _From, State) ->
+    Ret = mypl_db:location_list(),
+    {reply, Ret, State};
+
 handle_call({store_at_location, Locname, Mui, Quantity, Product, Height}, _From, State) ->
     Ret = mypl_db:store_at_location(Locname, Mui, Quantity, Product, Height),
     {reply, Ret, State};
