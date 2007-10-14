@@ -89,8 +89,8 @@ count_products() ->
     
 
 % get (quantity, Product) of all products
-find_product(Product) ->
-    mypl_db_util:do(qlc:q([{X#unit.quantity, X#unit.mui} || X <- mnesia:table(unit), X#unit.product =:= Product])).
+% find_product(Product) ->
+%     mypl_db_util:do(qlc:q([{X#unit.quantity, X#unit.mui} || X <- mnesia:table(unit), X#unit.product =:= Product])).
 
 
 % unit_info(unit) -> (quantities, picks, movement, location)
@@ -103,7 +103,7 @@ find_product(Product) ->
 
 
 % ~~ Unit tests
-%-ifdef(EUNIT).
+-ifdef(EUNIT).
 -compile(export_all).
 
 %%% @hidden
@@ -126,15 +126,6 @@ test_init() ->
     mypl_db:init_location("010102", 1950, false, 6, []),
     mypl_db:init_location("010103", 1200, false, 5, []),
     mypl_db:init_location("010201", 2000, true,  7, []),
-    true = is_list(mypl_db:location_list()),
-    {ok, {{name, "EINLAG"},
-          {height, 6000},
-          {floorlevel, true},
-          {preference, 0},
-          {description, []},
-          {attributes, undefined},
-          {allocated_by, []},
-          {reserved_for, []}}} = mypl_db:location_info("EINLAG"),
     ok.
 
 %%% @hidden
@@ -184,4 +175,4 @@ mypl_simple_counting_test() ->
 testrunner() ->
     mypl_simple_counting_test().
     
-%-endif.
+-endif.

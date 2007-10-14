@@ -47,6 +47,27 @@ run_me_once() ->
     ok = mnesia:wait_for_tables([location, unit, movement, pick, picklist, articleaudit, unitaudit], 5000),
     init_location("EINLAG", 6000, true,  0, [no_picks]),
     init_location("AUSLAG", 6000, true,  0, [no_picks]),
+    init_location("FEHLER", 6000, true,  0, [no_picks]),
+    init_location("K01",    6000, true,  0, []),
+    init_location("K02",    6000, true,  0, []),
+    init_location("K03",    6000, true,  0, []),
+    % init_location("K04",    6000, true,  0, []),
+    % init_location("K05",    6000, true,  0, []),
+    % init_location("K06",    6000, true,  0, []),
+    % init_location("K07",    6000, true,  0, []),
+    % init_location("K08",    6000, true,  0, []),
+    % init_location("K09",    6000, true,  0, []),
+    % init_location("K10",    6000, true,  0, []),
+    % init_location("K11",    6000, true,  0, []),
+    % init_location("K12",    6000, true,  0, []),
+    % init_location("K13",    6000, true,  0, []),
+    % init_location("K14",    6000, true,  0, []),
+    % init_location("K15",    6000, true,  0, []),
+    % init_location("K16",    6000, true,  0, []),
+    % init_location("K17",    6000, true,  0, []),
+    % init_location("K18",    6000, true,  0, []),
+    % init_location("K19",    6000, true,  0, []),
+    % init_location("K20",    6000, true,  0, []),
     ok.
     
 
@@ -97,6 +118,7 @@ init_location(Name, Height, Floorlevel, Preference, Attributes)
     KnownAttributes = [no_picks],
     case lists:filter(fun(X) -> not lists:member(X, KnownAttributes) end, Attributes) of
         [] ->
+            % all attributes are ok
             Fun = fun() ->
                 Ret = case mnesia:read({location, Name}) of
                     [] ->
@@ -109,6 +131,7 @@ init_location(Name, Height, Floorlevel, Preference, Attributes)
                 NewLocation = Location#location{name=Name, height=Height, floorlevel=Floorlevel,
                                                 preference=Preference,
                                                 description=Location#location.description,
+                                                attributes=Attributes,
                                                 allocated_by=Location#location.allocated_by,
                                                 reserved_for=Location#location.reserved_for},
                 mnesia:write(NewLocation),
@@ -199,7 +222,7 @@ store_at_location(Locname, Mui, Quantity, Product, Height) when Quantity > 0 ->
                 {error, unknown_location, {Locname}};
             [Location] ->
                 Unit = #unit{mui=Mui, quantity=Quantity, product=Product, height=Height, pick_quantity=0,
-                             created_at=calendar:universal_time()},
+                             created_at=mypl_util:timestamp()},
                 mypl_audit:unitaudit(Unit, "Erzeugt auf " ++ Location#location.name),
                 store_at_location(Location, Unit)
         end
@@ -377,6 +400,7 @@ init_pick(Quantity, Mui) when is_integer(Quantity) ->
 %% Commits a pick created previously by {@link init_pick/2}. This is by doing the actual
 %% bookkeping of removing the goods from the warehouse. Returns the name of the Location
 %% where the goods where removed from.
+%% TODO: What if quantity=0 after committing
 commit_pick(PickId) ->
     Fun = fun() ->
         % get Pick for PickId
@@ -484,7 +508,7 @@ test_init() ->
           {floorlevel, true},
           {preference, 0},
           {description, []},
-          {attributes, undefined},
+          {attributes,[no_picks]},
           {allocated_by, []},
           {reserved_for, []}}} = mypl_db:location_info("EINLAG"),
     ok.

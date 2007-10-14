@@ -68,18 +68,7 @@ regression: devbuild
 		-kernel error_logger      "{file, \"log/utest-kernel.log\"}" \
 		-sasl   sasl_error_logger "{file, \"log/utest-sasl.log\"}" \
 		${ERLPATH} \
-		-eval "filelib:fold_files(\
-			\"ebin\",\
-			\".*\.beam\",\
-			true,\
-			fun(F, Acc) -> \
-				M = list_to_atom(filename:basename(F, \".beam\")),\
-				io:format(\"Testing ~p~n\", [M]),\
-				TR = eunit:test(M, [{verbose, true}]),\
-				Acc\
-			end,\
-			[]\
-		)." \
+		-eval "lists:map(fun(M) ->io:format(\"Testing ~p~n\", [M]), eunit:test(M, [{verbose, true}]) end, [mypl_db, mypl_db_query, mypl_provisioning, mypl_util])." \
 		-s init stop
 
 

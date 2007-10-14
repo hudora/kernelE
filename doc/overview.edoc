@@ -1,7 +1,12 @@
-@title myPL/kernel-E
-@version 0.1
+                    myPL/kernel-E overview page
+
+@title myPL/kernel-E - A Database for Warehousing
+@version {@version}
 @copyright 2007 HUDORA GmbH
-@author Maximillian Dornseif <md@hudora.de>
+@author Maximillian Dornseif
+@author Nicole Dornseif
+@author Tobias Nockher
+@author Lars Ronge
 
 @doc
 == Introduction ==
@@ -27,14 +32,28 @@ without forklift, a preference (locations with higher preference get filled firs
 preference 0 gets never filled automatically.</dd>
 
 <dt>movements</dt>
-<dd>representing the movement of units between locations. We use the term "retrieval" for movements out of the
-Warehouse ("Auslagerung").</dd>
+<dd>representing the movement of units between locations.</dd>
 
 <dt>picks</dt>
 <dd>representing products to be removed from an unit. Unit with unfinished picks are considered unavailable
-for movements. We use the term "provisionings" to describe picks and retrievals.</dd>
+for movements.</dd>
 </dl>
 
+Some more obscure terms are:
+
+<dl>
+<dt>retrieval</dt>
+<dd>Subset of movements: We use the term "retrieval" for movements out of the Warehouse ("Auslagerung").</dd>
+
+<dt>provisionings</dt>
+<dd>We use the term "provisionings" to describe picks and/or retrievals. Usually the operator is only interested in provisionings and not if they are implemented by picks or retrievals.</dd>
+
+<dt>disbanding</dt>
+<dd>If we pich from an unit until it is empty, the unit disappears. We call this "disbanding".</dd>
+
+<dt>MUI</dt>
+<dd>The ID of an Unit.</dd>
+</dl>
 
 === IDs ===
 
@@ -60,14 +79,42 @@ Please check {@link mypl_audit} for further information.
 
 == Data Model ==
 
-...
+TBD
 
 == API ==
 
-{@link mypl_db} implements all storage and retrieval functionality. It also documents the data types used by myPL/kernel-E.
+{@link mypl_db} implements all storage and retrieval functionality ("Put this Pallet at that Location"). It also documents the data types used by myPL/kernel-E.
 
-{@link mypl_db_query} implements query functionality. It also documents how counting in myPL/kernel-E occurs.
+{@link mypl_db_query} implements database query functionality ("How many RatzFratz are there?"). It also documents how counting in myPL/kernel-E occurs.
+
+{@link mypl_provisioning} implements calculations on how to pick and retrive from the warehouse. These are sometimes CPU-heavy (several seconds per call).
 
 Function Names ending in a `*' are meant for internal use only.
 
- 
+=== Sample usage ===
+
+In the following sections we try to give an overview on how to use tha API to accomplish certain tasks.
+
+==== Warenzugang ====
+
+Goods arrive from other Warehouses. Generate MUIs/NVEs for each Pallets. Call 
+
+
+{@link mypl_db:store_at_location/5. `store_at_location'}`("EINLAG", Nve, Quantity, Product, Height=1950)'
+
+`movementID =' {@link mypl_db:init_movement_to_good_location/1. `init_movement_to_good_location'}`(Nve)'
+
+Make somebody actually carry out the movement than call
+
+{@link mypl_db:commit_movement/1. `commit_movement'}`(movementID)'
+
+and you are done.
+
+==== Kommissionierung ====
+
+TBD
+
+==== Umlagerungen ====
+
+TBD
+

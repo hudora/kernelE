@@ -22,7 +22,8 @@
 %% The "unitaudit" log documents all creation, movement and disbandment of
 %% Units/MUIs/NVEs. Log entries contain a timestamp, the Unit-ID, the quantity
 %% and the product on the unit and possible additional references.
-
+%%
+%% @TODO add functionality to read the auditlogs
 %% @end
 
 -module(mypl_audit).
