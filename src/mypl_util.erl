@@ -9,7 +9,8 @@
 
 %% API
 -export([oid/0, generate_mui/0, timestamp/0, combine_until_fit/2,
-         choose/2, choose/3, nearest/2, nearest/3, spawn_and_register/2, log/5]).
+         choose/2, choose/3, nearest/2, nearest/3, spawn_and_register/2, log/5,
+         convertPositiveInteger/1, convertString/1, convertBoolean/1, convertArray/1]).
 
 %% @spec oid() -> string()
 %% @doc generate unique object ID
@@ -65,25 +66,6 @@ combine_until_fit(Quantity, [H|_]) when H >= Quantity ->
 combine_until_fit(Quantity, [H|T]) when H < Quantity ->
     [{H, H}| combine_until_fit(Quantity-H, T)].
     
-
-
-%% @spec listsum([integer()]) -> integer()
-%% @doc sum up the members of a list.
-%% 
-%% ```
-%% > listsum([2,4,6,8]).
-%% 20'''
-listsum([1]) -> 1;
-listsum([2]) -> 2;
-listsum([3]) -> 3;
-listsum([4]) -> 4;
-listsum([5]) -> 5;
-listsum([6]) -> 6;
-listsum([7]) -> 7;
-listsum([8]) -> 8;
-listsum([9]) -> 9;
-listsum(L) -> % when is_list(L) ->
-    lists:foldl(fun(X, Sum) -> X + Sum end, 0, L).
 
 %% @private
 %% @spec perms2([integer()], integer(), integer()) -> [[integer()]]
@@ -278,6 +260,31 @@ log(Module, Line, err, Msg, Params) ->
     ).
     
 
+%%%%%%%%%% Conversion Functions
+
+%% @doc converts a string to a positive integer
+convertPositiveInteger(Str) ->
+    {Val, Rest} = string:to_integer(Str),
+    Val.
+    
+%% @doc converts a string to a String
+convertString(Str) ->
+    Str.
+
+%% @doc converts a string to a Boolean
+convertBoolean(Str) ->
+    case Str of
+        "true" -> true;
+        "True" -> true;
+        "false" -> false;
+        "False" -> false
+    end.
+
+%% @doc converts a string to an array of strings.
+%% @TODO: ficxme
+convertArray(_Str) ->
+    [].
+
 % ~~ Unit tests
 -ifdef(EUNIT).
 -compile(export_all).
@@ -316,11 +323,24 @@ combine_until_fit_test() ->
     ok.
     
 
+converter_test() ->
+    % 0 = convertPositiveInteger("0"),
+    9991 = convertPositiveInteger("9991"),
+    "FooBar" = convertString("FooBar"),
+    true = convertBoolean("true"),
+    true = convertBoolean("True"),
+    false = convertBoolean("false"),
+    false = convertBoolean("False"),
+    [] = convertArray("Foo"),
+    ok.
+
 %%% @hidden
 testrunner() ->
     permutator_test(),
     nearest_test(),
-    choose_test().
+    choose_test(),
+    converter_test(),
+    ok.
     
 
 -endif.

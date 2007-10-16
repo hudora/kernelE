@@ -15,7 +15,7 @@
 -include_lib("stdlib/include/qlc.hrl").
 -include("include/mypl.hrl").
 
--export([find_pick_candidates/2, find_provisioning_candidates/2]).
+-export([find_provisioning_candidates/2]).
 
 
 %%%%
