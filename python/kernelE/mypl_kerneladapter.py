@@ -10,7 +10,7 @@ Copyright (c) 2007 HUDORA GmbH. All rights reserved.
 import sys
 import os
 import unittest
-import socket, uuid, simplejson
+import socket, uuid, simplejson, pickle
 
 def e2string(data):
     return ''.join([chr(x) for x in data])
@@ -51,7 +51,8 @@ class Kerneladapter:
         if not data.startswith(codestr):
             raise RuntimeError, "unexpected reply: %r" % data
         data = data[len(codestr):]
-        return simplejson.loads(data)
+        ok, reply = simplejson.loads(data)
+        return reply
     
     def _read_code(self, code):
         data = self._read()
@@ -66,18 +67,18 @@ class Kerneladapter:
         self.sock.send(line + '\n')
     
     def location_list(self):
-        self._send("LOCATIONLIST")
-        return [e2string(x) for x in self._read_json(202)]
+        self._send("location_list")
+        return [e2string(x) for x in self._read_json(220)]
     
     def location_info(self, name):
-        self._send("LOCATIONINFO %s" % name)
-        return attributelist2dict(self._read_json(203), ['name'])
+        self._send("location_info %s" % name)
+        return attributelist2dict(self._read_json(220), ['name'])
     
     def init_location(self, name, height=1950, floorlevel=False, preference=5, attributes=[]):
         name = name.replace(',','').replace('\n','').replace('\r','')
         # attributes are not implemented so far
-        self._send("INITLOCATION %s,%d,%r,%d" % (name, height, floorlevel, preference))
-        return self._read_code(204)
+        self._send("init_location %s,%d,%r,%d,[]" % (name, height, floorlevel, preference))
+        return self._read_code(220)
         
     # % store_at_location(Locname, Mui, Quantity, Product, Height)
     def store_at_location(self, name, quantity, artnr, mui=None, height=1950):
@@ -86,15 +87,15 @@ class Kerneladapter:
         name = name.replace(',','').replace('\n','').replace('\r','')
         artnr = artnr.replace(',','').replace('\n','').replace('\r','')
         mui = mui.replace(',','').replace('\n','').replace('\r','')
-        self._send("STOREATLOCATION %s,%s,%d,%s,%d" % (name, mui, quantity, artnr, height))
-        return self._read_code(205)
+        self._send("store_at_location %s,%s,%d,%s,%d" % (name, mui, quantity, artnr, height))
+        return self._read_code(220)
 
         
     
 
 if __name__ == '__main__':
     k = Kerneladapter()
-    k.location_list()
+    #k.location_list()
     print k.location_info("EINLAG")
     print k.init_location("010101", height=1950, floorlevel=True)
     print k.store_at_location("010101", 5, "65535")
@@ -103,7 +104,13 @@ if __name__ == '__main__':
     # this only works with the correct PYTHONPATH
     from mofts.client import as400  
     softm = as400.MoftSconnection()
-    for platz in softm.get_belegteplaetze() + softm.get_freieplaetze():
+    plaetze = softm.get_belegteplaetze() + softm.get_freieplaetze()
+    #pickle.dump(plaetze, open('paletze.pickle', 'w'))
+    
+    vorgaenge = softm.get_protokomissioniervorgaenge()
+    #pickle.dump(vorgaenge, open('vorgaenge.pickle', 'w'))
+    
+    for platz in plaetze:
         if platz.endswith('01'):
             print k.init_location(platz, floorlevel=True)
         elif platz.isdigit():

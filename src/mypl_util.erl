@@ -264,7 +264,7 @@ log(Module, Line, err, Msg, Params) ->
 
 %% @doc converts a string to a positive integer
 convertPositiveInteger(Str) ->
-    {Val, Rest} = string:to_integer(Str),
+    {Val, _Rest} = string:to_integer(Str),
     Val.
     
 %% @doc converts a string to a String
