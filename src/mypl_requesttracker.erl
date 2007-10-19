@@ -36,7 +36,7 @@ start() ->
     gen_server:start({local, ?SERVER}, ?MODULE, [], []). 
 
 in(Data) -> 
-    gen_server:call(?SERVER, {in, Data}). 
+    gen_server:cast(?SERVER, {in, Data}). 
 
 out() -> 
     gen_server:call(?SERVER, {out}). 
@@ -88,7 +88,10 @@ handle_call({out}, _From, State) ->
 %%--------------------------------------------------------------------
 handle_cast({stop}, State) ->
     terminate(unknown, State),
-    {stop, normal, State}.
+    {stop, normal, State};
+handle_cast({in, Data}, State) ->
+    {noreply, State#state{queue=queue:in(Data, State#state.queue)}}.
+
 
 %%--------------------------------------------------------------------
 %% Function: handle_info(Info, State) -> {noreply, State} |

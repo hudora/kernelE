@@ -18,11 +18,11 @@ APP_MOD    = $(patsubst src/%.erl,ebin/%.beam,$(wildcard src/*.erl))
 prodbuild : BUILDOPT = 
 prodbuild : vendor_build ${APP_MOD}
 
-include/auto_genserverapi.hrl: tools/genkernelinterface.py
-	python tools/genkernelinterface.py 
+#include/auto_genserverapi.hrl: tools/genkernelinterface.py
+#	python tools/genkernelinterface.py 
 
-include/auto_tcpapi.hrl: tools/genkernelinterface.py
-	python tools/genkernelinterface.py 
+#include/auto_tcpapi.hrl: tools/genkernelinterface.py
+#	python tools/genkernelinterface.py 
 
 # src/mypl_tcp_session.erl: include/auto_tcpapi.hrl
 # src/mypl_server.erl: include/auto_genserverapi.hrl 

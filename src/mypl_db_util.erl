@@ -22,7 +22,8 @@
 -include("mypl.hrl").
 
 %% API
--export([do/1, get_mui_location/1, mui_to_unit/1, unit_moving/1, unit_movable/1, best_location/1]).
+-export([do/1, get_mui_location/1, mui_to_unit/1, unit_moving/1, unit_movable/1, best_location/1,
+         read_location/1]).
 
 %% @private
 %% @doc helper function for wraping {@link qlc} queries in an {@link mnesia} transaction.
@@ -96,6 +97,22 @@ best_location(Unit) ->
     % order by heigth, so we prefer lower locations
     [H|_] = lists:keysort(#location.height, Candidates),
     H.
+
+
+%% @private
+%% @spec read_location(string()) -> mypl_db:unitRecord()
+%% @doc reads a Unit record
+%%
+%% expects to be called within a mnesia transaction
+read_location(Locname) when is_list(Locname)->
+    case mnesia:read({location, Locname}) of
+        [Location] ->
+            Location;
+        [] ->
+            erlang:error({unknown_location, Locname});
+        L ->
+            erlang:error({internal_error, Locname, L})
+    end.
     
 
 %% TODO: this ignores Multi Unit Locations

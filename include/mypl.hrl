@@ -41,14 +41,6 @@
                }). 
 
 
--record(picklist, {id,         % eindeutiger bezeichner
-                   picks,      % list of picks belonging to this picklist
-                   movements,  % list of movement/retrieval ids belonging to this picklist
-                   priority,   % how urgend is this pick to be executed
-                   references  % list of tuples to be used by the client application, not used by the myPL kernel
-                   }).
-
-
 % speichert alle Warenbewegungen zu Protokollzwecken
 -record(articleaudit, {id,           % eindeutiger Bezeichner
                        quantity,     % Einkeiten des produkts
@@ -72,6 +64,10 @@
                     created_at
                    }).
 
+-record(archive, {id,           % eindeutiger Bezeichner
+                  created_at,
+                  body
+                  }).
 
 % Trace utilities from adviserl
 

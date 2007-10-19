@@ -1,3 +1,11 @@
+%% WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING
+%%
+%% This is modified from the original: Strings are converted to Lists of Integers, not to Binaries.
+%% --md
+%%
+%% WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING
+
+
 %% JSON - RFC 4627 - for Erlang
 %%---------------------------------------------------------------------------
 %% Copyright (c) 2007 Tony Garnock-Jones <tonyg@kcbbs.gen.nz>
@@ -210,12 +218,12 @@ decode_noauto(Bin) when is_binary(Bin) ->
     decode_noauto(binary_to_list(Bin));
 decode_noauto(Chars) ->
     case catch parse(skipws(Chars)) of
-	{'EXIT', Reason} ->
-	    %% Reason is usually far too much information, but helps
-	    %% if needing to debug this module.
-	    {error, Reason};
-	{Value, Remaining} ->
-	    {ok, Value, skipws(Remaining)}
+        {'EXIT', Reason} ->
+            %% Reason is usually far too much information, but helps
+            %% if needing to debug this module.
+            {error, Reason};
+        {Value, Remaining} ->
+            {ok, Value, skipws(Remaining)}
     end.
 
 %% From RFC4627, section 3, "Encoding":
@@ -274,7 +282,7 @@ unicode_encode({'utf-8', C}) -> xmerl_ucs:to_utf8(C).
 
 parse([$" | Rest]) -> %% " emacs balancing
     {Codepoints, Rest1} = parse_string(Rest, []),
-    {list_to_binary(xmerl_ucs:to_utf8(Codepoints)), Rest1};
+    {xmerl_ucs:to_utf8(Codepoints), Rest1};
 parse("true" ++ Rest) -> {true, Rest};
 parse("false" ++ Rest) -> {false, Rest};
 parse("null" ++ Rest) -> {null, Rest};
@@ -304,9 +312,9 @@ parse_general_char($\\, Rest, Acc) -> parse_string(Rest, [$\\ | Acc]);
 parse_general_char($", Rest, Acc) -> parse_string(Rest, [$" | Acc]);
 parse_general_char($u, [D0, D1, D2, D3 | Rest], Acc) ->
     parse_string(Rest, [(digit_hex(D0) bsl 12) +
-			(digit_hex(D1) bsl 8) +
-			(digit_hex(D2) bsl 4) +
-			(digit_hex(D3)) | Acc]).
+        (digit_hex(D1) bsl 8) +
+        (digit_hex(D2) bsl 4) +
+        (digit_hex(D3)) | Acc]).
 
 digit_hex($0) -> 0;
 digit_hex($1) -> 1;
@@ -336,8 +344,8 @@ digit_hex($f) -> 15.
 finish_number(Acc, Rest) ->
     Str = lists:reverse(Acc),
     {case catch list_to_integer(Str) of
-	 {'EXIT', _} -> list_to_float(Str);
-	 Value -> Value
+        {'EXIT', _} -> list_to_float(Str);
+        Value -> Value
      end, Rest}.
 
 parse_number([], _Acc) ->
@@ -350,8 +358,8 @@ parse_number(Rest, Acc) ->
 parse_number1(Rest, Acc) ->
     {Acc1, Rest1} = parse_int_part(Rest, Acc),
     case Rest1 of
-	[] -> finish_number(Acc1, []);
-	[$. | More] ->
+        [] -> finish_number(Acc1, []);
+        [$. | More] ->
             {Acc2, Rest2} = parse_int_part(More, [$. | Acc1]),
             parse_exp(Rest2, Acc2, false);
         _ ->
@@ -365,8 +373,8 @@ parse_int_part0([], Acc) ->
     {Acc, []};
 parse_int_part0([Ch | Rest], Acc) ->
     case is_digit(Ch) of
-	true -> parse_int_part0(Rest, [Ch | Acc]);
-	false -> {Acc, [Ch | Rest]}
+        true -> parse_int_part0(Rest, [Ch | Acc]);
+        false -> {Acc, [Ch | Rest]}
     end.
 
 parse_exp([$e | Rest], Acc, NeedFrac) ->

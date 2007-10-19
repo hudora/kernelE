@@ -9,8 +9,7 @@
 
 %% API
 -export([oid/0, generate_mui/0, timestamp/0, combine_until_fit/2,
-         choose/2, choose/3, nearest/2, nearest/3, spawn_and_register/2, log/5,
-         convertPositiveInteger/1, convertString/1, convertBoolean/1, convertArray/1]).
+         choose/2, choose/3, nearest/2, nearest/3, spawn_and_register/2, log/5]).
 
 %% @spec oid() -> string()
 %% @doc generate unique object ID
@@ -88,7 +87,7 @@ perms2(L, Quantity, Endtime) -> % when is_list(L), is_integer(Quantity), is_inte
                     
                     Ret = 
                     % permutations of H in front with the tail beeing shuffled
-                    [lists:usort([H|T]) || H <- Lsmall, T <- perms2(Lsmall--[H], Quantity-H, Endtime)]
+                    [lists:sort([H|T]) || H <- Lsmall, T <- perms2(Lsmall--[H], Quantity-H, Endtime)]
                     ++
                     % permutations with one element (H) missing 
                     [T || H <- Lsmall, T <- perms2(Lsmall--[H], Quantity, Endtime)],
@@ -260,31 +259,6 @@ log(Module, Line, err, Msg, Params) ->
     ).
     
 
-%%%%%%%%%% Conversion Functions
-
-%% @doc converts a string to a positive integer
-convertPositiveInteger(Str) ->
-    {Val, _Rest} = string:to_integer(Str),
-    Val.
-    
-%% @doc converts a string to a String
-convertString(Str) ->
-    Str.
-
-%% @doc converts a string to a Boolean
-convertBoolean(Str) ->
-    case Str of
-        "true" -> true;
-        "True" -> true;
-        "false" -> false;
-        "False" -> false
-    end.
-
-%% @doc converts a string to an array of strings.
-%% @TODO: ficxme
-convertArray(_Str) ->
-    [].
-
 % ~~ Unit tests
 -ifdef(EUNIT).
 -compile(export_all).
@@ -313,6 +287,7 @@ choose_test() ->
     [2,4,6] = nearest([2,4,6], 15),
     [2,4] = nearest([2,4,6], 7),
     [2,4] = nearest([2,2,4,6], 7),
+    [2, 48, 48] = nearest([48,2,48,48,48], 100),
     ok.
     
 
@@ -323,23 +298,11 @@ combine_until_fit_test() ->
     ok.
     
 
-converter_test() ->
-    % 0 = convertPositiveInteger("0"),
-    9991 = convertPositiveInteger("9991"),
-    "FooBar" = convertString("FooBar"),
-    true = convertBoolean("true"),
-    true = convertBoolean("True"),
-    false = convertBoolean("false"),
-    false = convertBoolean("False"),
-    [] = convertArray("Foo"),
-    ok.
-
 %%% @hidden
 testrunner() ->
     permutator_test(),
     nearest_test(),
     choose_test(),
-    converter_test(),
     ok.
     
 

@@ -26,7 +26,7 @@ init_table_info(Status, TableName) ->
         {aborted, {already_exists, TableName}} ->
             ?DEBUG("using existing table '~w'", [TableName]);
         _ ->
-            ?ERROR("cannot create table '~w'", [TableName], Status)
+            ?ERROR("cannot create table '~w' -- ~w", [TableName, Status], Status)
     end,
     Status.
     
@@ -40,11 +40,11 @@ run_me_once() ->
     init_table_info(mnesia:create_table(unit,         [{disc_copies, [node()]}, {attributes, record_info(fields, unit)}]), unit),
     init_table_info(mnesia:create_table(movement,     [{disc_copies, [node()]}, {attributes, record_info(fields, movement)}]), movement),
     init_table_info(mnesia:create_table(pick,         [{disc_copies, [node()]}, {attributes, record_info(fields, pick)}]), pick),
-    init_table_info(mnesia:create_table(picklist,     [{disc_copies, [node()]}, {attributes, record_info(fields, picklist)}]), picklist),
     % the audit tables are kept ONLY on disk (slow!)
-    init_table_info(mnesia:create_table(articleaudit, [{disc_only_copies, [node()]}, {attributes, record_info(fields, articleaudit)}]), articleaudit),
-    init_table_info(mnesia:create_table(unitaudit,    [{disc_only_copies, [node()]}, {attributes, record_info(fields, unitaudit)}]), unitaudit),
-    ok = mnesia:wait_for_tables([location, unit, movement, pick, picklist, articleaudit, unitaudit], 5000),
+    init_table_info(mnesia:create_table(archive,          [{disc_only_copies, [node()]}, {attributes, record_info(fields, archive)}]), archive),
+    init_table_info(mnesia:create_table(articleaudit,    [{disc_only_copies, [node()]}, {attributes, record_info(fields, articleaudit)}]), articleaudit),
+    init_table_info(mnesia:create_table(unitaudit,       [{disc_only_copies, [node()]}, {attributes, record_info(fields, unitaudit)}]), unitaudit),
+    ok = mnesia:wait_for_tables([location, unit, movement, pick, articleaudit, unitaudit], 5000),
     init_location("EINLAG", 6000, true,  0, [no_picks]),
     init_location("AUSLAG", 6000, true,  0, [no_picks]),
     init_location("FEHLER", 6000, true,  0, [no_picks]),
@@ -149,20 +149,16 @@ init_location(Name, Height, Floorlevel, Preference, Attributes)
 %% @doc gets a tuple with information concerning a location
 location_info(Locname) -> 
     Fun = fun() ->
-        case mnesia:read({location, Locname}) of
-            [] ->
-                {error, unknown_location, {Locname}};
-            [Location] ->
-                {{name,          Location#location.name},
-                 {height,        Location#location.height},
-                 {floorlevel,    Location#location.floorlevel},
-                 {preference,    Location#location.preference},
-                 {description,   Location#location.description},
-                 {attributes,    Location#location.attributes},
-                 {allocated_by,  Location#location.allocated_by},
-                 {reserved_for,  Location#location.reserved_for}
-                }
-            end
+        Location = mypl_db_util:read_location(Locname),
+        {{name,          Location#location.name},
+         {height,        Location#location.height},
+         {floorlevel,    Location#location.floorlevel},
+         {preference,    Location#location.preference},
+         {description,   Location#location.description},
+         {attributes,    Location#location.attributes},
+         {allocated_by,  Location#location.allocated_by},
+         {reserved_for,  Location#location.reserved_for}
+        }
     end,
     {atomic, Ret} = mnesia:transaction(Fun),
     {ok, Ret}.
@@ -217,15 +213,11 @@ store_at_location(Location, Unit) when Unit#unit.quantity > 0 ->
 store_at_location(Locname, Mui, Quantity, Product, Height) when Quantity > 0 ->
     Fun = fun() ->
         % check that location exists
-        case mnesia:read({location, Locname}) of
-            [] ->
-                {error, unknown_location, {Locname}};
-            [Location] ->
-                Unit = #unit{mui=Mui, quantity=Quantity, product=Product, height=Height, pick_quantity=0,
-                             created_at=mypl_util:timestamp()},
-                mypl_audit:unitaudit(Unit, "Erzeugt auf " ++ Location#location.name),
-                store_at_location(Location, Unit)
-        end
+        Location = mypl_db_util:read_location(Locname),
+        Unit = #unit{mui=Mui, quantity=Quantity, product=Product, height=Height, pick_quantity=0,
+                     created_at=mypl_util:timestamp()},
+        mypl_audit:unitaudit(Unit, "Erzeugt auf " ++ Location#location.name),
+        store_at_location(Location, Unit)
     end,
     {atomic, Ret} = mnesia:transaction(Fun),
     Ret.
@@ -234,8 +226,8 @@ store_at_location(Locname, Mui, Quantity, Product, Height) when Quantity > 0 ->
 %% @spec retrive(muID()) -> {ok, {Quantity::integer(), Product::string()}}
 %% @doc remove a Unit and the goods on it from the warehouse
 %%
-%% This actually makes goods vanish from the warehouse!
-%% returns the name of the location from where the Unit was removed
+%% This actually makes goods vanish from the warehouse without further confirmation or committing.
+%% returns the name of the location from where the Unit was removed.
 retrive(Mui) ->
     Fun = fun() ->
         Location = mypl_db_util:get_mui_location(Mui),
@@ -269,7 +261,7 @@ init_movement(Mui, DestinationName) ->
         Unit = mypl_db_util:mui_to_unit(Mui),
         Source = mypl_db_util:get_mui_location(Mui),
         % check destination exists
-        [Destination] = mnesia:read({location, DestinationName}),
+        Destination = mypl_db_util:read_location(DestinationName),
         % check that mui is movable
         case mypl_db_util:unit_movable(Unit) of
             no ->
@@ -278,7 +270,7 @@ init_movement(Mui, DestinationName) ->
                 % now we can write to the database
                 mnesia:write(Destination#location{reserved_for=Destination#location.reserved_for ++ [Mui]}),
                 % generate movement record
-                Movement = #movement{id=mypl_util:oid(), mui=Mui,
+                Movement = #movement{id=("m" ++ mypl_util:oid()), mui=Mui,
                                      from_location=Source#location.name,
                                      to_location=Destination#location.name},
                 mnesia:write(Movement),
@@ -323,11 +315,11 @@ commit_movement(MovementId) ->
         Source = mypl_db_util:get_mui_location(Movement#movement.mui),
         % TODO: check Movement#movement.from_location = Source#location.name,
         % check destination exists
-        [Destination] = mnesia:read({location, Movement#movement.to_location}),
+        Destination = mypl_db_util:read_location(Movement#movement.to_location),
         % change locationdatat
         teleport(Unit, Source, Destination),
-        % delete movement
-        mnesia:delete({movement, MovementId}),
+        ok = mnesia:write(#archive{id=mypl_util:oid(), body=Movement, created_at=mypl_util:timestamp()}),
+        ok = mnesia:delete({movement, MovementId}),
         mypl_audit:unitaudit(Unit, "Umlagerung von " ++ Source#location.name ++ " nach "
                       ++ Destination#location.name ++ " comitted", Movement#movement.id),
         Destination#location.name
@@ -349,12 +341,12 @@ rollback_movement(MovementId) ->
         Unit = mypl_db_util:mui_to_unit(Movement#movement.mui),
         Source = mypl_db_util:get_mui_location(Movement#movement.mui),
         % fix destination
-        [Destination] = mnesia:read({location, Movement#movement.to_location}),
+        Destination = mypl_db_util:read_location(Movement#movement.to_location),
         Newdestination = Destination#location{reserved_for=lists:filter(fun(X) -> X /= Unit#unit.mui end,
                                                                         Destination#location.reserved_for)},
         mnesia:write(Newdestination),
-        % delete movement
-        mnesia:delete({movement, MovementId}),
+        ok = mnesia:write(#archive{id=mypl_util:oid(), body=Movement, created_at=mypl_util:timestamp()}),
+        ok = mnesia:delete({movement, MovementId}),
         mypl_audit:unitaudit(Unit, "Umlagerung von " ++ Source#location.name ++ " nach "
                       ++ Destination#location.name ++ " abgebrochen", Movement#movement.id),
         Source#location.name
@@ -379,7 +371,7 @@ init_pick(Quantity, Mui) when is_integer(Quantity) ->
                 % update Unit
                 mnesia:write(Unit#unit{pick_quantity=UnitPickQuantity}),
                 % generate Pick
-                Pick = #pick{id=mypl_util:oid(), quantity=Quantity,
+                Pick = #pick{id=("p" ++ mypl_util:oid()), quantity=Quantity,
                              product=Unit#unit.product, from_unit=Unit#unit.mui},
                 mnesia:write(Pick),
                 mypl_audit:unitaudit(Unit, "Pick von " ++ integer_to_list(Pick#pick.quantity) 
@@ -416,8 +408,8 @@ commit_pick(PickId) ->
                 % update Unit
                 mnesia:write(NewUnit),
                 
-                % delete pick
-                mnesia:delete({pick, PickId}),
+                ok = mnesia:write(#archive{id=mypl_util:oid(), body=Pick, created_at=mypl_util:timestamp()}),
+                ok = mnesia:delete({pick, PickId}),
                 mypl_audit:articleaudit(-1 * Pick#pick.quantity, Pick#pick.product,
                                         "Pick auf " ++ Unit#unit.mui, Unit#unit.mui, PickId),
                 mypl_audit:unitaudit(Unit, "Pick von " ++ integer_to_list(Pick#pick.quantity) 
@@ -450,8 +442,8 @@ rollback_pick(PickId) ->
                 % update Unit
                 mnesia:write(NewUnit),
                 
-                % delete pick
-                mnesia:delete({pick, PickId}),
+                ok = mnesia:write(#archive{id=mypl_util:oid(), body=Pick, created_at=mypl_util:timestamp()}),
+                ok = mnesia:delete({pick, PickId}),
                 mypl_audit:unitaudit(Unit, "Pick von " ++ integer_to_list(Pick#pick.quantity) 
                                      ++ " abgebrochen.", PickId),
             {Pick#pick.quantity, Pick#pick.product}
@@ -491,7 +483,6 @@ test_init() ->
     mnesia:clear_table(location),   
     mnesia:clear_table(movement),   
     mnesia:clear_table(pick),       
-    mnesia:clear_table(picklist),   
     mnesia:clear_table(articleaudit),
     mnesia:clear_table(unitaudit),  
     % regenerate locations

@@ -15,7 +15,7 @@
 -include_lib("stdlib/include/qlc.hrl").
 -include("include/mypl.hrl").
 
--export([find_provisioning_candidates/2]).
+-export([find_provisioning_candidates/2,find_provisioning_candidates_multi/1, init_provisionings_multi/1]).
 
 
 %%%%
@@ -56,7 +56,8 @@ find_pick_candidates_helper1(Quantity, Units) when is_integer(Quantity), is_list
     % check for a direct fit
     case [X || X <- Candidates, X#unit.quantity - X#unit.pick_quantity >= Quantity] of
         [Unit|_] ->
-            % TODO: instead of blindly taking the first one, check if we find a 100% fit so the MUI can be disbanded after picking
+            % TODO: instead of blindly taking the first one, check if we find a 100% fit 
+            % so the MUI can be disbanded after picking - or is this ensured by the caller?
             {fit, [{Quantity, Unit#unit.mui}]};
         [] ->
             % nothing found to satisfy the quantity from a single unit we now go for combinations
@@ -72,14 +73,13 @@ find_pick_candidates_helper1(Quantity, Units) when is_integer(Quantity), is_list
 find_pick_candidates(Quantity, Product, Exclude) when is_integer(Quantity), Quantity >= 0 ->
     % Candidates = mypl_db_util:do(qlc:q([X || X <- find_pickable_units(Product),
     %                            X#unit.quantity - X#unit.pick_quantity >= Quantity])),
-    Candidates = find_pickable_units(Product),
-    
+    Candidates = find_pickable_units(Product) -- Exclude,
     FilteredCandidates = [X || X <- Candidates, not(lists:member(X#unit.mui, Exclude))],
     % we only pick from floorlevel
     FloorCandidates = lists:filter(fun(X) -> Loc = mypl_db_util:get_mui_location(X#unit.mui), 
                                              Loc#location.floorlevel =:= true
                                    end, FilteredCandidates),
-    case [X || X <- Candidates, X#unit.quantity - X#unit.pick_quantity =:= Quantity] of
+    case [X || X <- FloorCandidates, X#unit.quantity - X#unit.pick_quantity =:= Quantity] of
         [H|_] ->
             % we found a 100% fit with a single unit ... done
             {fit, [{Quantity, H#unit.mui}]};
@@ -174,8 +174,8 @@ find_retrievable_units(Product) ->
 
 %% @private
 find_oldest_unit_of(Quantity, Units, Ignore) when is_integer(Quantity), is_list(Units), is_list(Ignore) ->
-    L = [X || X <- Units, (X#unit.quantity - X#unit.pick_quantity) =:= Quantity],
-    case lists:keysort(#unit.created_at, L -- Ignore) of
+    L = [X || X <- Units, (X#unit.quantity - X#unit.pick_quantity) =:= Quantity] -- Ignore,
+    case lists:keysort(#unit.created_at, L) of
         [] -> [];
         [H|_] -> H
     end.
@@ -188,8 +188,10 @@ find_oldest_unit_of(Quantity, Units) when is_integer(Quantity), is_list(Units) -
 find_oldest_units_of([], _Units, _Ignore) -> [];
 find_oldest_units_of(Quantities, Units, Ignore) when is_list(Quantities), is_list(Units), is_list(Ignore) ->
     [H|T] = Quantities,
-    Mui = find_oldest_unit_of(H, Units, []),
-    [Mui|find_oldest_units_of(T, Units, [Mui|Ignore])].
+    Unit = find_oldest_unit_of(H, Units, Ignore),
+    % TODO:is -- Unit needed?
+    Ret = [Unit|find_oldest_units_of(T, Units, [Unit|Ignore])],
+    Ret.
     
 %% @private
 %% @spec find_oldest_units_of([integer()], [mypl_db:unitRecord()]) -> term()
@@ -223,16 +225,63 @@ find_provisioning_candidates(Quantity, Product) ->
                 {fit, Pickcandidates} ->
                     {ok, Candidates, Pickcandidates};
                 {error, no_fit} ->
+                    mypl_requesttracker:in({Quantity, Product}),
                     {error, no_fit}
             end;
         {error, no_fit} ->
+            mypl_requesttracker:in({Quantity, Product}),
             {error, no_fit};
         {error,not_enough} ->
             {error, not_enough}
     end.
     
 
-
+%% @spec find_provisioning_candidates_multi() -> term()
+%% @see find_provisioning_candidates/2
+%% @doc calls {@link find_provisioning_candidates/2} for more than a single product.
+%% Possibly Takes advantage of multi-processor system. Returns {ok, [retrievals], [picks]}
+%%
+%% Example:
+%% [{ok, [{6, Mui1a0010}], [{4, Mui2a0009}]}, ] = find_provisioning_candidates([{4, "a0009"}, {6, "a0010"}])
+find_provisioning_candidates_multi(L) ->
+    CandList = lists:map(fun({Quantity, Product}) -> find_provisioning_candidates(Quantity, Product);
+                            ([Quantity, Product]) -> find_provisioning_candidates(Quantity, Product) end, L),
+    case lists:all(fun(Reply) -> element(1, Reply) =:= ok end, CandList) of
+        false ->
+            {error, no_fit};
+        true ->
+            {ok, lists:foldl(fun(X, Acc) -> lists:append(Acc, X) end, [], [element(2, X) || X <- CandList]),
+                 lists:flatten([element(3, X) || X <- CandList])}
+    end.
+    
+%% @spec init_provisionings_multi([{Quantiy::integer(), Product:string}]) -> 
+%%       {ok, [mypl_db:movementID()], [mypl_db:pickID()]}
+%% @see find_provisioning_candidates/2
+%% @doc calls {@link find_provisioning_candidates/2} for more than a single product.
+%% Takes advantage of multi-processor system.
+%%
+%% Example:
+%% {ok, [MovementID1, MovementID2], [PickId3]} = init_provisionings_multi([{9, "a0009"}, {6, "a0010"}])
+init_provisionings_multi(L) ->
+    case find_provisioning_candidates_multi(L) of
+        {error, no_fit} ->
+            {error, no_fit};
+        {ok, Retrievals, Picks} ->
+            % generate provisionings and picks - we use a transaction to ensure either all succedd or all fail
+            Fun = fun() ->
+                {ok, lists:map(fun(Mui) -> 
+                                   {ok, MovementId} = mypl_db:init_movement(Mui, "AUSLAG"),
+                                   MovementId
+                               end, Retrievals),
+                     lists:map(fun({Quantity, Mui}) -> 
+                                  {ok, PickId} = mypl_db:init_pick(Quantity, Mui),
+                                  PickId
+                               end, Picks)}
+            end,
+            {atomic, Ret} = mnesia:transaction(Fun),
+            Ret
+    end.
+    
 
 % ~~ Unit tests
 -ifdef(EUNIT).
@@ -258,9 +307,14 @@ test_init() ->
     mypl_db:init_location("010102", 1950, false, 6, []),
     mypl_db:init_location("010103", 1200, false, 5, []),
     mypl_db:init_location("010201", 2000, true,  7, []),
+    mypl_db:init_location("010202", 2000, true,  7, []),
+    mypl_db:init_location("010203", 2000, true,  7, []),
     mypl_db:init_location("010301", 2000, true,  7, []),
     mypl_db:init_location("010302", 2000, false,  7, []),
     mypl_db:init_location("010303", 2000, false,  7, []),
+    mypl_db:init_location("010401", 2000, true,  7, []),
+    mypl_db:init_location("010402", 2000, false,  7, []),
+    mypl_db:init_location("010403", 2000, false,  7, []),
     ok.
 
 %%% @hidden
@@ -325,7 +379,6 @@ mypl_simple_picking2_test() ->
     %% not enough on Mui3, so wee need to pick from the others
     {fit, [{5, Mui1}]} = find_pick_candidates(5, "a0006"),
     {fit, [{6, Mui2}]} = find_pick_candidates(6, "a0006"),
-    %% TODO: this should find fit along the lines of  {ok, [{5, Mui1}, {3, Mui4}]}
     {fit,[{4, Mui3}, {4, Mui1}]} = find_pick_candidates(8, "a0006"),
     mypl_db:rollback_pick(Pick1),
     ok.
@@ -404,9 +457,11 @@ mypl_simple_provisioning2_test() ->
     Mui1 = "Mui1-" ++ mypl_util:generate_mui(),
     Mui2 = "Mui2-" ++ mypl_util:generate_mui(),
     Mui3 = "Mui3-" ++ mypl_util:generate_mui(),
+    Mui4 = "Mui4-" ++ mypl_util:generate_mui(),
     {ok, _} = mypl_db:store_at_location("010101", Mui1, 11, "a0009", 1200),
     {ok, _} = mypl_db:store_at_location("010102", Mui2,  7, "a0009", 1200),
     {ok, _} = mypl_db:store_at_location("010103", Mui3,  5, "a0009", 1200),
+    {ok, _} = mypl_db:store_at_location("010201", Mui4,  6, "a0010", 1200),
     
     % check random combinations
     {ok, [Mui3], []} = find_provisioning_candidates(5, "a0009"),
@@ -422,8 +477,31 @@ mypl_simple_provisioning2_test() ->
     
     {ok, [Mui3, Mui2, Mui1], []} = find_provisioning_candidates(23, "a0009"),
     {error, not_enough} = find_provisioning_candidates(24, "a0009"),
+    {ok, [Mui4], [{4, Mui1}]} = find_provisioning_candidates_multi([{4, "a0009"}, {6, "a0010"}]),
+    {ok, [Mui2, Mui4], [{2, Mui1}]} = find_provisioning_candidates_multi([{9, "a0009"}, {6, "a0010"}]),
     ok.
     
+real_world1_test() ->
+    test_init(),
+    {ok, _} = mypl_db:store_at_location("010103", mui1, 48, "42236", 1950), 
+    {ok, _} = mypl_db:store_at_location("010102", mui2, 48, "42236", 1950), 
+    {ok, _} = mypl_db:store_at_location("010202", mui3, 48, "42236", 1950), 
+    {ok, _} = mypl_db:store_at_location("010301", mui4, 48, "42236", 1950), 
+    {ok, _} = mypl_db:store_at_location("010203", mui5, 48, "42236", 1950), 
+    % {ok, _} = mypl_db:store_at_location("010303", mui6, 48, "42236", 1950), 
+    % {ok, _} = mypl_db:store_at_location("010401", mui7, 48, "42236", 1950), 
+    % {ok, _} = mypl_db:store_at_location("010302", mui8, 48, "42236", 1950), 
+    % {ok, _} = mypl_db:store_at_location("010403", mui9, 48, "42236", 1950), 
+    {ok, _} = mypl_db:store_at_location("010402", mui0, 48, "42236", 1950), 
+    {ok, _} = mypl_db:store_at_location("010101", muia,  2, "42236", 1950), 
+    {ok, _} = mypl_db:store_at_location("010201", muib, 48, "42236", 1950), 
+    % reihenfolge: kleinste, aelteste
+    % {ok, 98, [muia, mui1, mui2]} = find_retrieval_candidates(100, "42236"),
+    % {ok, [muia, mui1, mui2} = find_provisioning_candidates(100, "42236"),
+    {fit,[{48,mui3},{2,mui4}]} = find_pick_candidates(50, "42236", [muia, mui1]),
+    {ok,[muia, mui1, mui2], [{2, mui3}]} = find_provisioning_candidates(100, "42236"),
+    {ok,[muia, mui1, mui2], [{2, mui3}]} = find_provisioning_candidates_multi([[100, "42236"]]),
+    ok.
 
 %%% @hidden
 testrunner() ->

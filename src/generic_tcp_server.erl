@@ -32,7 +32,7 @@
 
 start_link(Module, Host, Port, ListenOpts, ModuleOpts) ->
     gen_server:start_link({local, list_to_atom("generic_tcp_server_" ++ integer_to_list(Port))},
-                          ?MODULE, [Module, Host, Port, ListenOpts, ModuleOpts], []).
+                          ?MODULE, [Module, Host, Port, ListenOpts, ModuleOpts], [{timeout, 15000}]).
 
 %---------------------------------------------------------------------------
 
