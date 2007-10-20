@@ -13,7 +13,7 @@
 -include_lib("stdlib/include/qlc.hrl").
 -include("include/mypl.hrl").
 
--export([run_me_once/0, init_location/5, location_info/1, location_list/0,
+-export([run_me_once/0, init_location/6, init_location/5, location_info/1, location_list/0,
  store_at_location/5, retrive/1,
  init_movement/2, init_movement_to_good_location/1, commit_movement/1, rollback_movement/1,
  init_pick/2, commit_pick/1, rollback_pick/1]).
@@ -45,29 +45,29 @@ run_me_once() ->
     init_table_info(mnesia:create_table(articleaudit,    [{disc_only_copies, [node()]}, {attributes, record_info(fields, articleaudit)}]), articleaudit),
     init_table_info(mnesia:create_table(unitaudit,       [{disc_only_copies, [node()]}, {attributes, record_info(fields, unitaudit)}]), unitaudit),
     ok = mnesia:wait_for_tables([location, unit, movement, pick, articleaudit, unitaudit], 5000),
-    init_location("EINLAG", 3000, true,  0, [no_picks]),
-    init_location("AUSLAG", 3000, true,  0, [no_picks]),
-    init_location("FEHLER", 3000, true,  0, [no_picks]),
+    init_location("EINLAG", 3000, true,  0, [{no_picks}]),
+    init_location("AUSLAG", 3000, true,  0, [{no_picks}]),
+    init_location("FEHLER", 3000, true,  0, [{no_picks}]),
     init_location("K01",    3000, true,  0, []),
     init_location("K02",    3000, true,  0, []),
     init_location("K03",    3000, true,  0, []),
-    % init_location("K04",    6000, true,  0, []),
-    % init_location("K05",    6000, true,  0, []),
-    % init_location("K06",    6000, true,  0, []),
-    % init_location("K07",    6000, true,  0, []),
-    % init_location("K08",    6000, true,  0, []),
-    % init_location("K09",    6000, true,  0, []),
-    % init_location("K10",    6000, true,  0, []),
-    % init_location("K11",    6000, true,  0, []),
-    % init_location("K12",    6000, true,  0, []),
-    % init_location("K13",    6000, true,  0, []),
-    % init_location("K14",    6000, true,  0, []),
-    % init_location("K15",    6000, true,  0, []),
-    % init_location("K16",    6000, true,  0, []),
-    % init_location("K17",    6000, true,  0, []),
-    % init_location("K18",    6000, true,  0, []),
-    % init_location("K19",    6000, true,  0, []),
-    % init_location("K20",    6000, true,  0, []),
+    % init_location("K04",    3000, true,  0, []),
+    % init_location("K05",    3000, true,  0, []),
+    % init_location("K06",    3000, true,  0, []),
+    % init_location("K07",    3000, true,  0, []),
+    % init_location("K08",    3000, true,  0, []),
+    % init_location("K09",    3000, true,  0, []),
+    % init_location("K10",    3000, true,  0, []),
+    % init_location("K11",    3000, true,  0, []),
+    % init_location("K12",    3000, true,  0, []),
+    % init_location("K13",    3000, true,  0, []),
+    % init_location("K14",    3000, true,  0, []),
+    % init_location("K15",    3000, true,  0, []),
+    % init_location("K16",    3000, true,  0, []),
+    % init_location("K17",    3000, true,  0, []),
+    % init_location("K18",    3000, true,  0, []),
+    % init_location("K19",    3000, true,  0, []),
+    % init_location("K20",    3000, true,  0, []),
     ok.
     
 
@@ -97,32 +97,28 @@ run_me_once() ->
 %%% @type unitRecord() = tuple().
 %%%     A record describing a Unit.
 
-%%% @type externalReferences() = List.
-%%%       List = [{string(), string()}]
-%%% A list of two-tuples encoding external references.
-
 
 %%%%
 %%%% main myPL API - location data
 %%%%
 
-%% @spec init_location(locationName(), heigthMM(), floorlevel, preference, attributes)  -> term()
+%% @spec init_location(locationName(), heigthMM(), boolean(), integer(), attributes string())  -> term()
 %% @doc creates a new Location or updates an existing one.
 %% 
 %% Locations can be created at any time - even when the myPL bristles with activity..
 %% There is no way of deleting Locations. Set their preference to 0 and let them rot.
 %% returns {ok, created|updated}
-init_location(Name, Height, Floorlevel, Preference, Attributes) 
+init_location(Name, Height, Floorlevel, Preference, Info, Attributes)
     when is_integer(Height), is_boolean(Floorlevel), is_integer(Preference), 
          Preference >= 0, Preference < 10, is_list(Attributes) ->
-    KnownAttributes = [no_picks],
+    KnownAttributes = [{no_picks}],
     case lists:filter(fun(X) -> not lists:member(X, KnownAttributes) end, Attributes) of
         [] ->
             % all attributes are ok
             Fun = fun() ->
                 Ret = case mnesia:read({location, Name}) of
                     [] ->
-                        Location = #location{allocated_by=[], reserved_for=[], description=""},
+                        Location = #location{allocated_by=[], reserved_for=[]},
                         ?WARNING("Location ~w beeing created", [Name]),
                         created;
                     [Location] ->
@@ -130,7 +126,7 @@ init_location(Name, Height, Floorlevel, Preference, Attributes)
                 end,
                 NewLocation = Location#location{name=Name, height=Height, floorlevel=Floorlevel,
                                                 preference=Preference,
-                                                description=Location#location.description,
+                                                info=Info,
                                                 attributes=Attributes,
                                                 allocated_by=Location#location.allocated_by,
                                                 reserved_for=Location#location.reserved_for},
@@ -145,6 +141,11 @@ init_location(Name, Height, Floorlevel, Preference, Attributes)
     end.
     
 
+%% @depreceated
+init_location(Name, Height, Floorlevel, Preference, Attributes) -> 
+    init_location(Name, Height, Floorlevel, Preference, "", Attributes).
+
+
 %% @spec location_info(locationName()) -> tuple()
 %% @doc gets a tuple with information concerning a location
 location_info(Locname) -> 
@@ -154,7 +155,7 @@ location_info(Locname) ->
          {height,        Location#location.height},
          {floorlevel,    Location#location.floorlevel},
          {preference,    Location#location.preference},
-         {description,   Location#location.description},
+         {info,          Location#location.info},
          {attributes,    Location#location.attributes},
          {allocated_by,  Location#location.allocated_by},
          {reserved_for,  Location#location.reserved_for}
@@ -252,10 +253,17 @@ retrive(Mui) ->
 %%%% main myPL API - movement
 %%%%
 
-%%% @spec init_movement(muID(), locationName()) -> movementID()
-%%% @see commit_movement/1
-%%% @doc start moving a unit from its current location to a new one
-init_movement(Mui, DestinationName) ->
+%% @spec init_movement(muID(), locationName(), [{term()}])-> movementID()
+%% @see commit_movement/1
+%% @doc start moving a unit from its current location to a new one while setting attributes.
+%%
+%% Attributes can be used for arbitrary purposes. Those attributes starting with 'mypl' are
+%% reserved for internal use by kernel-E. So far the following Attributes are used
+%% <dl>
+%%   <dt>mypl_notify_requestracker</dt> <dd>Upon committing the movement calls
+%% {@link mypl_requestracker:movement_done}(Product).</dd>
+%% </dl>
+init_movement(Mui, DestinationName, Attributes)  when is_list(Attributes) ->
     Fun = fun() ->
         % get unit for Mui & get current location of mui
         Unit = mypl_db_util:mui_to_unit(Mui),
@@ -273,7 +281,8 @@ init_movement(Mui, DestinationName) ->
                 Movement = #movement{id=("m" ++ mypl_util:oid()), mui=Mui,
                                      from_location=Source#location.name,
                                      to_location=Destination#location.name,
-                                     created_at=mypl_util:timestamp()},
+                                     created_at=mypl_util:timestamp(),
+                                     attributes=Attributes},
                 mnesia:write(Movement),
                 mypl_audit:unitaudit(Unit, "Umlagerung von " ++ Source#location.name ++ " nach "
                               ++ Destination#location.name ++ " initialisiert", Movement#movement.id),
@@ -282,6 +291,12 @@ init_movement(Mui, DestinationName) ->
     end,
     {atomic, Ret} = mnesia:transaction(Fun),
     Ret.
+    
+%% @spec init_movement(muID(), locationName())-> movementID()
+%% @see commit_movement/1
+%% @doc start moving a unit from its current location to a new one
+init_movement(Mui, DestinationName) ->
+    init_movement(Mui, DestinationName, []).
     
 
 %% @spec init_movement_to_good_location(muID()) -> movementID()
@@ -324,6 +339,12 @@ commit_movement(MovementId) ->
         ok = mnesia:delete({movement, MovementId}),
         mypl_audit:unitaudit(Unit, "Umlagerung von " ++ Source#location.name ++ " nach "
                       ++ Destination#location.name ++ " comitted", Movement#movement.id),
+            
+        case lists:member({mypl_notify_requestracker}, Movement#movement.attributes) of
+            true ->
+                mypl_requestracker:movement_done(Unit#unit.product);
+            _ -> []
+        end,
         Destination#location.name
     end,
     {atomic, Ret} = mnesia:transaction(Fun),
@@ -493,19 +514,19 @@ test_init() ->
     mnesia:clear_table(unitaudit),  
     % regenerate locations
     % init_location(Name, Height, Floorlevel, Preference, Attributes)
-    init_location("EINLAG", 6000, true,  0, [no_picks]),
-    init_location("AUSLAG", 6000, true,  0, [no_picks]),
+    init_location("EINLAG", 3000, true,  0, [{no_picks}]),
+    init_location("AUSLAG", 3000, true,  0, [{no_picks}]),
     init_location("010101", 2000, true,  6, []),
     init_location("010102", 1950, false, 6, []),
     init_location("010103", 1200, false, 5, []),
     init_location("010201", 2000, true,  7, []),
     true = is_list(location_list()),
     {ok, {{name, "EINLAG"},
-          {height, 6000},
+          {height, 3000},
           {floorlevel, true},
           {preference, 0},
-          {description, []},
-          {attributes,[no_picks]},
+          {info, []},
+          {attributes,[{no_picks}]},
           {allocated_by, []},
           {reserved_for, []}}} = mypl_db:location_info("EINLAG"),
     ok.

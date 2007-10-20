@@ -8,7 +8,7 @@
     allocated_by,     % liste der muis, die diesen platz belegen
     reserved_for,     % liste der muis, die auf dem weg zu diesem platz sind
     preference,       % plätze mit höherer preference werden bevorzugt befüllt, sollte zwischen 0-9 liegen
-    description,      % anmerkungen
+    info,             % anmerkungen
     attributes        % Liste von attributen: [
                       % no_picks - von diesm Platz darf nicht komissioniert werden (z.B. EINLAG)
                       %            keine picks und retrievals
@@ -30,7 +30,7 @@
                    from_location,
                    to_location,
                    created_at,
-                   references   % list of tuples to be used by the client application, not used by the myPL kernel
+                   attributes   % list of tuples to be used by the client application
                    }).
 
 

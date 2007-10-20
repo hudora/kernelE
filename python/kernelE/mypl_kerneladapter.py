@@ -33,18 +33,23 @@ class Kerneladapter:
         self.port = 5711
         self.connected = False
     
+    def __del__(self):
+        if self.connected:
+            self.sock.close()
+    
     def _init_connection(self):
         """connects to server"""
         if not  self.connected:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.sock.connect((self.host, self.port))
             self.connected = True
-    
+            header = self.sock.makefile().readline().strip()
+            if not header.startswith("200 "):
+                raise RuntimeError, "Error reading header: %r" % header
+                 
     def _read(self):
         data = self.sock.makefile().readline().strip()
         # print "<<<", data
-        if data.startswith("200 "):
-            return self._read()
         return data
     
     def _read_json(self, code):
@@ -79,10 +84,12 @@ class Kerneladapter:
         d['reserved_for'] = [e2string(x) for x in d['reserved_for']]
         return d
     
-    def init_location(self, name, height=1950, floorlevel=False, preference=5, attributes=[]):
+    def init_location(self, name, height=1950, floorlevel=False, preference=5, info='', attributes=[]):
         name = name.replace(',','').replace('\n','').replace('\r','')
+        info = info.replace(',',' ').replace('\n','').replace('\r','')
+        if not info: info = ' ' # the tokenizer used in kernelE can't handle 'foo,,bar', only 'foo, ,bar'
         # attributes are not implemented so far
-        self._send("init_location %s,%d,%r,%d,[]" % (name, height, floorlevel, preference))
+        self._send("init_location %s,%d,%r,%d,%s,[]" % (name, height, floorlevel, preference, info))
         return self._read_code(220)
         
     def store_at_location(self, name, quantity, artnr, mui=None, height=1950):

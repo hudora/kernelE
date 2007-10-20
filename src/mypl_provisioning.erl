@@ -111,7 +111,7 @@ find_pickable_units(Product) ->
 %% TODO: shouldn't this return yes or no?
 unit_pickable_helper(Unit) ->
      Loc = mypl_db_util:get_mui_location(Unit#unit.mui),
-     (not(lists:member(no_picks, Loc#location.attributes))) and (mypl_db_util:unit_moving(Unit) =:= no).
+     (not(lists:member({no_picks}, Loc#location.attributes))) and (mypl_db_util:unit_moving(Unit) =:= no).
      
 
 %% @spec find_retrieval_candidates_helper(Quantity::integer(), [mypl_db:muID()]) -> {ok, [mypl_db:unitRecord()]}
@@ -292,8 +292,8 @@ test_init() ->
     mnesia:clear_table(unitaudit),  
     % regenerate locations
     % init_location(Name, Height, Floorlevel, Preference, Attributes)
-    mypl_db:init_location("EINLAG", 6000, true,  0, [no_picks]),
-    mypl_db:init_location("AUSLAG", 6000, true,  0, [no_picks]),
+    mypl_db:init_location("EINLAG", 6000, true,  0, [{no_picks}]),
+    mypl_db:init_location("AUSLAG", 6000, true,  0, [{no_picks}]),
     mypl_db:init_location("010101", 2000, true,  6, []),
     mypl_db:init_location("010102", 1950, false, 6, []),
     mypl_db:init_location("010103", 1200, false, 5, []),

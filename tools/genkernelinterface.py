@@ -15,7 +15,7 @@ import unittest
 
 # Dies definiert der öffentliche API. Aus dem Code werden die diversen Schnittstellen erstellt
 funcdefs = [
-('mypl_db', 'init_location', 'Locname, Height, Floorlevel, Preference, Attributes', []),
+('mypl_db', 'init_location', 'Locname, Height, Floorlevel, Preference, Info, Attributes', []),
 ('mypl_db', 'location_info', 'Locname', []),
 ('mypl_db', 'location_list', '', []),
 ('mypl_db', 'store_at_location', 'Locname, Mui, Quantity, Product, Height', []),
@@ -47,6 +47,7 @@ typemap = {
 'Mui':        'String',
 'MovementId': 'String',
 'PickId':     'String',
+'Info':       'String',
 'Floorlevel': 'Boolean',
 'Attributes': 'Array',
 'JsonList':   'JsonList',

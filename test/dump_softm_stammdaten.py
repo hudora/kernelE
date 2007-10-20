@@ -1,4 +1,4 @@
-# laed Platz und Vorgagsdaten aus SoftM und speichert sie als Pickle
+# Speichert die SoftM Platzstammdaten.
 import sys, pickle, gzip, datetime
 sys.path.extend(['../..', './python'])
 from kernelE import Kerneladapter
@@ -7,21 +7,14 @@ from mofts.client import as400
 hoehenmapping = {'00': 2100, '03': 1800, '04': 1450, '05': 1150, '06': 1050}
 
 def main():
-    datestr = datetime.datetime.today().strftime('%Y%m%d')
-    print "reading from SoftM"
+    print "reading from SoftM & writingto myPL"
+    k = Kerneladapter()
     softm = as400.MoftSconnection()
     plaetze = softm.get_fixplaetze() + softm.get_belegteplaetze() + softm.get_freieplaetze()
-    vorgaenge = softm.get_protokomissioniervorgaenge()
-    filename = 'test/data/vorgaenge-%s.pickle.gz' % datestr
-    print "saving", filename
-    pickle.dump(vorgaenge, gzip.GzipFile(filename, 'w'))
     
     print "fetching location data"
-    platzbestand = {}
     platzinfo = {}
     for platz in plaetze:
-        (artnr, menge) = softm.get_platzbestand(platz)
-        platzbestand[platz] = (artnr, menge)
         pinfo = softm.get_platzinfo(platznr=platz)[0]
         hoehe = hoehenmapping.get(pinfo['behaelterstandart'], 1950)
         if int(pinfo['platztyp']) == 0:
@@ -49,39 +42,26 @@ def main():
             preferaenz -= 1
         preferaenz = min([preferaenz, 9])
         preferaenz = max([preferaenz, 1])
+        if platz.startswith('01') and (platz.endswith('02') or platz.endswith('03')):
+            preferaenz = 0
         if pinfo['EinlagRestr'] == '99':
             preferaenz = 0
         if pinfo['info'] == 'BRUECKE':
             hoehe = 3000
         platzinfo[platz] = {'preferaenz': preferaenz, 'hoehe': hoehe, 'info': pinfo['info']}
         print platz, platzinfo[platz]
+        if platz.endswith('01'):
+            k.init_location(platz, height=hoehe, floorlevel=True, preference=preferaenz, info=pinfo['info'])
+        else:
+            k.init_location(platz, height=hoehe, floorlevel=False, preference=preferaenz, info=pinfo['info'])
+        # platz leeren
+        loc = k.location_info(platz)
+        for mui in loc['allocated_by']:
+            k.retrive(mui)
+
     filename = 'test/data/platzinfo.pickle.gz'
     print "saving", filename
     pickle.dump(platzinfo, gzip.GzipFile(filename, 'w'))
-    filename = 'test/data/platzbestand-%s.pickle.gz' % datestr
-    print "saving", filename
-    pickle.dump(platzbestand, gzip.GzipFile(filename, 'w'))
 
 main()
 
-{
-'artnr': u'72111', 
-'bebaeltertyp01': u'', 
-'bebaeltertyp02': u'', 
-'bebaeltertyp03': u'', 
-'bebaeltertyp04': u'', 
-'bebaeltertyp05': u'', 
-'bebaeltertyp06': u'',
-'bebaeltertyp07': u'', 
-'bebaeltertyp08': u'', 
-'bebaeltertyp09': u'', 
-'bebaeltertyp10': u'',
-'behaelteranzahl': 9, 
-'behaelterbelegung': u'00', 
-'behaelterstandart': u'00', 
-'info': u'', 
-'platzfreigabe': 0,
-'platztyp': 0,
-'status': u'', 
-'LPSPEZ': 'C',
-}

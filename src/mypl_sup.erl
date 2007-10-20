@@ -29,7 +29,7 @@ start_link(Args) ->
 init([]) ->
     {ok, Host} = application:get_env(listen_host),
     {ok, Port} = application:get_env(listen_port),
-    {ok, {{one_for_one, 3, 10},
+    {ok, {{one_for_one, 30, 10},
           [{tag1, 
             {mypl_requesttracker, start_link, []},
             permanent, 

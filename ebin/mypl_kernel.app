@@ -7,6 +7,7 @@
                         mypl_db,
                         mypl_db_util,
                         mypl_requesttracker,
+                        mypl_movements,
                         mypl_server,
                         mypl_util,
                         mypl_tcp_session,

@@ -73,8 +73,8 @@ test_init() ->
     mnesia:clear_table(unitaudit),  
     % regenerate locations
     % init_location(Name, Height, Floorlevel, Preference, Attributes)
-    mypl_db:init_location("EINLAG", 6000, true,  0, [no_picks]),
-    mypl_db:init_location("AUSLAG", 6000, true,  0, [no_picks]),
+    mypl_db:init_location("EINLAG", 6000, true,  0, [{no_picks}]),
+    mypl_db:init_location("AUSLAG", 6000, true,  0, [{no_picks}]),
     mypl_db:init_location("010101", 2000, true,  1, []),
     mypl_db:init_location("010102", 1950, false, 2, []),
     mypl_db:init_location("010103", 1200, false, 3, []),

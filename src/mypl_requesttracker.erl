@@ -1,10 +1,5 @@
-%%%-------------------------------------------------------------------
-%%% File    : mypl_queue
-%%% Author  : Maximillian Dornseif
-%%% Description : 
-%%%
-%%% Created :  Created by Maximillian Dornseif on 2007-10-08.
-%%%-------------------------------------------------------------------
+%% Author  : Maximillian Dornseif
+%% Created :  Created by Maximillian Dornseif on 2007-10-08.
 %% @doc this server keeps track of the requests for movements (e.g. "Fixplatznachschub")
 
 -module(mypl_requesttracker).
@@ -16,13 +11,13 @@
 -define(SERVER, mypl_requesttracker).
 
 %% API
--export([start_link/0, start/0, stop/0, in/2, out/0]).
+-export([start_link/0, start/0, stop/0, in/2, out/0, movement_done/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
--record(state, {queue, table}).
+-record(state, {table}).
 
 %%====================================================================
 %% API
@@ -44,6 +39,9 @@ in(Quantity, Product) ->
 out() -> 
     gen_server:call(?SERVER, {out}). 
 
+movement_done(Product) ->
+    gen_server:cast(?SERVER, {movement_done, {Product}}). 
+
 stop() -> 
     gen_server:cast(?SERVER, stop). 
 
@@ -60,7 +58,7 @@ stop() ->
 %%--------------------------------------------------------------------
 init([]) ->
     process_flag(trap_exit, true),
-    {ok, #state{queue=queue:new(), table=ets:new(requesttracker, [ordered_set])}}.
+    {ok, #state{table=ets:new(requesttracker, [set])}}.
 
 %%--------------------------------------------------------------------
 %% Function: %% handle_call(Request, From, State) -> {reply, Reply, State} |
@@ -76,7 +74,7 @@ handle_call({out}, _From, State) ->
                     qlc:e(qlc:q([Y || Y <- ets:table(State#state.table)]))) of
         [] ->
             {reply, {empty}, State};
-        [H|T] ->
+        [H|_] ->
             {Product, Quantity, _} = H,
             ets:delete(State#state.table, Product),
             {reply, {ok, {Quantity, Product}}, State}
@@ -95,7 +93,10 @@ handle_cast({in, {Quantity, Product}}, State) ->
         [_] ->
             ets:update_counter(State#state.table, Product, {2, Quantity})
     end,
-    {noreply, State#state{queue=queue:in({Quantity, Product}, State#state.queue)}};
+    {noreply, State};
+handle_cast({movement_done, {Product}}, State) ->
+    ets:delete(State#state.table, Product),
+    {noreply, State};
 handle_cast({stop}, State) ->
     terminate(unknown, State),
     {stop, normal, State}.
@@ -118,7 +119,6 @@ handle_info(_Info, State) ->
 %% The return value is ignored.
 %%--------------------------------------------------------------------
 terminate(_Reason, State) ->
-    io:format("Left over movementsuggestions: ~w~n", [queue:to_list(State#state.queue)]),
     ets:delete(State#state.table),
     ok.
 

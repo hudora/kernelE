@@ -2,13 +2,14 @@
 handle_command("init_location", _Parameters, State) ->
     % implementation for init_location,
     Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
-    [Locname,Height,Floorlevel,Preference,Attributes] = Tokens,
+    [Locname,Height,Floorlevel,Preference,Info,Attributes] = Tokens,
     NewLocname = convertString(Locname),
     NewHeight = convertPositiveInteger(Height),
     NewFloorlevel = convertBoolean(Floorlevel),
     NewPreference = convertPositiveInteger(Preference),
+    NewInfo = convertString(Info),
     NewAttributes = convertArray(Attributes),
-    {noreply, reply(220, rfc4627:encode(mypl_server:init_location(NewLocname,NewHeight,NewFloorlevel,NewPreference,NewAttributes)), reset_buffers(State))};
+    {noreply, reply(220, rfc4627:encode(mypl_server:init_location(NewLocname,NewHeight,NewFloorlevel,NewPreference,NewInfo,NewAttributes)), reset_buffers(State))};
 handle_command("location_info", _Parameters, State) ->
     % implementation for location_info,
     Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
@@ -107,7 +108,7 @@ handle_command("create_automatic_movements", _Parameters, State) ->
     {noreply, reply(220, rfc4627:encode(mypl_server:create_automatic_movements()), reset_buffers(State))};
 
 handle_command("help", _Parameters, State) -> {noreply, reply(220, "Help follows:
-init_location Locname,Height,Floorlevel,Preference,Attributes
+init_location Locname,Height,Floorlevel,Preference,Info,Attributes
 location_info Locname
 location_list 
 store_at_location Locname,Mui,Quantity,Product,Height
