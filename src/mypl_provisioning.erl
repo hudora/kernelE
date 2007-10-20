@@ -155,21 +155,12 @@ find_retrieval_candidates(Quantity, Product) when is_integer(Quantity), Quantity
 
 
 %% @private
-%% find_movable_units(string()) -> [mypl_db:unitRecord()]
-%% @doc returns a list of all movable units for a product
-find_movable_units(Product) -> 
-    Candidates = mypl_db_util:do(qlc:q([X || X <- mnesia:table(unit), X#unit.product =:= Product,
-                                                         X#unit.pick_quantity =< 0])),
-    lists:filter(fun(X) -> mypl_db_util:unit_movable(X) =:= yes end, Candidates).
-    
-
-%% @private
 %% @spec find_retrievable_units(string()) -> [mypl_db:unitRecord()]
 %% @doc returns a list of all units for a product which can be retrived.
 %%
 %% (no no_picks attribute on location and no open movements)
 find_retrievable_units(Product) ->
-    [X || X <- find_movable_units(Product), unit_pickable_helper(X)].
+    [X || X <- mypl_db_util:find_movable_units(Product), unit_pickable_helper(X)].
 
 
 %% @private
@@ -225,11 +216,11 @@ find_provisioning_candidates(Quantity, Product) ->
                 {fit, Pickcandidates} ->
                     {ok, Candidates, Pickcandidates};
                 {error, no_fit} ->
-                    mypl_requesttracker:in({Quantity, Product}),
+                    mypl_requesttracker:in(Quantity, Product),
                     {error, no_fit}
             end;
         {error, no_fit} ->
-            mypl_requesttracker:in({Quantity, Product}),
+            mypl_requesttracker:in(Quantity, Product),
             {error, no_fit};
         {error,not_enough} ->
             {error, not_enough}
@@ -492,7 +483,7 @@ real_world1_test() ->
     % {ok, _} = mypl_db:store_at_location("010401", mui7, 48, "42236", 1950), 
     % {ok, _} = mypl_db:store_at_location("010302", mui8, 48, "42236", 1950), 
     % {ok, _} = mypl_db:store_at_location("010403", mui9, 48, "42236", 1950), 
-    {ok, _} = mypl_db:store_at_location("010402", mui0, 48, "42236", 1950), 
+    % {ok, _} = mypl_db:store_at_location("010402", mui0, 48, "42236", 1950), 
     {ok, _} = mypl_db:store_at_location("010101", muia,  2, "42236", 1950), 
     {ok, _} = mypl_db:store_at_location("010201", muib, 48, "42236", 1950), 
     % reihenfolge: kleinste, aelteste

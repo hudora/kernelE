@@ -19,7 +19,6 @@ def e2string(data):
 
 def attributelist2dict(l, fixattnames=[]):
     ret = {}
-    print repr(l)
     for name, value in l:
         if name in fixattnames:
             ret[name] = e2string(value)
@@ -138,3 +137,13 @@ class Kerneladapter:
     def commit_pick(self, pickid):
         self._send("commit_pick %s" % (pickid))
         return self._read_json(220)
+    
+    def create_automatic_movements(self):
+        self._send("create_automatic_movements")
+        ret = self._read_json(220)
+        ok, movements = ret
+        ret = []
+        for movement in movements:
+            ok, movementid = movement
+            ret.append(e2string(movementid))
+        return ret

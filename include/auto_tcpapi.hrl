@@ -102,6 +102,9 @@ handle_command("init_provisionings_multi", _Parameters, State) ->
     % implementation for init_provisionings_multi,
     {ok, NewJsonList, _} = rfc4627:decode(_Parameters),
     {noreply, reply(220, rfc4627:encode(mypl_server:init_provisionings_multi(NewJsonList)), reset_buffers(State))};
+handle_command("create_automatic_movements", _Parameters, State) ->
+    % implementation for create_automatic_movements,
+    {noreply, reply(220, rfc4627:encode(mypl_server:create_automatic_movements()), reset_buffers(State))};
 
 handle_command("help", _Parameters, State) -> {noreply, reply(220, "Help follows:
 init_location Locname,Height,Floorlevel,Preference,Attributes
@@ -120,7 +123,8 @@ count_product Product
 count_products 
 find_provisioning_candidates Quantity,Product
 find_provisioning_candidates_multi JsonList
-init_provisionings_multi JsonList", reset_buffers(State))};
+init_provisionings_multi JsonList
+create_automatic_movements ", reset_buffers(State))};
 handle_command("quit", _ClientDomain, State) -> {stop, normal, reply(201, "Goodbye", reset_buffers(State))};
 handle_command(Command, _Parameters, State) -> {noreply, reply(500, "Unsupported command " ++ Command, State)}.
 

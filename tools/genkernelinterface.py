@@ -34,6 +34,8 @@ funcdefs = [
 ('mypl_provisioning', 'find_provisioning_candidates', 'Quantity, Product', []),
 ('mypl_provisioning', 'find_provisioning_candidates_multi', 'JsonList', []),
 ('mypl_provisioning', 'init_provisionings_multi', 'JsonList', []),
+
+('mypl_movements', 'create_automatic_movements', '', []),
 ]
 
 typemap = {

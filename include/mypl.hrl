@@ -29,6 +29,7 @@
                    mui,
                    from_location,
                    to_location,
+                   created_at,
                    references   % list of tuples to be used by the client application, not used by the myPL kernel
                    }).
 
@@ -66,6 +67,7 @@
 
 -record(archive, {id,           % eindeutiger Bezeichner
                   created_at,
+                  archived_by,  % wodurch wurde der datensatz archiviert
                   body
                   }).
 

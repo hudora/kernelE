@@ -22,8 +22,9 @@
 -include("mypl.hrl").
 
 %% API
--export([do/1, get_mui_location/1, mui_to_unit/1, unit_moving/1, unit_movable/1, best_location/1,
-         read_location/1]).
+-export([do/1, get_mui_location/1, mui_to_unit/1, unit_moving/1, unit_movable/1,
+         best_location/1, best_locations/2,
+         read_location/1, find_movable_units/1]).
 
 %% @private
 %% @doc helper function for wraping {@link qlc} queries in an {@link mnesia} transaction.
@@ -88,16 +89,34 @@ unit_movable(Unit) ->
             no
     end.
 
+best_location_helper(Unit) ->
+    % locations with preference == 0 are never considered
+    Candidates = [X || X <- find_empty_location(Unit#unit.height), #location.preference > 0],
+    % order by heigth, so we prefer lower locations (and in addition order by preference)
+    lists:keysort(#location.height, lists:reverse(lists:keysort(#location.preference, Candidates))).
+
 %% @private
 %% @spec best_location(unitRecord()) -> locationRecord()
 %% @see mypl_db:init_movement_to_good_location/1
 %% @doc finds the best location for an Unit
 best_location(Unit) ->
-    Candidates = find_empty_location(Unit#unit.height),
-    % order by heigth, so we prefer lower locations
-    [H|_] = lists:keysort(#location.height, Candidates),
+    [H|_] = best_location_helper(Unit),
     H.
 
+
+best_location(floorlevel, Unit, Ignore) ->
+    % order by heigth, so we prefer lower locations
+    [H|_] = [X || X <- best_location_helper(Unit), X#location.floorlevel =:= true] -- Ignore,
+    H.
+best_location(floorlevel, Unit) -> best_location(floor, Unit, []).
+
+best_locations(floorlevel, [], _) -> [];
+best_locations(floorlevel, Units, Ignore) -> 
+    [H|T] = Units,
+    Best = best_location(floorlevel, H, Ignore),
+    [Best|best_locations(floorlevel, T, [Best|Ignore])].
+best_locations(floorlevel, Units) -> 
+    best_locations(floorlevel, Units, []).
 
 %% @private
 %% @spec read_location(string()) -> mypl_db:unitRecord()
@@ -113,6 +132,15 @@ read_location(Locname) when is_list(Locname)->
         L ->
             erlang:error({internal_error, Locname, L})
     end.
+    
+
+%% @private
+%% find_movable_units(string()) -> [mypl_db:unitRecord()]
+%% @doc returns a list of all movable units for a product
+find_movable_units(Product) -> 
+    Candidates = mypl_db_util:do(qlc:q([X || X <- mnesia:table(unit), X#unit.product =:= Product,
+                                                         X#unit.pick_quantity =< 0])),
+    lists:filter(fun(X) -> mypl_db_util:unit_movable(X) =:= yes end, Candidates).
     
 
 %% TODO: this ignores Multi Unit Locations

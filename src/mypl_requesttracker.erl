@@ -11,16 +11,18 @@
 
 -behaviour(gen_server).
 
+-include_lib("stdlib/include/qlc.hrl").
+
 -define(SERVER, mypl_requesttracker).
 
 %% API
--export([start_link/0, start/0, stop/0, in/1, out/0]).
+-export([start_link/0, start/0, stop/0, in/2, out/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
--record(state, {queue}).
+-record(state, {queue, table}).
 
 %%====================================================================
 %% API
@@ -35,8 +37,9 @@ start_link() ->
 start() -> 
     gen_server:start({local, ?SERVER}, ?MODULE, [], []). 
 
-in(Data) -> 
-    gen_server:cast(?SERVER, {in, Data}). 
+in(Quantity, Product) -> 
+    %% TODO: check if we have an open movement before adding
+    gen_server:cast(?SERVER, {in, {Quantity, Product}}). 
 
 out() -> 
     gen_server:call(?SERVER, {out}). 
@@ -57,7 +60,7 @@ stop() ->
 %%--------------------------------------------------------------------
 init([]) ->
     process_flag(trap_exit, true),
-    {ok, #state{queue=queue:new()}}.
+    {ok, #state{queue=queue:new(), table=ets:new(requesttracker, [ordered_set])}}.
 
 %%--------------------------------------------------------------------
 %% Function: %% handle_call(Request, From, State) -> {reply, Reply, State} |
@@ -68,17 +71,16 @@ init([]) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
-handle_call({in, Data}, _From, State) ->
-    {reply, Data, State#state{queue=queue:in(Data, State#state.queue)}};
-
 handle_call({out}, _From, State) ->
-    Ret = case queue:out(State#state.queue) of 
-          {{value, Item}, NewQueue} -> 
-              {value, Item}; 
-          {empty, NewQueue} -> 
-              {empty} 
-         end, 
-    {reply, Ret, #state{queue=NewQueue}}.
+    case lists:sort(fun({_, _, TSa}, {_, _, TSb}) -> TSa < TSb end,
+                    qlc:e(qlc:q([Y || Y <- ets:table(State#state.table)]))) of
+        [] ->
+            {reply, {empty}, State};
+        [H|T] ->
+            {Product, Quantity, _} = H,
+            ets:delete(State#state.table, Product),
+            {reply, {ok, {Quantity, Product}}, State}
+    end.
 
 %%--------------------------------------------------------------------
 %% Function: handle_cast(Msg, State) -> {noreply, State} |
@@ -86,11 +88,17 @@ handle_call({out}, _From, State) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
+handle_cast({in, {Quantity, Product}}, State) ->
+    case ets:lookup(State#state.table, Product) of
+        [] ->
+            ets:insert(State#state.table, {Product, Quantity, mypl_util:timestamp()});
+        [_] ->
+            ets:update_counter(State#state.table, Product, {2, Quantity})
+    end,
+    {noreply, State#state{queue=queue:in({Quantity, Product}, State#state.queue)}};
 handle_cast({stop}, State) ->
     terminate(unknown, State),
-    {stop, normal, State};
-handle_cast({in, Data}, State) ->
-    {noreply, State#state{queue=queue:in(Data, State#state.queue)}}.
+    {stop, normal, State}.
 
 
 %%--------------------------------------------------------------------
@@ -111,6 +119,7 @@ handle_info(_Info, State) ->
 %%--------------------------------------------------------------------
 terminate(_Reason, State) ->
     io:format("Left over movementsuggestions: ~w~n", [queue:to_list(State#state.queue)]),
+    ets:delete(State#state.table),
     ok.
 
 %%--------------------------------------------------------------------
