@@ -42,6 +42,7 @@
                              product,
                              height,
                              pick_quantity,
+                             location,
                              created_at]}]}]}.
 {location,"093103",1050,false,[],[],1,"TRAVERSE",[]}.
 {location,"090803",1800,false,[],[],4,[],[]}.
@@ -1208,6 +1209,7 @@
 {location,"061003",3000,false,[],[],3,"BRUECKE",[]}.
 {location,"022902",2100,false,[],[],8,[],[]}.
 {location,"013403",1800,false,[],[],0,[],[]}.
+{location,"UMLAG",2100,false,[],[],0,[],[]}.
 {location,"204902",2100,false,[],[],2,[],[]}.
 {location,"192703",1800,false,[],[],1,[],[]}.
 {location,"183502",2100,false,[],[],8,[],[]}.
@@ -2343,7 +2345,7 @@
 {location,"051402",2100,false,[],[],7,[],[]}.
 {location,"151901",2100,true,[],[],5,[],[]}.
 {location,"112701",2100,true,[],[],6,[],[]}.
-{location,"VERSAN",2100,false,[],[],5,[],[]}.
+{location,"VERSAN",2100,false,[],[],0,[],[]}.
 {location,"204603",1800,false,[],[],1,[],[]}.
 {location,"075201",2100,true,[],[],4,[],[]}.
 {location,"064003",3000,false,[],[],3,"BRUECKE",[]}.
@@ -2387,7 +2389,6 @@
 {location,"073002",2100,false,[],[],8,[],[]}.
 {location,"071301",2100,true,[],[],1,[],[]}.
 {location,"053603",1450,false,[],[],3,"HEIZUNGSROHR",[]}.
-{location,"RETOUR",2100,false,[],[],5,[],[]}.
 {location,"070401",2100,true,[],[],5,[],[]}.
 {location,"060101",2100,true,[],[],3,"DURCHLAUFREGAL",[]}.
 {location,"191503",3000,false,[],[],2,"BRUECKE",[]}.
