@@ -4,16 +4,16 @@ sys.path.extend(['./python'])
 from kernelE import Kerneladapter
 
 def main():
-    platzbestand = pickle.load(gzip.GzipFile('test/data/platzbestand-20071017.pickle.gz', 'r'))
+    platzbestand = pickle.load(gzip.GzipFile('test/data/platzbestand-20071019.pickle.gz', 'r'))
     for platz in platzbestand.keys():
         (artnr, menge) = platzbestand[platz]
         if artnr and menge > 0:
-            if platz in ['KATALO', '######', 'BEREIT', 'FERTAB', 'FERTZU', 'SOFORT', 'SONDER', 'UMLAG']:
-                continue
+            if platz in ['KATALO', '######', 'BEREIT', 'FERTAB', 'FERTZU', 'SOFORT', 'SONDER', 'UMLAG', 'RETOUR', 'VERSAN']:
+                platz = 'FEHLER'
             k = Kerneladapter()
             loc = k.location_info(platz)
-            for mui in loc['allocated_by']:
-                k.retrive(mui)
+            # for mui in loc['allocated_by']:
+            #     k.retrive(mui)
             try:
                 k.store_at_location(platz, menge, artnr)
             except RuntimeError, msg:

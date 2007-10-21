@@ -7,7 +7,7 @@ from mofts.client import as400
 hoehenmapping = {'00': 2100, '03': 1800, '04': 1450, '05': 1150, '06': 1050}
 
 def main():
-    print "reading from SoftM & writingto myPL"
+    print "reading from SoftM & writing to myPL"
     k = Kerneladapter()
     softm = as400.MoftSconnection()
     plaetze = softm.get_fixplaetze() + softm.get_belegteplaetze() + softm.get_freieplaetze()
@@ -15,6 +15,8 @@ def main():
     print "fetching location data"
     platzinfo = {}
     for platz in plaetze:
+        if platz in ["RETOUR", "KATALO", "FERTZU", "FERTAB", "BEREIT", "SOFORT", "######", "SONDER", "UMLAG"]:
+            continue
         pinfo = softm.get_platzinfo(platznr=platz)[0]
         hoehe = hoehenmapping.get(pinfo['behaelterstandart'], 1950)
         if int(pinfo['platztyp']) == 0:
@@ -48,6 +50,8 @@ def main():
             preferaenz = 0
         if pinfo['info'] == 'BRUECKE':
             hoehe = 3000
+        if not platz.isdigit():
+            preferaenz = 0
         platzinfo[platz] = {'preferaenz': preferaenz, 'hoehe': hoehe, 'info': pinfo['info']}
         print platz, platzinfo[platz]
         if platz.endswith('01'):

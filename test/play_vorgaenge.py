@@ -38,6 +38,7 @@ def process_orders(auftragsnummern):
         # print "k.init_provisionings_multi(%r)" % ([(pos.menge, pos.artnr) for pos in positionen])
         ret = k.init_provisionings_multi([(pos.menge, pos.artnr) for pos in positionen])
         if ret[0] == 'error':
+            print ret, [(pos.menge, pos.artnr) for pos in positionen]
             statnote('retried_orders', 1)
             nofit.append(auftragsnummer)
         else:
@@ -70,7 +71,7 @@ def process_orders(auftragsnummern):
 def main():
     oldnofit = []
     print "Simulating a day of myPL at work"
-    vorgaenge = pickle.load(gzip.GzipFile('test/vorgaenge.pickle.gz', 'r'))
+    vorgaenge = pickle.load(gzip.GzipFile('test/data/vorgaenge-20071019.pickle.gz', 'r'))
     for v in vorgaenge:
         o = Orderline()
         o.menge, o.artnr, o.auftragsnummer, o.liefer_date =  v['menge'], v['artnr'], v['auftragsnummer'], v['liefer_date']
@@ -93,6 +94,11 @@ def main():
     print "nofits left", len(set(oldnofit))
     print "statistics", globalstats
     print oldnofit, [byauftrag[auftragsnummer] for auftragsnummer in oldnofit]
+    
+    for auftragsnummer in oldnofit:
+        positionen = byauftrag[auftragsnummer]
+        print "mypl_provisioning:find_provisioning_candidates_multi([%s])" % ','.join(["{%s,%s}" % (pos.menge, pos.artnr) for pos in positionen])
+    
     movements = True
     k = Kerneladapter()
     while movements:
