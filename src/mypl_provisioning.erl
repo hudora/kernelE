@@ -131,27 +131,40 @@ find_retrieval_candidates_helper(Quantity, Units) when is_integer(Quantity), is_
     end.
     
 
+%% @spec find_retrieval_candidates(Quantity::integer(), string, [mypl_db:unitRecord()]) -> {ok, Remainder, [mypl_db:unitRecord()]}
+%% @doc finds the best retrieval candidates to exactly match Quantity.
+find_retrieval_candidates(Quantity, Product, Units) when is_integer(Quantity), Quantity >= 0, is_list(Units) ->
+    {{FullQuantity, AvailableQuantity, _, _}, _} = mypl_db_query:count_product(Product),
+    if
+        AvailableQuantity < Quantity ->
+            % impossible to fullfill the request
+            if
+                FullQuantity < Quantity ->
+                    % this really shouldn't happen. Something is deeply broken - or isn't it?
+                    erlang:display({error, not_enough, internal_error, {Quantity, Product}, FullQuantity, AvailableQuantity}),
+                    {error, not_enough};
+                true ->
+                    {error, not_enough}
+            end,
+            {error, not_enough};
+        true ->
+            case find_retrieval_candidates_helper(Quantity, Units) of
+                {ok, NewUnits} ->
+                    % find how much is left to be gathered by picks
+                    Remainder = Quantity - lists:sum([X#unit.quantity || X <- NewUnits]),
+                    {ok, Remainder, [X#unit.mui || X <- NewUnits]};
+                {error, no_fit} ->
+                    {ok, Quantity, []}
+            end
+    end.
+
 %% @spec find_retrieval_candidates(Quantity::integer(), string) -> {ok, Remainder, [mypl_db:unitRecord()]}
 %% @doc finds the best retrieval candidates to exactly match Quantity.
 %%
 %% If there is a 100% fit the remainder is 0. Else the quantity given in Remainder need to found
 %% by other mens than retrieval, e.g. by Picks.
 find_retrieval_candidates(Quantity, Product) when is_integer(Quantity), Quantity >= 0 ->
-    {{_, AvailableQuantity, _, _}, _} = mypl_db_query:count_product(Product),
-    if
-        AvailableQuantity < Quantity ->
-            % impossible to fullfill the request
-            {error, not_enough};
-        true ->
-            case find_retrieval_candidates_helper(Quantity, find_retrievable_units(Product)) of
-                {ok, Units} ->
-                    % find how much is left to be gathered by picks
-                    Remainder = Quantity - lists:sum([X#unit.quantity || X <- Units]),
-                    {ok, Remainder, [X#unit.mui || X <- Units]};
-                {error, no_fit} ->
-                    {ok, Quantity, []}
-            end
-    end.
+    find_retrieval_candidates(Quantity, Product, find_retrievable_units(Product)).
 
 
 %% @private
@@ -216,16 +229,51 @@ find_provisioning_candidates(Quantity, Product) ->
                 {fit, Pickcandidates} ->
                     {ok, Candidates, Pickcandidates};
                 {error, no_fit} ->
-                    mypl_requesttracker:in(Quantity, Product),
-                    {error, no_fit}
+                    % we try just another thing: retrival only from the upper levels:
+                    NonFloorUnits = lists:filter(fun(X) -> Loc = mypl_db_util:get_mui_location(X#unit.mui), 
+                                     Loc#location.floorlevel =:= false
+                                   end, find_retrievable_units(Product)),
+                    case find_retrieval_candidates(Quantity, Product, NonFloorUnits) of
+                        {ok, NRemainder, NCandidates} ->
+                            case find_pick_candidates(NRemainder, Product, NCandidates) of
+                                {fit, NPickcandidates} ->
+                                    {ok, NCandidates, NPickcandidates};
+                                {error, no_fit} ->
+                                    mypl_requesttracker:in(Quantity, Product),
+                                    {error, no_fit}
+                            end;
+                        {error, no_fit} ->
+                            mypl_requesttracker:in(Quantity, Product),
+                            {error, no_fit}
+                    end
             end;
         {error, no_fit} ->
             mypl_requesttracker:in(Quantity, Product),
             {error, no_fit};
         {error,not_enough} ->
+            % this might happen, if to much of a certain product is on the move in the warehouse
+            mypl_requesttracker:in(Quantity, Product),
             {error, not_enough}
     end.
     
+deduper_dictbuilder([], Dict) -> Dict;
+deduper_dictbuilder([H|T], Dict) ->
+    % disambiguate strange JSON
+    case H of
+        {Quantity, Product} -> ok;
+        [Quantity, Product] -> ok
+    end,
+    if
+        Quantity > 0 ->
+            deduper_dictbuilder(T, dict:update_counter(Product, Quantity, Dict));
+        true ->
+            deduper_dictbuilder(T, Dict)
+    end.
+    
+% @doc converts [{4,"10195"}, {0,"14695"}, {24,"66702"}, {180,"66702"}] to [{"66702",204},{"10195",4}]
+deduper(L) ->
+    lists:map(fun({A, B}) -> {B, A} end,
+              dict:to_list(deduper_dictbuilder(L, dict:new()))).
 
 %% @spec find_provisioning_candidates_multi() -> term()
 %% @see find_provisioning_candidates/2
@@ -233,8 +281,9 @@ find_provisioning_candidates(Quantity, Product) ->
 %% Possibly Takes advantage of multi-processor system. Returns {ok, [retrievals], [picks]}
 %%
 %% Example:
-%% [{ok, [{6, Mui1a0010}], [{4, Mui2a0009}]}, ] = find_provisioning_candidates([{4, "a0009"}, {6, "a0010"}])
-find_provisioning_candidates_multi(L) ->
+%% [{ok, [{6, Mui1a0010}], [{4, Mui2a0009}]}, ] = find_provisioning_candidates_multi([{4, "a0009"}, {6, "a0010"}])
+find_provisioning_candidates_multi(L1) ->
+    L = deduper(L1),
     CandList = lists:map(fun({Quantity, Product}) -> find_provisioning_candidates(Quantity, Product);
                             ([Quantity, Product]) -> find_provisioning_candidates(Quantity, Product) end, L),
     case lists:all(fun(Reply) -> element(1, Reply) =:= ok end, CandList) of
@@ -298,12 +347,12 @@ test_init() ->
     mypl_db:init_location("010102", 1950, false, 6, []),
     mypl_db:init_location("010103", 1200, false, 5, []),
     mypl_db:init_location("010201", 2000, true,  7, []),
-    mypl_db:init_location("010202", 2000, true,  7, []),
-    mypl_db:init_location("010203", 2000, true,  7, []),
-    mypl_db:init_location("010301", 2000, true,  7, []),
+    mypl_db:init_location("010202", 2000, false,  7, []),
+    mypl_db:init_location("010203", 2000, false,  7, []),
+    mypl_db:init_location("010301", 2000, true,   7, []),
     mypl_db:init_location("010302", 2000, false,  7, []),
     mypl_db:init_location("010303", 2000, false,  7, []),
-    mypl_db:init_location("010401", 2000, true,  7, []),
+    mypl_db:init_location("010401", 2000, true,   7, []),
     mypl_db:init_location("010402", 2000, false,  7, []),
     mypl_db:init_location("010403", 2000, false,  7, []),
     ok.
@@ -464,12 +513,13 @@ mypl_simple_provisioning2_test() ->
     {ok, [Mui3, Mui2], [{1, Mui1}]} = find_provisioning_candidates(13, "a0009"),
     
     % TODO: there are actual fits for that pick, our code is just not smart enough to find them
-    {error, no_fit} = find_provisioning_candidates(22, "a0009"),
-    
+    % on the first run - so there is some extremely obscure code at work to find the picks
+    {ok, [Mui3, Mui2], [{10, Mui1}]} = find_provisioning_candidates(22, "a0009"),
+    %                
     {ok, [Mui3, Mui2, Mui1], []} = find_provisioning_candidates(23, "a0009"),
     {error, not_enough} = find_provisioning_candidates(24, "a0009"),
     {ok, [Mui4], [{4, Mui1}]} = find_provisioning_candidates_multi([{4, "a0009"}, {6, "a0010"}]),
-    {ok, [Mui2, Mui4], [{2, Mui1}]} = find_provisioning_candidates_multi([{9, "a0009"}, {6, "a0010"}]),
+    {ok, [Mui4, Mui2], [{2, Mui1}]} = find_provisioning_candidates_multi([{9, "a0009"}, {6, "a0010"}]),
     ok.
     
 real_world1_test() ->
@@ -478,7 +528,7 @@ real_world1_test() ->
     {ok, _} = mypl_db:store_at_location("010102", mui2, 48, "42236", 1950), 
     {ok, _} = mypl_db:store_at_location("010202", mui3, 48, "42236", 1950), 
     {ok, _} = mypl_db:store_at_location("010301", mui4, 48, "42236", 1950), 
-    {ok, _} = mypl_db:store_at_location("010203", mui5, 48, "42236", 1950), 
+    % {ok, _} = mypl_db:store_at_location("010203", mui5, 48, "42236", 1950), 
     % {ok, _} = mypl_db:store_at_location("010303", mui6, 48, "42236", 1950), 
     % {ok, _} = mypl_db:store_at_location("010401", mui7, 48, "42236", 1950), 
     % {ok, _} = mypl_db:store_at_location("010302", mui8, 48, "42236", 1950), 
@@ -487,11 +537,63 @@ real_world1_test() ->
     {ok, _} = mypl_db:store_at_location("010101", muia,  2, "42236", 1950), 
     {ok, _} = mypl_db:store_at_location("010201", muib, 48, "42236", 1950), 
     % reihenfolge: kleinste, aelteste
-    % {ok, 98, [muia, mui1, mui2]} = find_retrieval_candidates(100, "42236"),
-    % {ok, [muia, mui1, mui2} = find_provisioning_candidates(100, "42236"),
-    {fit,[{48,mui3},{2,mui4}]} = find_pick_candidates(50, "42236", [muia, mui1]),
-    {ok,[muia, mui1, mui2], [{2, mui3}]} = find_provisioning_candidates(100, "42236"),
-    {ok,[muia, mui1, mui2], [{2, mui3}]} = find_provisioning_candidates_multi([[100, "42236"]]),
+    {ok, 2, [muia, mui1, mui2]} = find_retrieval_candidates(100, "42236"),
+    {ok, [muia, mui1, mui2], [{2,mui4}]} = find_provisioning_candidates(100, "42236"),
+    {fit, [{48, mui4}, {2, muib}]} = find_pick_candidates(50, "42236", [muia, mui1]),
+    {ok, [muia,mui1,mui2],[{2,mui4}]} = find_provisioning_candidates(100, "42236"),
+    {ok, [muia,mui1,mui2],[{2,mui4}]} = find_provisioning_candidates_multi([[100, "42236"]]),
+    ok.
+
+real_world2_test() ->
+   test_init(),
+   % Beispiel, wo kein ergebnis gefunden wird/wurde, obwohl dies im grunde moeglich waere
+   {ok, _} = mypl_db:store_at_location("010102", mui1, 56, "14890/01", 1950),
+   {ok, _} = mypl_db:store_at_location("010103", mui2, 56, "14890/01", 1950),
+   %{ok, _} = mypl_db:store_at_location("010202", mui3, 56, "14890/01", 1950),
+   %{ok, _} = mypl_db:store_at_location("010203", mui4, 56, "14890/01", 1950),
+   %{ok, _} = mypl_db:store_at_location("010302", mui5, 56, "14890/01", 1950),
+   %{ok, _} = mypl_db:store_at_location("010303", mui6, 56, "14890/01", 1950),
+   %{ok, _} = mypl_db:store_at_location("010402", mui7, 56, "14890/01", 1950),
+   {ok, _} = mypl_db:store_at_location("010403", mui8, 56, "14890/01", 1950),
+   {ok, _} = mypl_db:store_at_location("010101", mui9, 62, "14890/01", 1950),
+   {ok, [mui1], [{44, mui9}]} = mypl_provisioning:find_provisioning_candidates(100,"14890/01"),
+   ok.
+
+real_world3_test() ->
+    test_init(),
+    % dieser code fuehrte zu problemen, weil 66702 zwei mal im Auftrag vorkam.
+    % obendrein wird init_provisionings_multi getestet
+    {ok, _} = mypl_db:store_at_location("010203", mui1, 32, "10195", 1950),
+    {ok, _} = mypl_db:store_at_location("010301", mui2, 32, "10195", 1950),
+    {ok, _} = mypl_db:store_at_location("010202", mui3, 32, "10195", 1950),
+    {ok, _} = mypl_db:store_at_location("010201", mui4, 31, "10195", 1950),
+    {ok, _} = mypl_db:store_at_location("010202", mui5,  7, "14695", 1950),
+    {ok, _} = mypl_db:store_at_location("010203", mui6, 36, "14695", 1950),
+    {ok, _} = mypl_db:store_at_location("010302", mui7, 36, "14695", 1950),
+    {ok, _} = mypl_db:store_at_location("010303", mui8, 36, "14695", 1950),
+    {ok, _} = mypl_db:store_at_location("010402", mui9, 36, "14695", 1950),
+    {ok, _} = mypl_db:store_at_location("010403", muia, 36, "14695", 1950),
+    {ok, _} = mypl_db:store_at_location("010102", muib, 36, "14695", 1950),
+    {ok, _} = mypl_db:store_at_location("010103", muic, 36, "14695", 1950),
+    %{ok, _} = mypl_db:store_at_location("151603", muid, 36, "14695", 1950),
+    %{ok, _} = mypl_db:store_at_location("152803", muie, 36, "14695", 1950),
+    {ok, _} = mypl_db:store_at_location("010101", muif,250, "66702", 1950),
+    {ok,[],[{4,mui2}]} = mypl_provisioning:find_provisioning_candidates(4, "10195"),
+    {error, no_fit} = mypl_provisioning:find_provisioning_candidates(18, "14695"),
+    {ok,[],[{24,muif}]} = mypl_provisioning:find_provisioning_candidates(24, "66702"),
+    {ok,[],[{100,muif}]} = mypl_provisioning:find_provisioning_candidates(100,"66702"),
+    % find_provisioning_candidates_multi takes list-of-lists and list-of-tuples as an argument to satisfy JSON
+    {error, no_fit} = find_provisioning_candidates_multi([[4,"10195"], [18,"14695"], [24,"66702"], [180,"66702"]]),
+    {error, no_fit} = find_provisioning_candidates_multi([{4,"10195"}, {18,"14695"}, {24,"66702"}, {180,"66702"}]),
+    % duplicate articles (66702) are aggregated into a single pick
+    {ok,[], [{204,muif}, {4,mui2}]} = find_provisioning_candidates_multi([{4,"10195"}, {24,"66702"}, {180,"66702"}]),
+    
+    % quantity 0 products are ignored
+    {ok,[],[{204,muif},{4,mui2}]} = find_provisioning_candidates_multi([{4,"10195"}, {0,"14695"}, {24,"66702"}, {180,"66702"}]),
+    {error,no_fit} = mypl_provisioning:init_provisionings_multi([[4,"10195"], [18,"14695"], [24,"66702"], [180,"66702"]]),
+    {ok,[],[Pick1, Pick2]} = mypl_provisioning:init_provisionings_multi([[4,"10195"], [24,"66702"], [180,"66702"]]),
+    {ok, {204, "66702"}} = mypl_db:commit_pick(Pick1),
+    {ok, {4, "10195"}} = mypl_db:commit_pick(Pick2),
     ok.
 
 %%% @hidden
@@ -502,6 +604,9 @@ testrunner() ->
     mypl_simple_retrieval_test(),
     mypl_simple_provisioning1_test(),
     mypl_simple_provisioning2_test(),
+    real_world1_test(),
+    real_world2_test(),
+    real_world3_test(),
     ok.
     
 

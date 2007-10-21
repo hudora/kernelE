@@ -36,10 +36,10 @@
 %% Description: Starts the server
 %%--------------------------------------------------------------------
 start_link() ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [], [{timeout, 20000}]).
+    gen_server:start_link({local, ?SERVER}, ?MODULE, [], [{timeout, 40000}]).
 
 start() -> 
-    gen_server:start({local, ?SERVER}, ?MODULE, [], []). 
+    gen_server:start({local, ?SERVER}, ?MODULE, [], [{timeout, 40000}]). 
 
 stop() -> 
     gen_server:cast(?SERVER, stop). 

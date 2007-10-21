@@ -29,13 +29,13 @@ funcdefs = [
 ('mypl_db', 'rollback_pick', 'PickId', []),
 
 ('mypl_db_query', 'count_product', 'Product', []),
-('mypl_db_query', 'count_products', '', []),
+('mypl_db_query', 'count_products', '', ['async']),
 
-('mypl_provisioning', 'find_provisioning_candidates', 'Quantity, Product', []),
-('mypl_provisioning', 'find_provisioning_candidates_multi', 'JsonList', []),
-('mypl_provisioning', 'init_provisionings_multi', 'JsonList', []),
+('mypl_provisioning', 'find_provisioning_candidates', 'Quantity, Product', ['async']),
+('mypl_provisioning', 'find_provisioning_candidates_multi', 'JsonList', ['async']),
+('mypl_provisioning', 'init_provisionings_multi', 'JsonList', ['async']),
 
-('mypl_movements', 'create_automatic_movements', '', []),
+('mypl_movements', 'create_automatic_movements', '', ['async']),
 ]
 
 typemap = {
@@ -60,10 +60,9 @@ funclist = []
 helptext = []
 for funcdef in funcdefs:
     ns = {}
-    ns['module'], ns['func'], ns['params'], ns['guards'] = funcdef
+    ns['module'], ns['func'], ns['params'], ns['options'] = funcdef
     ns['params'] = ns['params'].replace(' ', '')
     ns['func+params'] = ','.join([ns['func'], ns['params']])
-    ns['guards'] = ','.join(ns['guards'])
     if ns['params']:
         ns['newparams'] = ','.join(["New"+x.strip() for x in ns['params'].split(',')])
     else:
@@ -76,11 +75,24 @@ for funcdef in funcdefs:
     funclist.append('%s/%s' % (ns['func'], len(parameters)))
     helptext.append('%s %s' % (ns['func'], ','.join(parameters)))
     
-    out_genserver1.append("""
+    if 'async' in ns['options']:
+        out_genserver1.append("""
 %% implementation for API and backend for %(func)s
-%(func)s(%(params)s) %(guards)s ->
-     gen_server:call(?SERVER, {%(func)s, {%(params)s}}).""" % ns)
-    out_genserver2.append("""
+%(func)s(%(params)s) ->
+    gen_server:call(?SERVER, {%(func)s, {%(params)s}}, 40000).""" % ns)
+
+        out_genserver2.append("""
+handle_call({%(func)s, {%(params)s}}, From, State) ->
+    proc_lib:spawn(fun() -> gen_server:reply(From, %(module)s:%(func)s(%(params)s)) end),
+    {noreply, State, 40000}""" % ns)
+
+    else:
+        out_genserver1.append("""
+%% implementation for API and backend for %(func)s
+%(func)s(%(params)s) ->
+    gen_server:call(?SERVER, {%(func)s, {%(params)s}}).""" % ns)
+
+        out_genserver2.append("""
 handle_call({%(func)s, {%(params)s}}, _From, State) ->
     Ret = %(module)s:%(func)s(%(params)s),
     {reply, Ret, State}""" % ns)

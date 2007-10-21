@@ -48,12 +48,15 @@ get_movementsuggestion_from_requesstracker() ->
 init_requestracker_movements() ->
     case get_movementsuggestion_from_requesstracker() of
         L ->
-            {ok, lists:map(fun({Mui, Destination}) -> mypl_db:init_movement(Mui, Destination) end, L)}
+            {ok, lists:map(fun({Mui, Destination}) -> 
+                               mypl_db:init_movement(Mui, Destination, [{mypl_notify_requestracker}])
+                           end, L)}
     end.
     
 
 create_automatic_movements() ->
     init_requestracker_movements().
+
 
 % ~~ Unit tests
 -ifdef(EUNIT).

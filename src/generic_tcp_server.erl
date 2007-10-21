@@ -32,7 +32,7 @@
 
 start_link(Module, Host, Port, ListenOpts, ModuleOpts) ->
     gen_server:start_link({local, list_to_atom("generic_tcp_server_" ++ integer_to_list(Port))},
-                          ?MODULE, [Module, Host, Port, ListenOpts, ModuleOpts], [{timeout, 20000}]).
+                          ?MODULE, [Module, Host, Port, ListenOpts, ModuleOpts], []).
 
 %---------------------------------------------------------------------------
 
@@ -41,7 +41,7 @@ accept_and_start(Module, ModuleOpts, LSock) ->
 		       case gen_tcp:accept(LSock) of
 			   {ok, Sock} ->
 			       accept_and_start(Module, ModuleOpts, LSock),
-			       {ok, Pid} = gen_server:start(Module, [Sock | ModuleOpts], []),
+			       {ok, Pid} = gen_server:start(Module, [Sock | ModuleOpts], [{timeout, 40000}]),
 			       gen_tcp:controlling_process(Sock, Pid),
 			       gen_server:cast(Pid, {socket_control_transferred, Sock});
 			   {error, Reason} ->

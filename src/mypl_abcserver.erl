@@ -1,23 +1,21 @@
 %% Author  : Maximillian Dornseif
-%% Created :  Created by Maximillian Dornseif on 2007-10-08.
-%% @doc this server keeps track of the requests for movements (e.g. "Fixplatznachschub")
-
--module(mypl_requesttracker).
+%% Created :  Created by Maximillian Dornseif on 2007-10-21.
+%% @doc ABC-Analyse
+-module(mypl_abcserver).
 
 -behaviour(gen_server).
 
--include_lib("stdlib/include/qlc.hrl").
-
--define(SERVER, mypl_requesttracker).
+-define(SERVER, mypl_abcserver).
+-include("include/mypl.hrl").
 
 %% API
--export([start_link/0, start/0, stop/0, in/2, out/0, movement_done/2]).
+-export([start_link/0, feed/3]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
--record(state, {table}).
+-record(state, {}).
 
 %%====================================================================
 %% API
@@ -29,21 +27,8 @@
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
-start() -> 
-    gen_server:start({local, ?SERVER}, ?MODULE, [], []). 
-
-in(Quantity, Product) -> 
-    gen_server:cast(?SERVER, {in, {Quantity, Product}}).
-
-out() -> 
-    gen_server:call(?SERVER, {out}). 
-
-movement_done(Quantity, Product) ->
-    erlang:display({movement_done, {Quantity, Product}}),
-    gen_server:cast(?SERVER, {movement_done, {Quantity, Product}}). 
-
-stop() -> 
-    gen_server:cast(?SERVER, stop). 
+feed(pick, Pick, Locationname) ->
+    gen_server:cast(?SERVER, {feed, {pick, Pick, Locationname}}).
 
 %%====================================================================
 %% gen_server callbacks
@@ -57,8 +42,7 @@ stop() ->
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
 init([]) ->
-    process_flag(trap_exit, true),
-    {ok, #state{table=ets:new(requesttracker, [set])}}.
+    {ok, #state{}}.
 
 %%--------------------------------------------------------------------
 %% Function: %% handle_call(Request, From, State) -> {reply, Reply, State} |
@@ -69,16 +53,10 @@ init([]) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
-handle_call({out}, _From, State) ->
-    case lists:sort(fun({_, _, TSa}, {_, _, TSb}) -> TSa < TSb end,
-                    qlc:e(qlc:q([Y || Y <- ets:table(State#state.table)]))) of
-        [] ->
-            {reply, {empty}, State};
-        [H|_] ->
-            {Product, Quantity, _} = H,
-            ets:delete(State#state.table, Product),
-            {reply, {ok, {Quantity, Product}}, State}
-    end.
+handle_call(_Request, _From, State) ->
+    Reply = ok,
+    {reply, Reply, State}.
+
 
 %%--------------------------------------------------------------------
 %% Function: handle_cast(Msg, State) -> {noreply, State} |
@@ -86,31 +64,22 @@ handle_call({out}, _From, State) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
-handle_cast({in, {Quantity, Product}}, State) ->
-    %% check if we have an open movement before adding
-    case mypl_db_query:open_movements_for_product(Product) of
-        [] ->
-            % no open movement, so we can add
-            case ets:lookup(State#state.table, Product) of
-                [] ->
-                    ets:insert(State#state.table, {Product, Quantity, mypl_util:timestamp()});
-                [_] ->
-                    ets:update_counter(State#state.table, Product, {2, Quantity})
-            end;
-        Movements ->
-            erlang:display({not_adding, {Quantity, Product}, Movements}),
-            ok % we add nothing
+handle_cast({feed, {pick, Pick, Locationname}}, State) ->
+    {Date, Time, _} = Pick#pick.created_at,
+    Duration = calendar:datetime_to_gregorian_seconds(calendar:now_to_universal_time(now())) 
+               - calendar:datetime_to_gregorian_seconds({Date, Time}),
+    Fun = fun() ->
+            mnesia:write(#abc_pick_detail{id=mypl_util:oid(),
+                                          quantity=Pick#pick.quantity,
+                                          product=Pick#pick.product,
+                                          duration=Duration,
+                                          location=Locationname,
+                                          created_at=calendar:universal_time()})
     end,
-    {noreply, State};
-
-handle_cast({movement_done, {_, Product}}, State) ->
-    ets:delete(State#state.table, Product),
-    {noreply, State};
-
-handle_cast({stop}, State) ->
-    terminate(unknown, State),
-    {stop, normal, State}.
-
+    {atomic, _ } = mnesia:transaction(Fun),
+    {noreply, State}.
+%handle_cast(_Msg, State) ->
+%    {noreply, State}.
 
 %%--------------------------------------------------------------------
 %% Function: handle_info(Info, State) -> {noreply, State} |
@@ -128,8 +97,7 @@ handle_info(_Info, State) ->
 %% cleaning up. When it returns, the gen_server terminates with Reason.
 %% The return value is ignored.
 %%--------------------------------------------------------------------
-terminate(_Reason, State) ->
-    ets:delete(State#state.table),
+terminate(_Reason, _State) ->
     ok.
 
 %%--------------------------------------------------------------------

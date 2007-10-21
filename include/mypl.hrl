@@ -21,6 +21,7 @@
                product,         % ArtNr
                height,          % Höhe in mm
                pick_quantity,
+               location,        % Zeiger auf den Location name
                created_at
                }). % TBD
 
@@ -65,11 +66,34 @@
                     created_at
                    }).
 
+% archiviert units, movements und picks
 -record(archive, {id,           % eindeutiger Bezeichner
                   created_at,
                   archived_by,  % wodurch wurde der datensatz archiviert
                   body
                   }).
+
+
+-record(abc_pick_detail, {id,           % eindeutiger Bezeichner
+                  created_at,
+                  quantity,
+                  product,
+                  location,
+                  duration
+                  }).
+
+-record(abc_pick_summary, {id,           % eindeutiger Bezeichner: {Date, Product}
+                  date,
+                  picks,
+                  quantity,
+                  product,
+                  avg_picksize,
+                  picksizes,
+                  avg_duration,
+                  durations,
+                  locations              % anzahl der verschiednene pick locations
+                  }).
+
 
 % Trace utilities from adviserl
 

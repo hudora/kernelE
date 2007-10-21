@@ -31,7 +31,7 @@
 -include_lib("stdlib/include/qlc.hrl").
 -include("include/mypl.hrl").
 
--export([count_product/1, count_products/0]).
+-export([count_product/1, count_products/0, open_movements_for_product/1]).
 
 % @private
 count_product_helper([], Fquantity, Pquantity, Mquantity) -> 
@@ -87,6 +87,14 @@ count_products() ->
     Units = mypl_db_util:do(qlc:q([X || X <- mnesia:table(unit)])),
     count_products_helper(Units, dict:new(), dict:new(), dict:new()).
     
+
+%% @spec open_movements_for_product(string()) -> [mypl_db:movementID()]
+%% @doc returns a list of all open movements for a Product.
+open_movements_for_product(Product) ->
+    {_, Muis} = count_product(Product),
+    [X#movement.id || X <- lists:map(fun(X) -> 
+                                         mypl_db_util:unit_movement(mypl_db_util:mui_to_unit(X))
+                                     end, Muis), X /= false].
 
 % get (quantity, Product) of all products
 % find_product(Product) ->
@@ -167,8 +175,10 @@ mypl_simple_counting_test() ->
     mypl_db:rollback_movement(Movement3),
     [{"a0003",10,10,0,0},{"a0004",18,18,0,0},{"a0005",94,94,0,0}] = lists:sort(count_products()),
     {ok, Movement4} = mypl_db:init_movement(Mui3, "010102"),
+    [Movement4] = open_movements_for_product("a0004"),
     [{"a0003",10,10,0,0},{"a0004",18,1,0,17},{"a0005",94,94,0,0}] = lists:sort(count_products()),
     mypl_db:commit_movement(Movement4),
+    [] = open_movements_for_product("a0004"),
     [{"a0003",10,10,0,0},{"a0004",18,18,0,0},{"a0005",94,94,0,0}] = lists:sort(count_products()),
     ok.
 
