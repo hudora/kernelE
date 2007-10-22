@@ -275,7 +275,7 @@ deduper(L) ->
     lists:map(fun({A, B}) -> {B, A} end,
               dict:to_list(deduper_dictbuilder(L, dict:new()))).
 
-%% @spec find_provisioning_candidates_multi() -> term()
+%% @spec find_provisioning_candidates_multi(list()) -> term()
 %% @see find_provisioning_candidates/2
 %% @doc calls {@link find_provisioning_candidates/2} for more than a single product.
 %% Possibly Takes advantage of multi-processor system. Returns {ok, [retrievals], [picks]}
@@ -294,7 +294,7 @@ find_provisioning_candidates_multi(L1) ->
                  lists:flatten([element(3, X) || X <- CandList])}
     end.
     
-%% @spec init_provisionings_multi([{Quantiy::integer(), Product:string}]) -> 
+%% @spec init_provisionings_multi([{Quantiy::integer(), Product::string()}]) -> 
 %%       {ok, [mypl_db:movementID()], [mypl_db:pickID()]}
 %% @see find_provisioning_candidates/2
 %% @doc calls {@link find_provisioning_candidates/2} for more than a single product.

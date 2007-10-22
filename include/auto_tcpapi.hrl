@@ -10,15 +10,27 @@ handle_command("init_location", _Parameters, State) ->
     NewInfo = convertString(Info),
     NewAttributes = convertArray(Attributes),
     {noreply, reply(220, rfc4627:encode(mypl_server:init_location(NewLocname,NewHeight,NewFloorlevel,NewPreference,NewInfo,NewAttributes)), reset_buffers(State))};
+handle_command("location_list", _Parameters, State) ->
+    % implementation for location_list,
+    {noreply, reply(220, rfc4627:encode(mypl_server:location_list()), reset_buffers(State))};
 handle_command("location_info", _Parameters, State) ->
     % implementation for location_info,
     Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
     [Locname] = Tokens,
     NewLocname = convertString(Locname),
     {noreply, reply(220, rfc4627:encode(mypl_server:location_info(NewLocname)), reset_buffers(State))};
-handle_command("location_list", _Parameters, State) ->
-    % implementation for location_list,
-    {noreply, reply(220, rfc4627:encode(mypl_server:location_list()), reset_buffers(State))};
+handle_command("unit_info", _Parameters, State) ->
+    % implementation for unit_info,
+    Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
+    [Mui] = Tokens,
+    NewMui = convertString(Mui),
+    {noreply, reply(220, rfc4627:encode(mypl_server:unit_info(NewMui)), reset_buffers(State))};
+handle_command("movement_info", _Parameters, State) ->
+    % implementation for movement_info,
+    Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
+    [MovementId] = Tokens,
+    NewMovementId = convertString(MovementId),
+    {noreply, reply(220, rfc4627:encode(mypl_server:movement_info(NewMovementId)), reset_buffers(State))};
 handle_command("store_at_location", _Parameters, State) ->
     % implementation for store_at_location,
     Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
@@ -109,8 +121,10 @@ handle_command("create_automatic_movements", _Parameters, State) ->
 
 handle_command("help", _Parameters, State) -> {noreply, reply(220, "Help follows:
 init_location Locname,Height,Floorlevel,Preference,Info,Attributes
-location_info Locname
 location_list 
+location_info Locname
+unit_info Mui
+movement_info MovementId
 store_at_location Locname,Mui,Quantity,Product,Height
 retrive Mui
 init_movement Mui,Locname

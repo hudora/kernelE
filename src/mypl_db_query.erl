@@ -22,7 +22,7 @@
 %% </ul>
 %%
 %% As you see `full_quantity' and `pick_quantity' are natively stored in the database.
-%% `movement_quantity' is based on the `full_quantity' of Units that are invvolved in a Movement.
+%% `movement_quantity' is based on the `full_quantity' of Units that are involved in a Movement.
 %% `available_quantity' is caclulated on the fly based on the other three.
 %% @end
 

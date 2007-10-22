@@ -16,8 +16,10 @@ import unittest
 # Dies definiert der öffentliche API. Aus dem Code werden die diversen Schnittstellen erstellt
 funcdefs = [
 ('mypl_db', 'init_location', 'Locname, Height, Floorlevel, Preference, Info, Attributes', []),
-('mypl_db', 'location_info', 'Locname', []),
 ('mypl_db', 'location_list', '', []),
+('mypl_db', 'location_info', 'Locname', []),
+('mypl_db', 'unit_info', 'Mui', []),
+('mypl_db', 'movement_info', 'MovementId', []),
 ('mypl_db', 'store_at_location', 'Locname, Mui, Quantity, Product, Height', []),
 ('mypl_db', 'retrive', 'Mui', []),
 ('mypl_db', 'init_movement', 'Mui, Locname', []),

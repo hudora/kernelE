@@ -110,3 +110,28 @@ code_change(_OldVsn, State, _Extra) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+
+average([]) -> 0.0;
+average(L) ->
+    lists:sum(L) / lists:length(L).
+
+%aggregate_record(Record, Dict) ->
+%    Summary1 = Summary#abc_pick_summary{
+%                             picks=Summary#abc_pick_summary.picks + 1,
+%                             quantity=Summary#abc_pick_summary.quantity + Record#abc_pick_detail.quantity,
+%                             picksizes=[Record#abc_pick_detail.quantity|Summary#abc_pick_summary.picksizes],
+%                             durations=[Record#abc_pick_detail.duration|Summary#abc_pick_summary.durations],
+%                             locations=[Record#abc_pick_detail.location|Summary#abc_pick_summary.locations]
+%                             },
+%    Summary2 = Summary1#abc_pick_summary{avg_duration=average(Summary#abc_pick_summary.durations),
+%                                         avg_picksize=average(Summary#abc_pick_summary.picksizes)}.
+%    
+%aggregate_day(Date) ->
+%    -record(abc_pick_detail, {id,
+%                  created_at,
+%                  product,
+%                  ,
+%                  
+%                  }).
+%-record(abc_pick_summary, {id, date, product, 
+

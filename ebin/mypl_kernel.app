@@ -11,6 +11,7 @@
                         mypl_util,
                         mypl_requesttracker,
                         mypl_abcserver,
+                        mypl_oracle,
                         mypl_tcp_session,
                         generic_tcp_server]},
               {registered,[mypl_requesttracker]},

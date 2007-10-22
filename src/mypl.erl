@@ -18,7 +18,7 @@ start() ->
     Secs = Time div 1000,
     case Res of 
         ok ->
-            io:format("myPL/kernel-E started in ~p ms on ~w with PID ~w~n.",[Secs, 
+            io:format("myPL/kernel-E started in ~p ms on ~w with PID ~s~n.",[Secs, 
                       {os:type(), os:version()}, os:getpid()]),
             ok;
         {error, {already_started, ?APPLICATION}} ->
