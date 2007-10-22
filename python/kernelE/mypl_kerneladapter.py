@@ -7,15 +7,27 @@ Created by Maximillian Dornseif on 2007-10-12.
 Copyright (c) 2007 HUDORA GmbH. All rights reserved.
 """
 
-import sys
-import os
+
 import unittest
-import socket, uuid, simplejson, pickle
+import socket, uuid, simplejson, pickle, datetime
 
 def e2string(data):
+    # if we got a list of numbers turn it into a string
     if data and data[0] and type(data[0]) == type(17):
         return ''.join([chr(x) for x in data])
     return data
+
+
+def e2datetime(data):
+    date, time = data[:2]
+    year, month, day = date
+    hour, minute, second = time
+    if len(data) == 2:
+        return datetime.datetime(year, month, day, hour, minute, second)
+    if len(data) == 3:
+        microsecond = data[2]
+        return datetime.datetime(year, month, day, hour, minute, second, microsecond)
+
 
 def attributelist2dict(l, fixattnames=[]):
     ret = {}
@@ -72,6 +84,18 @@ class Kerneladapter:
         # print ">>>", line
         self.sock.send(line + '\n')
     
+    def count_product(self, product):
+        mui = product.replace(',','').replace('\n','').replace('\r','')
+        self._send("count_product %s" % (product,))
+        mengen, muis = self._read_json(220)
+        return (mengen, [e2string(x) for x in muis])
+    
+    def count_products(self):
+        self._send("count_products")
+        ret = self._read_json(220)
+        return [(e2string(product), fmenge, amenge, rmenge, pmenge) for (product, fmenge, amenge, rmenge, pmenge) in ret]
+        #return (mengen, [e2string(x) for x in muis])
+    
     def location_list(self):
         self._send("location_list")
         return [e2string(x) for x in self._read_json(220)]
@@ -82,6 +106,16 @@ class Kerneladapter:
         d = attributelist2dict(d, ['name'])
         d['allocated_by'] = [e2string(x) for x in d['allocated_by']]
         d['reserved_for'] = [e2string(x) for x in d['reserved_for']]
+        d['info'] = e2string(d['info'])
+        return d
+    
+    def unit_info(self, name):
+        self._send("unit_info %s" % name)
+        ok, d = self._read_json(220)
+        d = attributelist2dict(d, ['mui', 'product', 'location'])
+        d['movements'] = [e2string(x) for x in d['movements']]
+        d['picks'] = [e2string(x) for x in d['picks']]
+        d['created_at'] = e2datetime(d['created_at'])
         return d
     
     def init_location(self, name, height=1950, floorlevel=False, preference=5, info='', attributes=[]):

@@ -8,3 +8,4 @@ Copyright (c) 2007 HUDORA GmbH. All rights reserved.
 """
 
 from mypl_kerneladapter import Kerneladapter
+from mypl_kerneladapter_mock import Kerneladapter_mock
