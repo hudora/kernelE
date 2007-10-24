@@ -16,12 +16,15 @@
 
 %% API
 -export([start_link/0, start/0, stop/0]).
--export([init_location/6,location_info/1,location_list/0,unit_info/1,store_at_location/5,retrive/1,
+-export([init_location/6,store_at_location/5,retrive/1,
          init_movement/2,init_movement_to_good_location/1,commit_movement/1,rollback_movement/1,
          init_pick/2,commit_pick/1,rollback_pick/1,
          count_product/1,count_products/0,
+         location_info/1, location_list/0, unit_info/1, unit_list/0,
+         movement_list/0, movement_info/1, pick_list/0, pick_info/1,
          find_provisioning_candidates/2,find_provisioning_candidates_multi/1,init_provisionings_multi/1,
          create_automatic_movements/0]).
+
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).

@@ -16,10 +16,6 @@ import unittest
 # Dies definiert der öffentliche API. Aus dem Code werden die diversen Schnittstellen erstellt
 funcdefs = [
 ('mypl_db', 'init_location', 'Locname, Height, Floorlevel, Preference, Info, Attributes', []),
-('mypl_db', 'location_list', '', []),
-('mypl_db', 'location_info', 'Locname', []),
-('mypl_db', 'unit_info', 'Mui', []),
-('mypl_db', 'movement_info', 'MovementId', []),
 ('mypl_db', 'store_at_location', 'Locname, Mui, Quantity, Product, Height', []),
 ('mypl_db', 'retrive', 'Mui', []),
 ('mypl_db', 'init_movement', 'Mui, Locname', []),
@@ -32,6 +28,14 @@ funcdefs = [
 
 ('mypl_db_query', 'count_product', 'Product', []),
 ('mypl_db_query', 'count_products', '', ['async']),
+('mypl_db_query', 'unit_list', '', []),
+('mypl_db_query', 'unit_info', 'Mui', []),
+('mypl_db_query', 'location_list', '', []),
+('mypl_db_query', 'location_info', 'Locname', []),
+('mypl_db_query', 'movement_list', '', []),
+('mypl_db_query', 'movement_info', 'MovementId', []),
+('mypl_db_query', 'pick_list', '', []),
+('mypl_db_query', 'pick_info', 'PickId', []),
 
 ('mypl_provisioning', 'find_provisioning_candidates', 'Quantity, Product', ['async']),
 ('mypl_provisioning', 'find_provisioning_candidates_multi', 'JsonList', ['async']),

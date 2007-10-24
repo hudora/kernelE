@@ -13,12 +13,9 @@
 -include_lib("stdlib/include/qlc.hrl").
 -include("include/mypl.hrl").
 
--export([run_me_once/0, init_location/6, init_location/5, location_info/1, location_list/0,
- unit_info/1, store_at_location/5, retrive/1,
+-export([run_me_once/0, init_location/6, init_location/5,store_at_location/5, retrive/1,
  init_movement/2, init_movement_to_good_location/1, commit_movement/1, rollback_movement/1,
- movement_list/0, movement_info/1,
- init_pick/2, commit_pick/1, rollback_pick/1,
- pick_list/0, pick_info/1]).
+ init_pick/2, commit_pick/1, rollback_pick/1]).
 
 
 init_table_info(Status, TableName) ->
@@ -48,7 +45,8 @@ run_me_once() ->
     init_table_info(mnesia:create_table(articleaudit,     [{disc_only_copies, [node()]}, {attributes, record_info(fields, articleaudit)}]), articleaudit),
     init_table_info(mnesia:create_table(unitaudit,        [{disc_only_copies, [node()]}, {attributes, record_info(fields, unitaudit)}]), unitaudit),
     init_table_info(mnesia:create_table(abc_pick_summary, [{disc_only_copies, [node()]}, {attributes, record_info(fields, abc_pick_summary)}]), abc_pick_summary),
-
+    mnesia:add_table_index(abc_pick_summary, #abc_pick_summary.date),
+    
     ok = mnesia:wait_for_tables([location, unit, movement, pick, articleaudit, unitaudit], 5000),
     init_location("EINLAG", 3000, true,  0, [{no_picks}]),
     init_location("AUSLAG", 3000, true,  0, [{no_picks}]),
@@ -149,56 +147,6 @@ init_location(Name, Height, Floorlevel, Preference, Info, Attributes)
 %% @deprecated
 init_location(Name, Height, Floorlevel, Preference, Attributes) -> 
     init_location(Name, Height, Floorlevel, Preference, "", Attributes).
-
-
-%% @spec location_info(locationName()) -> tuple()
-%% @doc gets a tuple with information concerning a location
-location_info(Locname) -> 
-    Fun = fun() ->
-        Location = mypl_db_util:read_location(Locname),
-        {{name,          Location#location.name},
-         {height,        Location#location.height},
-         {floorlevel,    Location#location.floorlevel},
-         {preference,    Location#location.preference},
-         {info,          Location#location.info},
-         {attributes,    Location#location.attributes},
-         {allocated_by,  Location#location.allocated_by},
-         {reserved_for,  Location#location.reserved_for}
-        }
-    end,
-    {atomic, Ret} = mnesia:transaction(Fun),
-    {ok, Ret}.
-    
-
-%% @doc Get a list of all location names
-location_list() ->
-    {atomic, Ret} = mnesia:transaction(fun() -> mnesia:all_keys(location) end),
-    Ret.
-    
-
-%% @spec unit_info(muiID()) -> tuple()
-%% @doc gets a tuple with information concerning a unit
-unit_info(Mui) -> 
-    Unit = mypl_db_util:mui_to_unit(Mui),
-    case mypl_db_util:unit_movement(Unit) of
-        false ->
-            Movements = [];
-        Movement ->
-            Movements = [Movement]
-    end,
-    PickIds  = mypl_db_util:do(qlc:q([X#pick.id || X <- mnesia:table(pick), X#pick.from_unit =:= Mui])),
-    Ret = {{mui ,           Unit#unit.mui},
-           {quantity,       Unit#unit.quantity},
-           {product,        Unit#unit.product},
-           {height,         Unit#unit.height},
-           {pick_quantity,  Unit#unit.pick_quantity},
-           {location,       Unit#unit.location},
-           {created_at,     Unit#unit.created_at},
-           {attributes,     []},
-           {movements,      Movements},
-           {picks,          PickIds}
-        },
-    {ok, Ret}.
     
 
 %%%%
@@ -422,29 +370,6 @@ rollback_movement(MovementId) ->
     {ok, Ret}.
     
 
-%% @spec movement_list() -> [movementID]
-%% @doc gets a List with all movement IDs
-movement_list() ->
-    mypl_db_util:do(qlc:q([X#movement.id || X <- mnesia:table(movement)])).
-    
-
-%% @spec movement_info(movementId()) -> tuple()
-%% @doc gets a tuple with information concerning a movement
-movement_info(MovementId) -> 
-    Fun = fun() ->
-        [Movement] = mnesia:read({movement, MovementId}),
-        {{id ,            Movement#movement.id},
-         {mui,            Movement#movement.mui},
-         {from_location,  Movement#movement.from_location},
-         {to_location,    Movement#movement.to_location},
-         {attributes,     Movement#movement.attributes},
-         {created_at,     Movement#movement.created_at}
-        }
-    end,
-    {atomic, Ret} = mnesia:transaction(Fun),
-    {ok, Ret}.
-    
-
 %% @spec init_pick(integer(), muID()) -> {ok, pickID()}
 %% @see commit_pick/1
 %% @doc start a new pick removing Quantity Products from Mui
@@ -547,28 +472,6 @@ rollback_pick(PickId) ->
     {ok, Ret}.
     
 
-%% @spec pick_list() -> [PickID]
-%% @doc gets a List with all pick_list IDs
-pick_list() ->
-    mypl_db_util:do(qlc:q([X#pick.id || X <- mnesia:table(pick)])).
-    
-
-%% @spec pick_info(pickId()) -> tuple()
-%% @doc gets a tuple with information concerning a pick
-pick_info(PickId) -> 
-    Fun = fun() ->
-        [Pick] = mnesia:read({pick, PickId}),
-        {{id ,        Pick#pick.id},
-         {from_unit,  Pick#pick.from_unit},
-         {quantity,   Pick#pick.quantity},
-         {attributes, []},
-         {created_at, Pick#pick.created_at}
-        }
-    end,
-    {atomic, Ret} = mnesia:transaction(Fun),
-    {ok, Ret}.
-    
-
 %% @private
 %% @spec teleport(unitRecord(), locationRecord(), locationRecord()) -> term()
 %% @doc move a mui in the warehouse - internal use only
@@ -618,7 +521,7 @@ test_init() ->
     init_location("010102", 1950, false, 6, []),
     init_location("010103", 1200, false, 5, []),
     init_location("010201", 2000, true,  7, []),
-    true = is_list(location_list()),
+    true = is_list(mypl_db_query:location_list()),
     {ok, {{name, "EINLAG"},
           {height, 3000},
           {floorlevel, true},
@@ -626,7 +529,7 @@ test_init() ->
           {info, []},
           {attributes,[{no_picks}]},
           {allocated_by, []},
-          {reserved_for, []}}} = location_info("EINLAG"),
+          {reserved_for, []}}} = mypl_db_query:location_info("EINLAG"),
     ok.
 
 %%% @hidden
@@ -638,13 +541,13 @@ mypl_simple_movement_test() ->
     {ok, Mui} = store_at_location("EINLAG", Mui, 5, "a0001", 1200),
     
     % simple test for unit_info
-    {ok, _} = unit_info(Mui),
+    {ok, _} = mypl_db_query:unit_info(Mui),
     
     % start movement to "010101".
     {ok, Movement1} = init_movement(Mui, "010101"),
     
-    [Movement1] = movement_list(),
-    {ok, _} = movement_info(Movement1),
+    [Movement1] = mypl_db_query:movement_list(),
+    {ok, _} = mypl_db_query:movement_info(Movement1),
     
     % finish movement
     {ok,"010101"} = commit_movement(Movement1),
@@ -691,10 +594,10 @@ mypl_simple_pick_test() ->
     % generate and Store Unit of 5*14601 (1200mm high) on "010101"
     {ok, Mui} = store_at_location("010101", Mui, 70, "a0002", 1950),
     % start picking.
-    {ok, Pick1} = init_pick(30, Mui),
+    {ok, Pick1} = mypl_db_query:init_pick(30, Mui),
     
-    [Pick1] = pick_list(),
-    {ok, _} = pick_info(Pick1),
+    [Pick1] = mypl_db_query:pick_list(),
+    {ok, _} = mypl_db_query:pick_info(Pick1),
     
     %% try to initiate an movement on that Mui - shouldn't be possible with open picks
     {error, not_movable, _} = init_movement_to_good_location(Mui),

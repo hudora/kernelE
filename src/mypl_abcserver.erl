@@ -188,40 +188,54 @@ aggregate() ->
 update_summary(Record) ->
     Date = element(1, Record#abc_pick_detail.created_at),
     Product = Record#abc_pick_detail.product,
-    % read summary for product or create one
-    case mnesia:read({abc_pick_summary, {Date, Product}}) of
-        [] ->
-            Summary = #abc_pick_summary{id={Date, Product},
-                                        date=Date, picks=0, quantity=0, product=Product,
-                                        avg_picksize=0, picksizes=[],
-                                        avg_duration=0, durations=[], locations=[]};
-        [Summary] ->
-            updated
+    Fun = fun() ->
+        % read summary for product or create one
+        case mnesia:read({abc_pick_summary, {Date, Product}}) of
+            [] ->
+                Summary = #abc_pick_summary{id={Date, Product},
+                                            date=Date, picks=0, quantity=0, product=Product,
+                                            avg_picksize=0, picksizes=[],
+                                            avg_duration=0, durations=[], locations=[]};
+            [Summary] ->
+                updated
+        end,
+        Summary1 = Summary#abc_pick_summary{
+                              picks=Summary#abc_pick_summary.picks + 1,
+                              quantity=Summary#abc_pick_summary.quantity + Record#abc_pick_detail.quantity,
+                              picksizes=[Record#abc_pick_detail.quantity|Summary#abc_pick_summary.picksizes],
+                              durations=[Record#abc_pick_detail.duration|Summary#abc_pick_summary.durations],
+                              locations=[Record#abc_pick_detail.location|Summary#abc_pick_summary.locations]
+                              },
+        Summary2 = Summary1#abc_pick_summary{avg_duration=average(Summary#abc_pick_summary.durations),
+                                             avg_picksize=average(Summary#abc_pick_summary.picksizes)},
+        ok = mnesia:write(Summary2),
+        ok = mnesia:delete({abc_pick_detail, Record#abc_pick_detail.id})
     end,
-    Summary1 = Summary#abc_pick_summary{
-                          picks=Summary#abc_pick_summary.picks + 1,
-                          quantity=Summary#abc_pick_summary.quantity + Record#abc_pick_detail.quantity,
-                          picksizes=[Record#abc_pick_detail.quantity|Summary#abc_pick_summary.picksizes],
-                          durations=[Record#abc_pick_detail.duration|Summary#abc_pick_summary.durations],
-                          locations=[Record#abc_pick_detail.location|Summary#abc_pick_summary.locations]
-                          },
-    Summary2 = Summary1#abc_pick_summary{avg_duration=average(Summary#abc_pick_summary.durations),
-                                         avg_picksize=average(Summary#abc_pick_summary.picksizes)},
-    ok = mnesia:write(Summary2),
-    ok = mnesia:delete({abc_pick_detail, Record#abc_pick_detail.id}).
+    {atomic, _} = mnesia:transaction(Fun).
 
 %% @doc aggregate records in abc_pick_detail into abc_pick_summary
 update_summary() ->
-    Fun = fun() ->
-        lists:map(fun(X) -> update_summary(X) end, qlc:e(qlc:q([X || X <- mnesia:table(abc_pick_detail)]))),
-        ok
-    end,
-    {atomic, _} = mnesia:transaction(Fun).
+    lists:map(fun(X) -> update_summary(X) end, mypl_db_util:do(qlc:q([X || X <- mnesia:table(abc_pick_detail)]))).
 
 
 average([]) -> 0.0;
 average(L) ->
     lists:sum(L) / length(L).
+
+
+
+% this could be used to feed historic data into the system
+%store_abc({Date,Quantity,Product,Locationname,_Foo}) ->
+%    Fun = fun() ->
+%            mnesia:write(#abc_pick_detail{id=mypl_util:oid(),
+%                                          quantity=Quantity,
+%                                          product=Product,
+%                                          duration=0,
+%                                          location=Locationname,
+%                                          created_at={Date,{0,0,0}}})
+%    end,
+%    {atomic, _ } = mnesia:transaction(Fun).
+
 
 % ~~ Unit tests
 -ifdef(EUNIT).

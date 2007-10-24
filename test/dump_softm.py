@@ -28,6 +28,7 @@ def main():
     pickle.dump(platzbestand, gzip.GzipFile(filename, 'w'))
 
 def allekomissionierungen():
+    softm = as400.MoftSconnection()
     foo = softm.get_allekomissioniervorgaenge()
     print len(foo)
     filename = 'test/data/mlv00-%f.pickle.gz' % time.time()

@@ -31,7 +31,10 @@
 -include_lib("stdlib/include/qlc.hrl").
 -include("include/mypl.hrl").
 
--export([count_product/1, count_products/0, open_movements_for_product/1, find_floor_units_for_product/1]).
+-export([count_product/1, count_products/0,
+         open_movements_for_product/1, find_floor_units_for_product/1,
+         unit_list/0, unit_info/1, location_list/0, location_info/1,
+         movement_list/0, movement_info/1, pick_list/0, pick_info/1]).
 
 % @private
 count_product_helper([], Fquantity, Pquantity, Mquantity) -> 
@@ -104,6 +107,111 @@ find_floor_units_for_product(Product) ->
 unit_floor_helper(Unit) ->
      Loc = mypl_db_util:get_mui_location(Unit#unit.mui),
      Loc#location.floorlevel =:= true.
+    
+
+%% @spec unit_list() -> [mypl_db:muiId()]
+%% @doc Get a list of all unit IDs
+unit_list() ->
+    {atomic, Ret} = mnesia:transaction(fun() -> mnesia:all_keys(location) end),
+    Ret.
+    
+
+%% @spec unit_info(muiID()) -> tuple()
+%% @doc gets a tuple with information concerning a unit
+unit_info(Mui) -> 
+    Unit = mypl_db_util:mui_to_unit(Mui),
+    case mypl_db_util:unit_movement(Unit) of
+        false ->
+            Movements = [];
+        Movement ->
+            Movements = [Movement]
+    end,
+    PickIds  = mypl_db_util:do(qlc:q([X#pick.id || X <- mnesia:table(pick), X#pick.from_unit =:= Mui])),
+    Ret = {{mui ,           Unit#unit.mui},
+           {quantity,       Unit#unit.quantity},
+           {product,        Unit#unit.product},
+           {height,         Unit#unit.height},
+           {pick_quantity,  Unit#unit.pick_quantity},
+           {location,       Unit#unit.location},
+           {created_at,     Unit#unit.created_at},
+           {attributes,     []},
+           {movements,      Movements},
+           {picks,          PickIds}
+        },
+    {ok, Ret}.
+    
+
+%% @doc Get a list of all location names
+location_list() ->
+    {atomic, Ret} = mnesia:transaction(fun() -> mnesia:all_keys(location) end),
+    Ret.
+    
+
+%% @spec location_info(locationName()) -> tuple()
+%% @doc gets a tuple with information concerning a location
+location_info(Locname) -> 
+    Fun = fun() ->
+        Location = mypl_db_util:read_location(Locname),
+        {{name,          Location#location.name},
+         {height,        Location#location.height},
+         {floorlevel,    Location#location.floorlevel},
+         {preference,    Location#location.preference},
+         {info,          Location#location.info},
+         {attributes,    Location#location.attributes},
+         {allocated_by,  Location#location.allocated_by},
+         {reserved_for,  Location#location.reserved_for}
+        }
+    end,
+    {atomic, Ret} = mnesia:transaction(Fun),
+    {ok, Ret}.
+    
+
+%% @spec movement_list() -> [movementID]
+%% @doc gets a List with all movement IDs
+movement_list() ->
+    {atomic, Ret} = mnesia:transaction(fun() -> mnesia:all_keys(movement) end),
+    Ret.
+    
+
+%% @spec movement_info(movementId()) -> tuple()
+%% @doc gets a tuple with information concerning a movement
+movement_info(MovementId) -> 
+    Fun = fun() ->
+        [Movement] = mnesia:read({movement, MovementId}),
+        {{id ,            Movement#movement.id},
+         {mui,            Movement#movement.mui},
+         {from_location,  Movement#movement.from_location},
+         {to_location,    Movement#movement.to_location},
+         {attributes,     Movement#movement.attributes},
+         {created_at,     Movement#movement.created_at}
+        }
+    end,
+    {atomic, Ret} = mnesia:transaction(Fun),
+    {ok, Ret}.
+    
+
+%% @spec pick_list() -> [PickID]
+%% @doc gets a List with all pick_list IDs
+pick_list() ->
+    {atomic, Ret} = mnesia:transaction(fun() -> mnesia:all_keys(pick) end),
+    Ret.
+    
+
+%% @spec pick_info(pickId()) -> tuple()
+%% @doc gets a tuple with information concerning a pick
+pick_info(PickId) -> 
+    Fun = fun() ->
+        [Pick] = mnesia:read({pick, PickId}),
+        {{id ,        Pick#pick.id},
+         {from_unit,  Pick#pick.from_unit},
+         {quantity,   Pick#pick.quantity},
+         {attributes, []},
+         {created_at, Pick#pick.created_at}
+        }
+    end,
+    {atomic, Ret} = mnesia:transaction(Fun),
+    {ok, Ret}.
+    
 
 
 % get (quantity, Product) of all products
