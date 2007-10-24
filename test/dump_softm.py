@@ -1,5 +1,5 @@
 # laed Platz und Vorgagsdaten aus SoftM und speichert sie als Pickle
-import sys, pickle, gzip, datetime
+import sys, pickle, gzip, datetime, time
 sys.path.extend(['../..', './python'])
 from kernelE import Kerneladapter
 from mofts.client import as400
@@ -10,6 +10,7 @@ def main():
     datestr = datetime.datetime.today().strftime('%Y%m%d')
     print "reading from SoftM"
     softm = as400.MoftSconnection()
+    
     plaetze = softm.get_fixplaetze() + softm.get_belegteplaetze() + softm.get_freieplaetze()
     vorgaenge = softm.get_protokomissioniervorgaenge()
     filename = 'test/data/vorgaenge-%s.pickle.gz' % datestr
@@ -25,6 +26,14 @@ def main():
     filename = 'test/data/platzbestand-%s.pickle.gz' % datestr
     print "saving", filename
     pickle.dump(platzbestand, gzip.GzipFile(filename, 'w'))
+
+def allekomissionierungen():
+    foo = softm.get_allekomissioniervorgaenge()
+    print len(foo)
+    filename = 'test/data/mlv00-%f.pickle.gz' % time.time()
+    print "saving", filename
+    pickle.dump(foo, gzip.GzipFile(filename, 'w'))
+    sys.exit(1)
 
 main()
 

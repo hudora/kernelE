@@ -39,7 +39,6 @@ out() ->
     gen_server:call(?SERVER, {out}). 
 
 movement_done(Quantity, Product) ->
-    erlang:display({movement_done, {Quantity, Product}}),
     gen_server:cast(?SERVER, {movement_done, {Quantity, Product}}). 
 
 stop() -> 
@@ -69,6 +68,8 @@ init([]) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
+
+%% @doc get a request {Quantity, Product} for to most urgently at floorlevel needed product
 handle_call({out}, _From, State) ->
     case lists:sort(fun({_, _, TSa}, {_, _, TSb}) -> TSa < TSb end,
                     qlc:e(qlc:q([Y || Y <- ets:table(State#state.table)]))) of
@@ -86,6 +87,8 @@ handle_call({out}, _From, State) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
+
+%% @doc inform the requesttracker of a product needed at floorlevel
 handle_cast({in, {Quantity, Product}}, State) ->
     %% check if we have an open movement before adding
     case mypl_db_query:open_movements_for_product(Product) of

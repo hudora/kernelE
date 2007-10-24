@@ -3,11 +3,26 @@
 %% @author Maximillian Dornseif <md@hudora.de>
 %% @doc myPL/kernel-E movement chooser
 %%
+%% This module is meant ro decide what to move where in the warehouse. All this movements are
+%% only optimisations and not directly related to provisioning goods.
 %% This tries to decide what to move where and what would be the best next move.
+%% 
+%% Whenever {@link create_automatic_movements/0} is called the system tries to determine the next "good move"
+%% and calls init_movement for one or possible a few movements.
 %%
 %% Strategies for choosing a move:
 %% <ul>
-%% <li>Goods where recently needed but not available. (Available via mypl_requesttracker) </li>
+%% <li>Goods where recently needed but not available. (Available via {@link mypl_requesttracker}) are
+%%     moved to floorlevel. The current implementation never moves more than one Unit at a time.
+%%     (To floorlevel)</li>
+%% <li>Goods which are classified A by {@link mypl_abcserver} and of which no unit is at floorlevel
+%%     (To floorlevel).</li>
+%% <li>Goods which will be needed in near future for picking (information gained from {@link mypl_oracle})
+%%     and are not available at floorlevel. (To floorlevel) - CURRENTLY UNIMPLEMENTED.</li>
+%% <li>Goods which are NOT needed in the next few weeks (information gained from {@link mypl_oracle}) and
+%%     are using up floorspace (To upper levels) - CURRENTLY UNIMPLEMENTED.</li>
+%% <li>Unify products on multiple units onto a single unit - CURRENTLY UNIMPLEMENTED. Possibly only if
+%%     are not going to pick from them in near future because this would make unifying useless.</li>
 %% </ul>
 %% @end
 
@@ -17,6 +32,7 @@
 -include("include/mypl.hrl").
 
 -export([create_automatic_movements/0]).
+-compile(export_all).
 
 init_next_movement() ->
     get_movementsuggestion_from_requesstracker().
@@ -27,7 +43,7 @@ collect_requesed_units(Quantity, Candidates, Acc) ->
    [H|T] = Candidates,
     collect_requesed_units(Quantity - H#unit.quantity, T, [H|Acc]).
     
-
+%% @doc generates movement suggestions by looking at requirements from the {@link requesttracker}.
 get_movementsuggestion_from_requesstracker() ->
     case mypl_requesttracker:out() of
         {empty} ->
@@ -45,17 +61,75 @@ get_movementsuggestion_from_requesstracker() ->
     end.
     
 
-init_requestracker_movements() ->
+% [] == no units at floorlevel 
+% TODO: instead check "no units at floorlevel not having any open movements or open picks"
+get_movementsuggestion_from_abc_helper(Product, []) ->
+    erlang:display({a, Product}),
+            % if nothing is currently moving
+    case mypl_db_query:open_movements_for_product(Product) of
+        [] ->
+            % suggest a unit to be moved to the floor
+            [H|_] = lists:keysort(#unit.created_at, mypl_db_util:find_movable_units(Product)) ++ [],
+            [H];
+        _L ->
+            % else ignore that product
+            []
+    end;
+get_movementsuggestion_from_abc_helper(_Product, _Units) ->
+    % if there are units at floorlevel we suggest nothing
+    [].
+    
+
+%% @doc gets a list of units which should be moved to floorlevel based on ABC classification
+get_abc_units() ->
+    {A, _B, _C} = mypl_abcserver:get_abc(),
+    lists:flatten(lists:map(fun({_Picks, Product}) ->
+                  get_movementsuggestion_from_abc_helper(Product, 
+                                                         mypl_db_query:find_floor_units_for_product(Product))
+              end, A)).
+    
+
+%% @doc generates movement suggestions by looking at ABC classification.
+%% 
+%% This is done by consulting {@link mypl_abcserver:get_abc/0} and checking for all products which
+%% are classified as a but have no unit at floorlevel
+get_movementsuggestion_from_abc() ->
+    Units = get_abc_units(),
+    Locations = mypl_db_util:best_locations(floorlevel, Units),
+    lists:zip([X#unit.mui || X <- Units], [X#location.name || X <- Locations]).
+    
+
+%% @doc generate movements
+%% 
+%% the movements are generated either based on the results from
+%% {@link get_movementsuggestion_from_requesstracker/0} or if this yields nor results based on
+%% {@link get_movementsuggestion_from_abc/0}.
+init_movements() ->
     case get_movementsuggestion_from_requesstracker() of
-        L ->
+        L1 ->
             {ok, lists:map(fun({Mui, Destination}) -> 
                                mypl_db:init_movement(Mui, Destination, [{mypl_notify_requestracker}])
-                           end, L)}
+                           end, L1)};
+        [] ->
+            case get_movementsuggestion_from_abc of
+                
+                L2 ->
+                    erlang:display({abc_suggestions}, L2), 
+                    [H|_] = L2, % we are only interested in the first result
+                    {ok, lists:map(fun({Mui, Destination}) -> 
+                                        mypl_db:init_movement(Mui, Destination, [{mypl_notify_requestracker}])
+                                     end, [H])};
+                [] ->
+                    erlang:display("No Movementsuggestions")
+            end
     end.
     
 
+%% @doc create one or more movements which make the warehouse a better place ...
+%% 
+%% ... by cleaning it up and optimizing.
 create_automatic_movements() ->
-    init_requestracker_movements().
+    init_movements().
 
 
 % ~~ Unit tests

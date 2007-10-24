@@ -31,7 +31,7 @@
 -include_lib("stdlib/include/qlc.hrl").
 -include("include/mypl.hrl").
 
--export([count_product/1, count_products/0, open_movements_for_product/1]).
+-export([count_product/1, count_products/0, open_movements_for_product/1, find_floor_units_for_product/1]).
 
 % @private
 count_product_helper([], Fquantity, Pquantity, Mquantity) -> 
@@ -95,6 +95,16 @@ open_movements_for_product(Product) ->
     [X#movement.id || X <- lists:map(fun(X) -> 
                                          mypl_db_util:unit_movement(mypl_db_util:mui_to_unit(X))
                                      end, Muis), X /= false].
+    
+
+find_floor_units_for_product(Product) ->
+    [X || X <- mypl_db_util:do(qlc:q([X || X <- mnesia:table(unit),
+                                           X#unit.product =:= Product, unit_floor_helper(X)]))].
+
+unit_floor_helper(Unit) ->
+     Loc = mypl_db_util:get_mui_location(Unit#unit.mui),
+     Loc#location.floorlevel =:= true.
+
 
 % get (quantity, Product) of all products
 % find_product(Product) ->
