@@ -20,12 +20,12 @@ handle_command("store_at_location", _Parameters, State) ->
     NewProduct = convertString(Product),
     NewHeight = convertPositiveInteger(Height),
     {noreply, reply(220, rfc4627:encode(mypl_server:store_at_location(NewLocname,NewMui,NewQuantity,NewProduct,NewHeight)), reset_buffers(State))};
-handle_command("retrive", _Parameters, State) ->
-    % implementation for retrive,
+handle_command("retrieve", _Parameters, State) ->
+    % implementation for retrieve,
     Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
     [Mui] = Tokens,
     NewMui = convertString(Mui),
-    {noreply, reply(220, rfc4627:encode(mypl_server:retrive(NewMui)), reset_buffers(State))};
+    {noreply, reply(220, rfc4627:encode(mypl_server:retrieve(NewMui)), reset_buffers(State))};
 handle_command("init_movement", _Parameters, State) ->
     % implementation for init_movement,
     Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
@@ -159,7 +159,7 @@ handle_command("make_nve", _Parameters, State) ->
 handle_command("help", _Parameters, State) -> {noreply, reply(220, "Help follows:
 init_location Locname,Height,Floorlevel,Preference,Info,Attributes
 store_at_location Locname,Mui,Quantity,Product,Height
-retrive Mui
+retrieve Mui
 init_movement Mui,Locname
 init_movement_to_good_location Mui
 commit_movement MovementId

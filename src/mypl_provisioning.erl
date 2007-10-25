@@ -169,7 +169,7 @@ find_retrieval_candidates(Quantity, Product) when is_integer(Quantity), Quantity
 
 %% @private
 %% @spec find_retrievable_units(string()) -> [mypl_db:unitRecord()]
-%% @doc returns a list of all units for a product which can be retrived.
+%% @doc returns a list of all units for a product which can be retrieved.
 %%
 %% (no no_picks attribute on location and no open movements)
 find_retrievable_units(Product) ->
@@ -216,7 +216,7 @@ find_oldest_units_of(Quantities, Units) when is_list(Quantities), is_list(Units)
 %% to get a certain amound of goods out of the warehouse is analysed.
 %% Returns {error, no_fit} or {ok, retrievals, picks}
 find_provisioning_candidates(Quantity, Product) ->
-    % check for full MUIs which can be retrived
+    % check for full MUIs which can be retrieved
     case find_retrieval_candidates(Quantity, Product) of
         {ok, 0, Candidates} ->
             % we found a direct fit
@@ -229,7 +229,7 @@ find_provisioning_candidates(Quantity, Product) ->
                 {fit, Pickcandidates} ->
                     {ok, Candidates, Pickcandidates};
                 {error, no_fit} ->
-                    % we try just another thing: retrival only from the upper levels:
+                    % we try just another thing: retrieval only from the upper levels:
                     NonFloorUnits = lists:filter(fun(X) -> Loc = mypl_db_util:get_mui_location(X#unit.mui), 
                                      Loc#location.floorlevel =:= false
                                    end, find_retrievable_units(Product)),

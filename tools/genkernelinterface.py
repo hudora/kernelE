@@ -17,7 +17,7 @@ import unittest
 funcdefs = [
 ('mypl_db', 'init_location', 'Locname, Height, Floorlevel, Preference, Info, Attributes', []),
 ('mypl_db', 'store_at_location', 'Locname, Mui, Quantity, Product, Height', []),
-('mypl_db', 'retrive', 'Mui', []),
+('mypl_db', 'retrieve', 'Mui', []),
 ('mypl_db', 'init_movement', 'Mui, Locname', []),
 ('mypl_db', 'init_movement_to_good_location', 'Mui', []),
 ('mypl_db', 'commit_movement', 'MovementId', []),

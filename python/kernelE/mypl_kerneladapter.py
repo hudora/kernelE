@@ -140,9 +140,9 @@ class Kerneladapter:
         self._send("store_at_location %s,%s,%d,%s,%d" % (name, mui, quantity, artnr, height))
         return self._read_code(220)
     
-    def retrive(self, mui):
+    def retrieve(self, mui):
         mui = mui.replace(',','').replace('\n','').replace('\r','')
-        self._send("retrive %s" % (mui,))
+        self._send("retrieve %s" % (mui,))
         return self._read_code(220)
         
     def find_provisioning_candidates(self, quantity, artnr):

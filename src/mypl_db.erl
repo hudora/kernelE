@@ -13,7 +13,7 @@
 -include_lib("stdlib/include/qlc.hrl").
 -include("include/mypl.hrl").
 
--export([run_me_once/0, init_location/6, init_location/5,store_at_location/5, retrive/1,
+-export([run_me_once/0, init_location/6, init_location/5,store_at_location/5, retrieve/1,
  init_movement/2, init_movement_to_good_location/1, commit_movement/1, rollback_movement/1,
  commit_retrieval/1, rollback_retrieval/1,
  init_pick/2, commit_pick/1, rollback_pick/1]).
@@ -204,12 +204,12 @@ store_at_location(Locname, Mui, Quantity, Product, Height) when Quantity > 0 ->
     Ret.
     
 
-%% @spec retrive(muID()) -> {ok, {Quantity::integer(), Product::string()}}
+%% @spec retrieve(muID()) -> {ok, {Quantity::integer(), Product::string()}}
 %% @doc remove a Unit and the goods on it from the warehouse
 %%
 %% This actually makes goods vanish from the warehouse without further confirmation or committing.
 %% returns the name of the location from where the Unit was removed.
-retrive(Mui) ->
+retrieve(Mui) ->
     Fun = fun() ->
         Unit = mypl_db_util:mui_to_unit(Mui),
         Location = mypl_db_util:get_mui_location(Mui),
@@ -230,16 +230,16 @@ retrive(Mui) ->
                 mypl_audit:unitaudit(Unit, "Aufgeloeesst auf " ++ Location#location.name),
                 mypl_audit:articleaudit(-1 * Unit#unit.quantity, Unit#unit.product,
                                  "Warenabgang auf " ++ Location#location.name, Unit#unit.mui),
-                ok = mnesia:write(#archive{id=mypl_util:oid(), body=Unit, archived_by="retrive",
+                ok = mnesia:write(#archive{id=mypl_util:oid(), body=Unit, archived_by="retrieve",
                                    created_at=mypl_util:timestamp()}),
                                            
                 {ok, {Unit#unit.quantity, Unit#unit.product}};
             {_, no, _} ->
-                erlang:error({internal_error, inconsistent_retrive, {"Tried to retrieve a unit involved in a movement or pick",
+                erlang:error({internal_error, inconsistent_retrieve, {"Tried to retrieve a unit involved in a movement or pick",
                                                                      Mui, Unit, Location, mypl_db_util:unit_movement(Unit),
                                                                      mypl_db_util:unit_picks(Unit)}});
             Wrong ->
-                erlang:error({internal_error, inconsistent_retrive, {Mui, Unit, Location, Wrong}})
+                erlang:error({internal_error, inconsistent_retrieve, {Mui, Unit, Location, Wrong}})
         end
     end,
     {atomic, Ret} = mnesia:transaction(Fun),
@@ -385,7 +385,7 @@ commit_retrieval(MovementId) ->
     % get unit for Mui & get current location of mui
     Unit = mypl_db_util:mui_to_unit(Movement#movement.mui),
     {ok, _ } = commit_movement(MovementId),
-    {ok, {_, _}} = retrive(Unit#unit.mui).
+    {ok, {_, _}} = retrieve(Unit#unit.mui).
     
 
 %% @see rollback_movement/1
@@ -605,8 +605,8 @@ mypl_simple_movement_test() ->
     commit_movement(Movement4),
     
     % remove Muis from warehouse
-    {ok, {5, "a0001"}} = retrive(Mui),
-    {ok, {6, "a0001"}} = retrive(Mui2).
+    {ok, {5, "a0001"}} = retrieve(Mui),
+    {ok, {6, "a0001"}} = retrieve(Mui2).
     
 
 %%% @hidden
@@ -639,7 +639,7 @@ mypl_simple_pick_test() ->
     %TODO: test rollback
     
     % check if enough is left on unit
-    {ok, {15, "a0002"}} = retrive(Mui).
+    {ok, {15, "a0002"}} = retrieve(Mui).
     
 
 testrunner() ->

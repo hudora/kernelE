@@ -93,7 +93,7 @@ class PlayerOfOrders(object):
                 lieferung = self.lieferungen_todo.pop(0)
                 ret = k.init_provisionings_multi([(pos.menge, pos.artnr) for pos in lieferung.positionen])
                 if ret[0] == 'error':
-                    # can't be retrived at the moment
+                    # can't be retrieved at the moment
                     #  print ret, [(pos.menge, pos.artnr) for pos in positionen]
                     self.statnote('retried_orders', 1)
                     self.lieferungen_todo.append(lieferung)

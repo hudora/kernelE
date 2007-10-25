@@ -7,10 +7,10 @@ def load_platzbestand(platzbestand):
     k = Kerneladapter()
     loc = k.location_info("AUSLAG")
     for mui in loc['allocated_by']:
-         k.retrive(mui)
+         k.retrieve(mui)
     loc = k.location_info("FEHLER")
     for mui in loc['allocated_by']:
-         k.retrive(mui)
+         k.retrieve(mui)
     
     for platz in platzbestand.keys():
         (artnr, menge) = platzbestand[platz]
@@ -26,7 +26,7 @@ def load_platzbestand(platzbestand):
                         k.rollback_movement(movement)
                     for pick in unit['picks']:
                         k.rollback_pick(pick)
-                    k.retrive(mui)
+                    k.retrieve(mui)
             try:
                 k.store_at_location(platz, menge, artnr)
             except RuntimeError, msg:

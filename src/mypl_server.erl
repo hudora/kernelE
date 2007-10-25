@@ -16,7 +16,7 @@
 
 %% API
 -export([start_link/0, start/0, stop/0]).
--export([init_location/6,store_at_location/5,retrive/1,
+-export([init_location/6,store_at_location/5,retrieve/1,
          init_movement/2,init_movement_to_good_location/1,commit_movement/1,rollback_movement/1,
          commit_retrieval/1,rollback_retrieval/1,
          init_pick/2,commit_pick/1,rollback_pick/1,

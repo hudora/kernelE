@@ -61,7 +61,7 @@ def main():
         # platz leeren
         loc = k.location_info(platz)
         for mui in loc['allocated_by']:
-            k.retrive(mui)
+            k.retrieve(mui)
 
     filename = 'test/data/platzinfo.pickle.gz'
     print "saving", filename
