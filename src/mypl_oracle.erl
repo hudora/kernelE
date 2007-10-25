@@ -1,6 +1,6 @@
 %% Author  : Maximillian Dornseif
 %% Created :  Created by Maximillian Dornseif on 2007-10-21.
-%% @doc this is not about the database producvt but about predicting the future
+%% @doc this is not about the database product but about predicting the future
 
 -module(mypl_oracle).
 
@@ -39,7 +39,9 @@ products_needed_today() ->
 % needed_this_week(Product) ->
 % not_needed_in_near_future(Product) ->
 
-% @doc to be called with all open orderline for the next 12h or so
+%% @spec feed_dayforecast([{Quantity, Product}]).
+%% @doc to be called with all open orderline for the next 12h or so.
+%% Call it often - e.g. every 20 minutes or so.
 init_dayforcast(Orderlines) ->
     gen_server:cast(?SERVER, {init_dayforcast, {Orderlines}}).
 

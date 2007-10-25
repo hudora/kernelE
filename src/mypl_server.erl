@@ -23,7 +23,8 @@
          location_info/1, location_list/0, unit_info/1, unit_list/0,
          movement_list/0, movement_info/1, pick_list/0, pick_info/1,
          find_provisioning_candidates/2,find_provisioning_candidates_multi/1,init_provisionings_multi/1,
-         create_automatic_movements/0]).
+         create_automatic_movements/0,
+         init_dayforcast/1]).
 
 
 %% gen_server callbacks

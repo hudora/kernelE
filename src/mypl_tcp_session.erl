@@ -118,7 +118,6 @@ convertBoolean(Str) ->
         "False" -> false
     end.
 
-%% @doc converts a string to an array of strings.
-%% @TODO: ficxme
+%% @doc converts a string to an array of strings - not implemented
 convertArray(_Str) ->
     [].

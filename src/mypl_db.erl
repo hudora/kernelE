@@ -233,6 +233,10 @@ retrive(Mui) ->
                                    created_at=mypl_util:timestamp()}),
                                            
                 {ok, {Unit#unit.quantity, Unit#unit.product}};
+            {_, no, _} ->
+                erlang:error({internal_error, inconsistent_retrive, {"Tried to retrieve a unit involved in a movement or pick",
+                                                                     Mui, Unit, Location, mypl_db_util:unit_movement(Unit),
+                                                                     mypl_db_util:unit_picks(Unit)}});
             Wrong ->
                 erlang:error({internal_error, inconsistent_retrive, {Mui, Unit, Location, Wrong}})
         end

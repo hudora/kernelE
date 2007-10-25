@@ -124,7 +124,7 @@ unit_info(Mui) ->
         false ->
             Movements = [];
         Movement ->
-            Movements = [Movement]
+            Movements = [Movement#movement.id]
     end,
     PickIds  = mypl_db_util:do(qlc:q([X#pick.id || X <- mnesia:table(pick), X#pick.from_unit =:= Mui])),
     Ret = {{mui ,           Unit#unit.mui},
@@ -166,7 +166,7 @@ location_info(Locname) ->
     {ok, Ret}.
     
 
-%% @spec movement_list() -> [movementID]
+%% @spec movement_list() -> [mypl_db:movementID()]
 %% @doc gets a List with all movement IDs
 movement_list() ->
     {atomic, Ret} = mnesia:transaction(fun() -> mnesia:all_keys(movement) end),

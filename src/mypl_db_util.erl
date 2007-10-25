@@ -22,7 +22,7 @@
 -include("mypl.hrl").
 
 %% API
--export([do/1, get_mui_location/1, mui_to_unit/1, unit_movement/1, unit_moving/1, unit_movable/1,
+-export([do/1, get_mui_location/1, mui_to_unit/1, unit_picks/1, unit_movement/1, unit_moving/1, unit_movable/1,
          best_location/1, best_locations/2,
          read_location/1, find_movable_units/1]).
 
@@ -79,6 +79,12 @@ unit_movement(Unit) ->
             Movement
     end.
     
+%% @private
+%% @spec unit_picks(unitRecord()) -> mypl_db:movementRecort()
+%% @doc returns the pick records for a unit.
+unit_picks(Unit) ->
+    do(qlc:q([X || X <- mnesia:table(pick), X#pick.from_unit =:= Unit#unit.mui])).
+    
 
 %% @private
 %% @spec unit_moving(unitRecord()) -> atom()
@@ -128,7 +134,7 @@ best_location(floorlevel, Unit, Ignore) ->
     % order by heigth, so we prefer lower locations
     [H|_] = [X || X <- best_location_helper(Unit), X#location.floorlevel =:= true] -- Ignore,
     H.
-best_location(floorlevel, Unit) -> best_location(floor, Unit, []).
+%best_location(floorlevel, Unit) -> best_location(floor, Unit, []).
 
 best_locations(floorlevel, [], _) -> [];
 best_locations(floorlevel, Units, Ignore) -> 

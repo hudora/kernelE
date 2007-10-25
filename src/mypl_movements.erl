@@ -45,8 +45,10 @@ collect_requesed_units(Quantity, Candidates, Acc) ->
     
 %% @doc generates movement suggestions by looking at requirements from the {@link requesttracker}.
 get_movementsuggestion_from_requesstracker() ->
+    erlang:display({get_movementsuggestion_from_requesstracker, start}),
     case mypl_requesttracker:out() of
         {empty} ->
+            erlang:display({get_movementsuggestion_from_requesstracker, en}),
             [];
         {ok, {Quantity, Product}} ->
             % might return {empty}}
@@ -57,6 +59,7 @@ get_movementsuggestion_from_requesstracker() ->
                                                     end, mypl_db_util:find_movable_units(Product))),
             Units = collect_requesed_units(Quantity, Candidates, []),
             Locations = mypl_db_util:best_locations(floorlevel, Units),
+            erlang:display({get_movementsuggestion_from_requesstracker, en}),
             lists:zip([X#unit.mui || X <- Units], [X#location.name || X <- Locations])
     end.
     
@@ -94,8 +97,10 @@ get_abc_units() ->
 %% This is done by consulting {@link mypl_abcserver:get_abc/0} and checking for all products which
 %% are classified as a but have no unit at floorlevel
 get_movementsuggestion_from_abc() ->
+    erlang:display({get_movementsuggestion_from_abc, start}),
     Units = get_abc_units(),
     Locations = mypl_db_util:best_locations(floorlevel, Units),
+    erlang:display({get_movementsuggestion_from_abc, en}),
     lists:zip([X#unit.mui || X <- Units], [X#location.name || X <- Locations]).
     
 
@@ -106,22 +111,23 @@ get_movementsuggestion_from_abc() ->
 %% {@link get_movementsuggestion_from_abc/0}.
 init_movements() ->
     case get_movementsuggestion_from_requesstracker() of
-        L1 ->
-            {ok, lists:map(fun({Mui, Destination}) -> 
-                               mypl_db:init_movement(Mui, Destination, [{mypl_notify_requestracker}])
-                           end, L1)};
         [] ->
-            case get_movementsuggestion_from_abc of
+            case get_movementsuggestion_from_abc() of
                 
+                [] ->
+                    erlang:display("No Movementsuggestions"),
+                    {ok, []};
                 L2 ->
-                    erlang:display({abc_suggestions}, L2), 
+                    erlang:display({abc_suggestions, L2}), 
                     [H|_] = L2, % we are only interested in the first result
                     {ok, lists:map(fun({Mui, Destination}) -> 
                                         mypl_db:init_movement(Mui, Destination, [{mypl_notify_requestracker}])
-                                     end, [H])};
-                [] ->
-                    erlang:display("No Movementsuggestions")
-            end
+                                     end, [H])}
+            end;
+        L1 ->
+            {ok, lists:map(fun({Mui, Destination}) -> 
+                               mypl_db:init_movement(Mui, Destination, [{mypl_notify_requestracker}])
+                           end, L1)}
     end.
     
 

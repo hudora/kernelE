@@ -11,7 +11,7 @@
 -define(SERVER, mypl_nveserver).
 
 %% API
--export([start_link/0, make_nve/0, make_oid/0]).
+-export([start_link/0, make_nve/0, make_nve/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
