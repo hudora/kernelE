@@ -1,8 +1,12 @@
 #!/bin/sh
 # brings the myPL to a well defined state
-rm -Rf Mnesia.mypl_test@*
+# rm -Rf Mnesia.mypl_test@*
 erl -pa ./ebin ./vendor/eunit/ebin -sname mypl_test -noinput \
+    -s mnesia clear_table movement \
+    -s mnesia clear_table location \
+    -s mnesia clear_table unit \
+    -s mnesia clear_table pick \
     -s mypl_db run_me_once \
-    -eval "mnesia:load_textfile(\"test/data/lager-20071019.mnesiadump\")" \
+    -eval "mnesia:load_textfile(\"test/data/platzstammdaten.mnesiadump\")" \
     -s mnesia stop \
     -s erlang halt

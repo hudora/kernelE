@@ -34,8 +34,8 @@ class PlayerOfOrders(object):
         self.open_picks = []
         self.open_retrievals = []
         self.open_movements = []
-        self.picks_per_round = 8
-        self.retrievals_per_round = 2
+        self.picks_per_round = 4
+        self.retrievals_per_round = 1
         self.movements_per_round = 1
         self.stats = {}
     
@@ -88,7 +88,7 @@ class PlayerOfOrders(object):
             #### now generate new picks/retrievals (unles both queues are still full)
             init_provisionings_multi_count = 0
             while ((not self.open_picks) or (not self.open_retrievals) 
-                   and (len(self.open_picks) <= 4*self.picks_per_round 
+                   and (len(self.open_picks) <= 3*self.picks_per_round 
                         and len(self.open_retrievals) <= 4*self.retrievals_per_round)):
                 lieferung = self.lieferungen_todo.pop(0)
                 ret = k.init_provisionings_multi([(pos.menge, pos.artnr) for pos in lieferung.positionen])
@@ -115,12 +115,23 @@ class PlayerOfOrders(object):
             if not self.open_movements:
                 movements = k.create_automatic_movements()
                 self.open_movements.extend(movements)
-            
-            
-    # generate highscore information
-    fd = open("highscores.txt", 'a')
-    fd.write('$Revision$      %s %04d %04d' % (THEDATE, thisround, self.stats['retried_orders']))
-    fd.close()
+        
+        # cleanup
+        while self.open_picks:
+            k.commit_pick(self.open_picks.pop(0))
+            self.statnote('picks', 1)
+        while self.open_retrievals:
+            k.commit_movement(self.open_retrievals.pop(0)) # FIXME: this actually leaves the goods on AUSLAG
+            self.statnote('retrievals', 1)
+        while self.open_movements:
+            k.commit_movement(self.open_movements.pop(0))
+            self.statnote('movements', 1)
+                
+        # generate highscore information
+        fd = open("highscores.txt", 'a')
+        fd.write('#dataset  rounds    $Revision$ ret.orders\n' % (THEDATE, thisround, self.stats['retried_orders']))
+        fd.write('%s    %04d    $Revision$    %04d\n' % (THEDATE, thisround, self.stats['retried_orders']))
+        fd.close()
     
 def main():
     print "loading base quantities"

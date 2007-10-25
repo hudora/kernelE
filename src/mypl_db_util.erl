@@ -58,9 +58,9 @@ mui_to_unit(Mui) ->
             [Unit] ->
                 Unit;
             [] ->
-                {error, unknown_mui, {Mui}};
-            X ->
-                {error, internal_erroe, {Mui, X}}
+                erlang:error({internal_error, unknown_mui, {Mui}});
+            Wrong ->
+                erlang:error({internal_error, unknown_mui, {Mui, Wrong}})
         end
     end,
     {atomic, Ret} = mnesia:transaction(Fun),

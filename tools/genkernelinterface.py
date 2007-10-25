@@ -22,6 +22,8 @@ funcdefs = [
 ('mypl_db', 'init_movement_to_good_location', 'Mui', []),
 ('mypl_db', 'commit_movement', 'MovementId', []),
 ('mypl_db', 'rollback_movement', 'MovementId', []),
+('mypl_db', 'commit_retrieval', 'MovementId', []),
+('mypl_db', 'rollback_retrieval', 'MovementId', []),
 ('mypl_db', 'init_pick', 'Quantity, Mui', []),
 ('mypl_db', 'commit_pick', 'PickId', []),
 ('mypl_db', 'rollback_pick', 'PickId', []),
@@ -42,7 +44,13 @@ funcdefs = [
 ('mypl_provisioning', 'init_provisionings_multi', 'JsonList', ['async']),
 
 ('mypl_movements', 'create_automatic_movements', '', ['async']),
+
+('mypl_oracle', 'init_dayforcast', 'JsonList', []),
+
+('mypl_nveserver', 'make_oid', '', []),
+('mypl_nveserver', 'make_nve', '', []),
 ]
+
 
 typemap = {
 'Quantity':   'PositiveInteger',

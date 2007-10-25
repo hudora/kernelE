@@ -109,7 +109,7 @@ get_movementsuggestion_from_abc() ->
 %% the movements are generated either based on the results from
 %% {@link get_movementsuggestion_from_requesstracker/0} or if this yields nor results based on
 %% {@link get_movementsuggestion_from_abc/0}.
-init_movements() ->
+init_automovements() ->
     case get_movementsuggestion_from_requesstracker() of
         [] ->
             case get_movementsuggestion_from_abc() of
@@ -135,7 +135,7 @@ init_movements() ->
 %% 
 %% ... by cleaning it up and optimizing.
 create_automatic_movements() ->
-    init_movements().
+    init_automovements().
 
 
 % ~~ Unit tests

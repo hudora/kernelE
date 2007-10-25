@@ -51,6 +51,18 @@ handle_command("rollback_movement", _Parameters, State) ->
     [MovementId] = Tokens,
     NewMovementId = convertString(MovementId),
     {noreply, reply(220, rfc4627:encode(mypl_server:rollback_movement(NewMovementId)), reset_buffers(State))};
+handle_command("commit_retrieval", _Parameters, State) ->
+    % implementation for commit_retrieval,
+    Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
+    [MovementId] = Tokens,
+    NewMovementId = convertString(MovementId),
+    {noreply, reply(220, rfc4627:encode(mypl_server:commit_retrieval(NewMovementId)), reset_buffers(State))};
+handle_command("rollback_retrieval", _Parameters, State) ->
+    % implementation for rollback_retrieval,
+    Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
+    [MovementId] = Tokens,
+    NewMovementId = convertString(MovementId),
+    {noreply, reply(220, rfc4627:encode(mypl_server:rollback_retrieval(NewMovementId)), reset_buffers(State))};
 handle_command("init_pick", _Parameters, State) ->
     % implementation for init_pick,
     Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
@@ -152,6 +164,8 @@ init_movement Mui,Locname
 init_movement_to_good_location Mui
 commit_movement MovementId
 rollback_movement MovementId
+commit_retrieval MovementId
+rollback_retrieval MovementId
 init_pick Quantity,Mui
 commit_pick PickId
 rollback_pick PickId

@@ -126,9 +126,14 @@ class Kerneladapter:
         self._send("init_location %s,%d,%r,%d,%s,[]" % (name, height, floorlevel, preference, info))
         return self._read_code(220)
         
+    def make_nve(self):
+        self._send("make_nve")
+        ret = self._read_json(220)
+        return e2string(ret)
+        
     def store_at_location(self, name, quantity, artnr, mui=None, height=1950):
         if mui == None:
-            mui = "%s|%s|%s|%s" % (name, quantity, artnr, uuid.uuid1())
+            mui = "%s|%s|%s|%s" % (name, quantity, artnr, self.make_nve())
         name = name.replace(',','').replace('\n','').replace('\r','')
         artnr = artnr.replace(',','').replace('\n','').replace('\r','')
         mui = mui.replace(',','').replace('\n','').replace('\r','')
@@ -175,13 +180,30 @@ class Kerneladapter:
         self._send("commit_movement %s" % (movementid))
         return self._read_json(220)
         
+    def rollback_movement(self, movementid):
+        self._send("rollback_movement %s" % (movementid))
+        return self._read_json(220)
+        
+    def commit_retrieval(self, movementid):
+        self._send("commit_retrieval %s" % (movementid))
+        return self._read_json(220)
+
+    def rollback_retrieval(self, movementid):
+        self._send("rollback_retrieval %s" % (movementid))
+        return self._read_json(220)
+        
     def commit_pick(self, pickid):
         self._send("commit_pick %s" % (pickid))
+        return self._read_json(220)
+    
+    def rollback_pick(self, pickid):
+        self._send("rollback_pick %s" % (pickid))
         return self._read_json(220)
     
     def create_automatic_movements(self):
         self._send("create_automatic_movements")
         ret = self._read_json(220)
+        print ret
         ok, movements = ret
         ret = []
         for movement in movements:

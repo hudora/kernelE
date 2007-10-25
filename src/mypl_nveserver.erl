@@ -11,7 +11,7 @@
 -define(SERVER, mypl_nveserver).
 
 %% API
--export([start_link/0, make_nve/0, make_nve/0]).
+-export([start_link/0, make_nve/0, make_oid/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -65,11 +65,11 @@ init([]) ->
 handle_call({make_nve}, _From, State) ->
     Reply = make_nve(State#state.nvepos),
     NewState = check_checkpoint(State),
-    {reply, Reply, NewState#state{nvepos=State#state.nvepos+1, generated_count=State#state.generated_count+1}};
+    {reply, Reply, NewState#state{nvepos=State#state.nvepos+1, generated_count=NewState#state.generated_count+1}};
 handle_call({make_oid}, _From, State) ->
     Reply = make_oid(State#state.oidpos),
     NewState = check_checkpoint(State),
-    {reply, Reply, NewState#state{oidpos=State#state.oidpos+1, generated_count=State#state.generated_count+1}}.
+    {reply, Reply, NewState#state{oidpos=State#state.oidpos+1, generated_count=NewState#state.generated_count+1}}.
 
 %%--------------------------------------------------------------------
 %% Function: handle_cast(Msg, State) -> {noreply, State} |
@@ -153,7 +153,6 @@ write_checkpoint(State) ->
     if  % only save if we have generated new numbers sice last call
         State#state.generated_count > 0 ->
             FileName = checkpoint_file(),
-            erlang:display({write_cp2, FileName}),
             Handle = case file:open(FileName, [write]) of
                          {ok, Device} -> Device;
                          {error, Reason} ->
@@ -173,7 +172,6 @@ write_checkpoint(State) ->
 
 % @doc forces checkpoint to be written to disk at least once every 990 sec
 check_checkpoint(State) ->
-    erlang:display({write_cp, State}),
     % if more than 990 records have been created, save checkpoint to disk
     if
         State#state.generated_count > 990 ->

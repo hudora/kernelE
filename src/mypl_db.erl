@@ -15,6 +15,7 @@
 
 -export([run_me_once/0, init_location/6, init_location/5,store_at_location/5, retrive/1,
  init_movement/2, init_movement_to_good_location/1, commit_movement/1, rollback_movement/1,
+ commit_retrieval/1, rollback_retrieval/1,
  init_pick/2, commit_pick/1, rollback_pick/1]).
 
 
@@ -335,8 +336,10 @@ commit_movement(MovementId) ->
         mypl_audit:unitaudit(Unit, "Umlagerung von " ++ Source#location.name ++ " nach "
                       ++ Destination#location.name ++ " comitted", Movement#movement.id),
             
-        case lists:member({mypl_notify_requestracker}, Movement#movement.attributes) of
+        case (lists:member({mypl_notify_requestracker}, Movement#movement.attributes) 
+              andalso Movement#movement.to_location /= "AUSLAG") of
             true ->
+                erlagn:display("informing requestracker"),
                 mypl_requesttracker:movement_done(Unit#unit.quantity, Unit#unit.product);
             _ -> []
         end,
@@ -372,7 +375,23 @@ rollback_movement(MovementId) ->
     end,
     {atomic, Ret} = mnesia:transaction(Fun),
     {ok, Ret}.
+
+
+%% @see commit_movement/1
+%% @see retrieve/1
+%% @doc commit movement/1 and afterwards retrieve the mui
+commit_retrieval(MovementId) ->
+    [Movement] = mnesia:read({movement, MovementId}),
+    % get unit for Mui & get current location of mui
+    Unit = mypl_db_util:mui_to_unit(Movement#movement.mui),
+    {ok, _ } = commit_movement(MovementId),
+    {ok, {_, _}} = retrive(Unit#unit.mui).
     
+
+%% @see rollback_movement/1
+%% @doc alias for rollback_movement/1
+rollback_retrieval(MovementId) ->
+    rollback_movement(MovementId).
 
 %% @spec init_pick(integer(), muID()) -> {ok, pickID()}
 %% @see commit_pick/1
@@ -598,7 +617,7 @@ mypl_simple_pick_test() ->
     % generate and Store Unit of 5*14601 (1200mm high) on "010101"
     {ok, Mui} = store_at_location("010101", Mui, 70, "a0002", 1950),
     % start picking.
-    {ok, Pick1} = mypl_db_query:init_pick(30, Mui),
+    {ok, Pick1} = init_pick(30, Mui),
     
     [Pick1] = mypl_db_query:pick_list(),
     {ok, _} = mypl_db_query:pick_info(Pick1),

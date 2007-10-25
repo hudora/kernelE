@@ -107,7 +107,7 @@ Goods arrive from other Warehouses. Generate MUIs/NVEs for each Pallets. Call
 
 Make somebody actually carry out the movement than call
 
-{@link mypl_db:commit_movement/1. `commit_movement'}`(movementID)'
+{@link mypl_db:commit_retrieval/1. `commit_retrieval'}`(movementID)'
 
 and you are done.
 

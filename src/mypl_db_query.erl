@@ -119,13 +119,16 @@ unit_list() ->
 %% @spec unit_info(muiID()) -> tuple()
 %% @doc gets a tuple with information concerning a unit
 unit_info(Mui) -> 
+    erlang:display({a, Mui}),
     Unit = mypl_db_util:mui_to_unit(Mui),
+    erlang:display({b, Unit}),
     case mypl_db_util:unit_movement(Unit) of
         false ->
             Movements = [];
         Movement ->
             Movements = [Movement#movement.id]
     end,
+    erlang:display({c, Movements}),
     PickIds  = mypl_db_util:do(qlc:q([X#pick.id || X <- mnesia:table(pick), X#pick.from_unit =:= Mui])),
     Ret = {{mui ,           Unit#unit.mui},
            {quantity,       Unit#unit.quantity},
@@ -219,11 +222,6 @@ pick_info(PickId) ->
 %     mypl_db_util:do(qlc:q([{X#unit.quantity, X#unit.mui} || X <- mnesia:table(unit), X#unit.product =:= Product])).
 
 
-% unit_info(unit) -> (quantities, picks, movement, location)
-% pick_info
-% movement_info
-
-% location_info() -> ???
 
 
 
