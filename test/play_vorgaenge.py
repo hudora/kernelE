@@ -2,9 +2,11 @@
 # spielt von dump_softm.py gespeicherte Vorgaenge gegen das myPL ab.
 # Dies ist eigentlich eine suimulationsengine
 import sys, pickle, gzip, datetime, time
-sys.path.extend(['./python'])
+sys.path.extend(['./python', './test'])
 from kernelE import Kerneladapter
+from load_softm import load_platzbestand
 
+THEDATE = "20071018"
 
 byauftrag = {}
 bydate = {}
@@ -101,8 +103,8 @@ class PlayerOfOrders(object):
                     self.open_picks.extend(picks)
                     self.open_retrievals.extend(retrievals)
                     self.lieferungen_done.add(lieferung)
-                    self.stats['toppicksper'] = max([self.stats['toppicksper'], len(picks)])
-                    self.stats['topretrievalsper'] = max([self.stats['topretrievalsper'], len(retrievals)])
+                    self.stats['toppicksper'] = max([self.stats.get('toppicksper', 0), len(picks)])
+                    self.stats['topretrievalsper'] = max([self.stats.get('topretrievalsper', 0), len(retrievals)])
                 
                 # escape from deadlocks
                 init_provisionings_multi_count += 1
@@ -115,11 +117,19 @@ class PlayerOfOrders(object):
                 self.open_movements.extend(movements)
             
             
+    # generate highscore information
+    fd = open("highscores.txt", 'a')
+    fd.write('$Revision$      %s %04d %04d' % (THEDATE, thisround, self.stats['retried_orders']))
+    fd.close()
     
 def main():
+    print "loading base quantities"
+    platzbestand = pickle.load(gzip.GzipFile('test/data/platzbestand-%s.pickle.gz' % THEDATE, 'r'))
+    load_platzbestand(platzbestand)
+    
     oldnofit = []
     print "Simulating a day of myPL at work"
-    vorgaenge = pickle.load(gzip.GzipFile('test/data/vorgaenge-20071019.pickle.gz', 'r'))
+    vorgaenge = pickle.load(gzip.GzipFile('test/data/vorgaenge-%s.pickle.gz' % THEDATE, 'r'))
     for v in vorgaenge:
         o = Orderline()
         o.menge, o.artnr, o.auftragsnummer, o.liefer_date, o.kundennummer, o.vorgangsnummer = v['menge'], v['artnr'], v['auftragsnummer'], v['liefer_date'], v['kundennummer'], v['vorgangsnummer']
@@ -130,5 +140,6 @@ def main():
         l = Lieferung(positionen[0].vorgangsnummer, positionen[0].kundennummer, positionen[0].liefer_date, positionen)
         sim.add_lieferungen([l])
     sim.simulate()
+    
 
 main()
