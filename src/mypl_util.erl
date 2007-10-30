@@ -72,32 +72,46 @@ combine_until_fit(Quantity, [H|T]) when H < Quantity ->
 %% @private
 %% @spec perms2([integer()], integer(), integer()) -> [[integer()]]
 %% @doc internal helper for caclulating permutations
-perms2([], _, _) -> [];
-perms2(_, Quantity, _) when Quantity =< 0 -> [];
-perms2([X], Quantity, _) when X < Quantity -> [[X]];
-perms2(L, Quantity, Endtime) -> % when is_list(L), is_integer(Quantity), is_integer(Endtime) -> 
-    case lists:sum(L) of
-        X when X =:= Quantity ->
-            [L]; % direct hit!
+perms2([], _, _, _) -> [];
+perms2(_, Quantity, _, _) when Quantity =< 0 -> [];
+perms2([X], Quantity, _, _) when X < Quantity -> [[X]];
+perms2(L, Quantity, Endtime, State) -> % when is_list(L), is_integer(Quantity), is_integer(Endtime) -> 
+    case ets:lookup(State, {L, Quantity}) of
+        [{{L, Quantity}, Ret}] ->
+            Ret;
         _ ->
-            Now = micro_now(),
-            if
-                Now > Endtime ->
-                    % we are already late
-                    [];
-                true ->
-                    Lsmall = [X || X <- L, X < Quantity], % remove elements beeing to big                    
-                    
-                    Ret = 
-                    % permutations of H in front with the tail beeing shuffled
-                    [lists:sort([H|T]) || H <- Lsmall, T <- perms2(Lsmall--[H], Quantity-H, Endtime)]
-                    ++
-                    % permutations with one element (H) missing 
-                    [T || H <- Lsmall, T <- perms2(Lsmall--[H], Quantity, Endtime)],
-                    
-                    lists:usort(Ret)
-            end
+            Ret = case lists:sum(L) of
+                X when X =:= Quantity ->
+                    [L]; % direct hit!
+                _ ->
+                    Now = micro_now(),
+                    if
+                        Now > Endtime ->
+                            % we are already late
+                            [];
+                        true ->
+                            Lsmall = [X || X <- L, X < Quantity], % remove elements beeing to big                    
+                            
+                            Tmp = 
+                            % permutations of H in front with the tail beeing shuffled
+                            [lists:sort([H|T]) || H <- Lsmall, T <- perms2(Lsmall--[H], Quantity-H, Endtime, State)]
+                            ++
+                            % permutations with one element (H) missing 
+                            [T || H <- Lsmall, T <- perms2(Lsmall--[H], Quantity, Endtime, State)],
+                            
+                            lists:usort(Tmp)
+                    end
+            end,
+            ets:insert(State, {{L, Quantity}, Ret}),
+            Ret
     end.
+
+perms(L, Quantity, Endtime) ->
+    State = ets:new(perms, [set]),
+    Ret = perms2(L, Quantity, Endtime, State),
+    ets:delete(State),
+    Ret.
+    
 
 %% @spec permutator([integer()], integer(), integer()) -> [[integer()]]
 %% @see nearest/2
@@ -106,9 +120,9 @@ perms2(L, Quantity, Endtime) -> % when is_list(L), is_integer(Quantity), is_inte
 %% If it takes more than Maxtime seconds, then the computation is stopped.
 permutator(L, Quantity, Maxtime) when is_list(L), is_integer(Quantity), is_integer(Maxtime) ->
     Endtime = micro_now() + (Maxtime * 1000000),
-    % TOTO: possible optimisation: shorten series of identical integers so SUM(series) =< Quantity
-    % with the current implementation of perms2 the sort isn't actually needed
-    Permuted = perms2(lists:sort(L), Quantity, Endtime),
+    % TODO: possible optimisation: shorten series of identical integers so SUM(series) =< Quantity
+    % INFO: with the current implementation of perms2 the sort isn't actually needed
+    Permuted = perms(lists:sort(L), Quantity, Endtime),
     Correct = lists:filter(fun(X) -> lists:sum(X) =< Quantity end,
                            Permuted ++ lists:map(fun(X) -> [X] end, L)),
     % remove duplicates and prefer longer lists
@@ -266,6 +280,14 @@ log(Module, Line, err, Msg, Params) ->
 -ifdef(EUNIT).
 -compile(export_all).
 
+timing_helper() ->
+    choose([1,2,3,4,5,6,7,8,9,15,15,15,15], 60, 999).
+
+timing() ->
+    {Time , Ret} =  timer:tc(?MODULE, timing_helper, []),
+    Secs = Time div 1000,
+    io:format("~n~p ms~n~w~n",[Secs, Ret]).
+    
 
 %%% @hidden
 permutator_test() ->
@@ -273,6 +295,7 @@ permutator_test() ->
     [[2,4],[6]] = permutator([2,2,4,6], 6, 1),
     [[2,4],[3,3],[6]] = permutator([2,3,3,4,6], 6, 1),
     ok.
+    
 
 nearest_test() ->
     [2,4] = nearest([2,2,4,6], 6),
