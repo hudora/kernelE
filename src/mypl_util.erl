@@ -15,9 +15,12 @@
 %% @doc generate unique object ID
 %% this ID should be unique across all processes and across all erlang nodes
 %% it also should sort in ascending order
-oid() -> 
-    {MS,S,US} = erlang:now(),
-    lists:flatten([integer_to_list(MS),"-",integer_to_list(S),"-",integer_to_list(US), "-", atom_to_list(node())]).
+%% @end
+%oid() -> 
+%    {MS,S,US} = erlang:now(),
+%    lists:flatten([integer_to_list(MS),"-",integer_to_list(S),"-",integer_to_list(US), "-", atom_to_list(node())]).
+oid() ->
+    mypl_nveserver:make_oid().
     
 
 %% @spec generate_mui() -> string()

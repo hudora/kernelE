@@ -45,10 +45,8 @@ collect_requesed_units(Quantity, Candidates, Acc) ->
     
 %% @doc generates movement suggestions by looking at requirements from the {@link requesttracker}.
 get_movementsuggestion_from_requesstracker() ->
-    erlang:display({get_movementsuggestion_from_requesstracker, start}),
     case mypl_requesttracker:out() of
         {empty} ->
-            erlang:display({get_movementsuggestion_from_requesstracker, en}),
             [];
         {ok, {Quantity, Product}} ->
             % might return {empty}}
@@ -59,7 +57,6 @@ get_movementsuggestion_from_requesstracker() ->
                                                     end, mypl_db_util:find_movable_units(Product))),
             Units = collect_requesed_units(Quantity, Candidates, []),
             Locations = mypl_db_util:best_locations(floorlevel, Units),
-            erlang:display({get_movementsuggestion_from_requesstracker, en}),
             lists:zip([X#unit.mui || X <- Units], [X#location.name || X <- Locations])
     end.
     
@@ -67,13 +64,17 @@ get_movementsuggestion_from_requesstracker() ->
 % [] == no units at floorlevel 
 % TODO: instead check "no units at floorlevel not having any open movements or open picks"
 get_movementsuggestion_from_abc_helper(Product, []) ->
-    erlang:display({a, Product}),
             % if nothing is currently moving
     case mypl_db_query:open_movements_for_product(Product) of
         [] ->
             % suggest a unit to be moved to the floor
-            [H|_] = lists:keysort(#unit.created_at, mypl_db_util:find_movable_units(Product)) ++ [],
-            [H];
+            case mypl_db_util:find_movable_units(Product) of
+                [] ->
+                    [];
+                L ->
+                    [H|_] = lists:keysort(#unit.created_at, L),
+                    [H]
+            end;
         _L ->
             % else ignore that product
             []
@@ -97,10 +98,8 @@ get_abc_units() ->
 %% This is done by consulting {@link mypl_abcserver:get_abc/0} and checking for all products which
 %% are classified as a but have no unit at floorlevel
 get_movementsuggestion_from_abc() ->
-    erlang:display({get_movementsuggestion_from_abc, start}),
     Units = get_abc_units(),
     Locations = mypl_db_util:best_locations(floorlevel, Units),
-    erlang:display({get_movementsuggestion_from_abc, en}),
     lists:zip([X#unit.mui || X <- Units], [X#location.name || X <- Locations]).
     
 

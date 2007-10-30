@@ -55,6 +55,17 @@ Some more obscure terms are:
 <dd>The ID of an Unit.</dd>
 </dl>
 
+
+== Features ==
+
+=== FastFlux / Self Tuning===
+
+FastFlux is the buzzword describing that myPL/kernel-E tries to go without any static configuration. So no
+Configuration of ABC-Classification. etc. The system is expected to figure everything expect physical constrains (e.g. location height) out by it self. FastFlux tries to cope with the fact that our business changes from week to week and what might have been an "A" Article yesterday may be "C" tomorrow.
+
+Instead of forcing staff to permanently reorganize the warehouse FastFlux tries to retune it self every day for the current requirements without any external intervention.
+
+
 === IDs ===
 
 All objects handled by kernel-E are identified by unique IDs. For Units this IDs must be supplied by the caller. For all other Objects the IDs are created automatically. This IDs are rather long and hard to type and remember, e.g. ```1-685581-381576-testnode@testhost''' Higher layers of the myPL stack should handle this as opaque identifiers without any special meaning. The only guarantee is that IDs for the same object type sort in the order in which they are created. So when you sort by ID you automatically have also a list sorted by age.
@@ -77,9 +88,12 @@ kernel-E saves two kind of audit logs: changes of stock of inventory and creatio
 
 Please check {@link mypl_audit} for further information.
 
+
 == Data Model ==
 
-TBD
+Most entities described above (units, locations, movements, picks) are directly mapped to tables in the "mnesia" storage backed. The database only keeps active entries. If data is not longer in use but considered of a certain value it is copied into the "archive" table. Reservation is a table not mapping directly to an warehouse entity. It is used to keep track of reservations of locations for incoming movements.
+
+Many subsystems use their own internal database tables or in memory structures to keep track of things.
 
 == API ==
 

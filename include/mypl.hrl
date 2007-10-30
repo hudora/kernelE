@@ -22,6 +22,7 @@
                height,          % Höhe in mm
                pick_quantity,
                location,        % Zeiger auf den Location name
+               attributes,
                created_at
                }). % TBD
 
@@ -41,6 +42,14 @@
                from_unit,       % unit von der gepickt werden soll
                created_at
                }). 
+
+% reservation of a location - usually for a movement
+-record(reservation, {id,
+                     mui,
+                     location,
+                     reason,
+                     attributes
+                }).
 
 
 % speichert alle Warenbewegungen zu Protokollzwecken

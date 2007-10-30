@@ -39,7 +39,7 @@ products_needed_today() ->
 % needed_this_week(Product) ->
 % not_needed_in_near_future(Product) ->
 
-%% @spec feed_dayforecast([{Quantity, Product}]).
+%% @spec init_dayforcast([{Quantity, Product}]) -> term()
 %% @doc to be called with all open orderline for the next 12h or so.
 %% Call it often - e.g. every 20 minutes or so.
 init_dayforcast(Orderlines) ->
@@ -91,7 +91,11 @@ handle_call({out}, _From, State) ->
 %%--------------------------------------------------------------------
 handle_cast({init_dayforcast, {L}}, State) ->
     ets:delete_all_objects(State#state.table),
-    lists:map(fun({Quantity, Product}) -> 
+    lists:map(fun(Data) -> 
+                  case Data of
+                      {Quantity, Product} -> ok;
+                      [Quantity, Product] -> ok
+                  end,
                   case ets:lookup(State#state.table, Product) of
                       [] ->
                           ets:insert(State#state.table, {Product, Quantity, mypl_util:timestamp()});
