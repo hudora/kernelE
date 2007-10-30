@@ -6,7 +6,7 @@ sys.path.extend(['./python', './test'])
 from kernelE import Kerneladapter
 from load_softm import load_platzbestand
 
-THEDATE = "20071018"
+THEDATE = "20071019"
 
 byauftrag = {}
 bydate = {}
@@ -50,8 +50,17 @@ class PlayerOfOrders(object):
             self.stats[name] = 0
         self.stats[name] = self.stats[name] + value
     
+    def init_oracle(self):
+        k = Kerneladapter()
+        positionen = []
+        for poslist in [lieferung.positionen for lieferung in self.lieferungen_todo]:
+            for pos in poslist:
+                positionen.append((pos.menge, pos.artnr))
+        k.init_dayforcast(positionen)
+        
+    
     def simulate(self):
-        """Simuliert Lagerbewegingen. Hierbei wird simuliert jede Kommibeleg Position würde unabhaengig von den anderen zurueckgemeldet."""
+        """Simuliert Lagerbewegungen. Hierbei wird simuliert jede Kommibeleg Position würde unabhaengig von den anderen zurueckgemeldet."""
         k = Kerneladapter()
         thisround = 0
         while self.lieferungen_todo:
@@ -75,7 +84,7 @@ class PlayerOfOrders(object):
             for i in range(self.retrievals_per_round):
                 if self.open_retrievals:
                     retrievalId = self.open_retrievals.pop(0)
-                    k.commit_movement(retrievalId) # FIXME: this actually leaves the goods on AUSLAG
+                    k.commit_retrieval(retrievalId)
                     self.statnote('retrievals', 1)
             
             # process movements ("umlagerungen")
@@ -150,6 +159,7 @@ def main():
         positionen = byauftrag[auftragsnummer]
         l = Lieferung(positionen[0].vorgangsnummer, positionen[0].kundennummer, positionen[0].liefer_date, positionen)
         sim.add_lieferungen([l])
+    sim.init_oracle()
     sim.simulate()
     
 
