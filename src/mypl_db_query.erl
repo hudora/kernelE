@@ -31,6 +31,8 @@
 -include_lib("stdlib/include/qlc.hrl").
 -include("include/mypl.hrl").
 
+-import(mypl_db_util).
+
 -export([count_product/1, count_products/0,
          open_movements_for_product/1, find_floor_units_for_product/1,
          unit_list/0, unit_info/1, location_list/0, location_info/1,
@@ -55,8 +57,11 @@ count_product_helper(Units, Fquantity, Pquantity, Mquantity) ->
 %% 
 %% E.g. count_product("10001") -> {{ 36, 19, 0, 17}, ["NVE031233412431234", "NVE0313443215435435"]}
 count_product(Product) ->
-    Units = mypl_db_util:do(qlc:q([X || X <- mnesia:table(unit), X#unit.product =:= Product])),
-    {count_product_helper(Units, 0, 0, 0), lists:map(fun(X) -> X#unit.mui end, Units)}.
+    Fun = fun() ->
+        Units = mypl_db_util:do(qlc:q([X || X <- mnesia:table(unit), X#unit.product =:= Product])),
+        {count_product_helper(Units, 0, 0, 0), lists:map(fun(X) -> X#unit.mui end, Units)}
+    end,
+    mypl_db_util:transaction(Fun).
     
 
 % @private
@@ -87,17 +92,24 @@ count_products_helper(Units, Fdict, Pdict, Mdict) ->
 %%
 %% E.g. count_products() -> [{"10001",10,10,0,0},{"10002",36,1,18,17},{"10003",94,94,0,0}]
 count_products() ->
-    Units = mypl_db_util:do(qlc:q([X || X <- mnesia:table(unit)])),
-    count_products_helper(Units, dict:new(), dict:new(), dict:new()).
+    Fun = fun() ->
+        Units = mypl_db_util:do(qlc:q([X || X <- mnesia:table(unit)])),
+        count_products_helper(Units, dict:new(), dict:new(), dict:new())
+    end,
+    mypl_db_util:transaction(Fun).
     
 
 %% @spec open_movements_for_product(string()) -> [mypl_db:movementID()]
 %% @doc returns a list of all open movements for a Product.
 open_movements_for_product(Product) ->
     {_, Muis} = count_product(Product),
-    [X#movement.id || X <- lists:map(fun(X) -> 
-                                         mypl_db_util:unit_movement(mypl_db_util:mui_to_unit(X))
-                                     end, Muis), X /= false].
+    Fun = fun() ->
+        [X#movement.id || X <- lists:map(fun(X) -> 
+                                             mypl_db_util:unit_movement(mypl_db_util:mui_to_unit(X))
+                                         end, Muis), X /= false]
+    end,
+    {atomic, Ret} = mnesia:transaction(Fun),
+    Ret.
     
 
 find_floor_units_for_product(Product) ->
@@ -105,7 +117,7 @@ find_floor_units_for_product(Product) ->
                                            X#unit.product =:= Product, unit_floor_helper(X)]))].
 
 unit_floor_helper(Unit) ->
-     Loc = mypl_db_util:get_mui_location(Unit#unit.mui),
+     Loc = mypl_db_util:read_location(Unit#unit.location),
      Loc#location.floorlevel =:= true.
     
 
@@ -119,25 +131,29 @@ unit_list() ->
 %% @spec unit_info(muiID()) -> tuple()
 %% @doc gets a tuple with information concerning a unit
 unit_info(Mui) -> 
-    Unit = mypl_db_util:mui_to_unit(Mui),
-    case mypl_db_util:unit_movement(Unit) of
-        false ->
-            Movements = [];
-        Movement ->
-            Movements = [Movement#movement.id]
+    Fun = fun() ->
+        Unit = mypl_db_util:mui_to_unit_trans(Mui),
+        case mypl_db_util:unit_movement(Unit) of
+            false ->
+                Movements = [];
+            Movement ->
+                Movements = [Movement#movement.id]
+        end,
+        PickIds  = mypl_db_util:do(qlc:q([X#pick.id || X <- mnesia:table(pick), X#pick.from_unit =:= Mui])),
+        
+        {{mui ,           Unit#unit.mui},
+         {quantity,       Unit#unit.quantity},
+         {product,        Unit#unit.product},
+         {height,         Unit#unit.height},
+         {pick_quantity,  Unit#unit.pick_quantity},
+         {location,       Unit#unit.location},
+         {created_at,     Unit#unit.created_at},
+         {attributes,     []},
+         {movements,      Movements},
+         {picks,          PickIds}
+        }
     end,
-    PickIds  = mypl_db_util:do(qlc:q([X#pick.id || X <- mnesia:table(pick), X#pick.from_unit =:= Mui])),
-    Ret = {{mui ,           Unit#unit.mui},
-           {quantity,       Unit#unit.quantity},
-           {product,        Unit#unit.product},
-           {height,         Unit#unit.height},
-           {pick_quantity,  Unit#unit.pick_quantity},
-           {location,       Unit#unit.location},
-           {created_at,     Unit#unit.created_at},
-           {attributes,     []},
-           {movements,      Movements},
-           {picks,          PickIds}
-        },
+    Ret = mypl_db_util:transaction(Fun),
     {ok, Ret}.
     
 

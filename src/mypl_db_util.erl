@@ -22,51 +22,74 @@
 -include("mypl.hrl").
 
 %% API
--export([do/1, get_mui_location/1, mui_to_unit/1, unit_picks/1, unit_movement/1, unit_moving/1, unit_movable/1,
+-export([do/1, do_trans/1, transaction/1, get_mui_location/1, mui_to_unit/1, mui_to_unit_trans/1,
+         unit_picks/1, unit_movement/1, unit_moving/1, unit_movable/1,
          best_location/1, best_locations/2,
          read_location/1, find_movable_units/1]).
 
 %% @private
 %% @doc helper function for wraping {@link qlc} queries in an {@link mnesia} transaction.
 do(Q) ->
+    qlc:e(Q).
+
+do_trans(Q) ->
     F = fun() -> qlc:e(Q) end,
     {atomic, Val} = mnesia:transaction(F),
     Val.
+
+transaction(Fun) ->
+    {atomic, Ret} = mnesia:transaction(Fun),
+    Ret.
+
 
 % @private
 %% @spec get_mui_location(muiID()) -> locationRecord()
 %% @doc finds the location where a unit is currently placed
 get_mui_location(Mui) ->
-    Fun = fun() ->
-        Unit = mui_to_unit(Mui),
-        Unit#unit.location,
-        [Location] = mnesia:read({location, Unit#unit.location}),
-        % Guard-like expression
-        [_] = [X || X <- Location#location.allocated_by, X =:= Unit#unit.mui],
-        Location
-    end,
-    {atomic, Ret} = mnesia:transaction(Fun),
-    Ret.
+    Unit = mui_to_unit(Mui),
+    Unit#unit.location,
+    case mnesia:read({location, Unit#unit.location}) of
+        [] ->
+             erlang:error({internal_error, mui_without_location1, {Mui, Unit}});
+        [Location] ->
+            case [X || X <- Location#location.allocated_by, X =:= Unit#unit.mui] of
+                [] ->
+                    % we found a unit without a location - fix it py putting it onto FEHLER
+                    % we have to use a different process to escape the failing transaction
+                    spawn(fun() -> mypl_integrity:orphaned_unit(Unit) end),
+                    % exit wit an error
+                    erlang:error({internal_error, mui_without_location2, {"FEHLER! Unit behauptete auf '" ++ Unit#unit.location ++ "' zu stehen, aber die Location hatte keine entsprechenden Daten. Wurde auf FEHLER gebucht.",
+                                                                          Mui, Unit, Location}});
+                [_] -> ok
+            end,
+            Location
+    end.
     
 
 %% @private
 %% @spec mui_to_unit(muiID()) -> unitRecord()
 %% @doc returns the Unit identified by a Mui
+%%
+%% This expect to be called within a transaction
 mui_to_unit(Mui) ->
+    case mnesia:read({unit, Mui}) of
+        [Unit] ->
+            Unit;
+        [] ->
+            erlang:error({internal_error, unknown_mui, {Mui}});
+        Wrong ->
+            erlang:error({internal_error, unknown_mui, {Mui, Wrong}})
+    end.
+    
+
+%% @doc this calles mui_to_unit/1 with a sorrunding transaction
+mui_to_unit_trans(Mui) ->
     Fun = fun() ->
-        case mnesia:read({unit, Mui}) of
-            [Unit] ->
-                Unit;
-            [] ->
-                erlang:error({internal_error, unknown_mui, {Mui}});
-            Wrong ->
-                erlang:error({internal_error, unknown_mui, {Mui, Wrong}})
-        end
+        mui_to_unit(Mui)
     end,
     {atomic, Ret} = mnesia:transaction(Fun),
     Ret.
     
-
 
 %% @private
 %% @spec unit_movement(unitRecord()) -> mypl_db:movementRecort()

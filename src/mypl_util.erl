@@ -8,27 +8,32 @@
 -module(mypl_util).
 
 %% API
--export([oid/0, generate_mui/0, timestamp/0, combine_until_fit/2,
+-export([serial/0, oid/0, generate_mui/0, timestamp/0, combine_until_fit/2,
          choose/2, choose/3, nearest/2, nearest/3, spawn_and_register/2, log/5]).
 
 %% @spec oid() -> string()
 %% @doc generate unique object ID
-%% this ID should be unique across all processes and across all erlang nodes
+%% this ID should be unique across all processes
 %% it also should sort in ascending order
 %% @end
-%oid() -> 
-%    {MS,S,US} = erlang:now(),
-%    lists:flatten([integer_to_list(MS),"-",integer_to_list(S),"-",integer_to_list(US), "-", atom_to_list(node())]).
 oid() ->
+    {MS,S,US} = erlang:now(),
+    % add , "-", atom_to_list(node()) for a distributed environment
+    % to have it unique across all erlang nodes
+    lists:flatten([integer_to_list(MS),integer_to_list(S),".",integer_to_list(US)]). 
+
+
+%% @doc generate a nice object ID
+%% this ID should be unique across all processes and across all erlang nodes
+%% it also should sort in ascending order
+serial() ->
     mypl_nveserver:make_oid().
     
 
 %% @spec generate_mui() -> string()
 %% @doc generate a UUID for use with MUIs
-%%
-%% Might be someday extended into "real" NVE/SSCC generation.
 generate_mui() ->
-    oid().
+    mypl_nveserver:make_nve().
     
 
 %% @spec micro_now() -> integer()
@@ -106,6 +111,7 @@ perms2(L, Quantity, Endtime, State) -> % when is_list(L), is_integer(Quantity), 
             Ret
     end.
 
+%% @doc implement an etc cache for perms2
 perms(L, Quantity, Endtime) ->
     State = ets:new(perms, [set]),
     Ret = perms2(L, Quantity, Endtime, State),
@@ -158,9 +164,9 @@ nearest(L, Quantity, Maxtime) when is_list(L), is_integer(Quantity), is_integer(
 %% [2,4,6]
 %% > nearest([2,4,6], 7)
 %% [2,4]'''
-%% Computation aborts after 3 seconds
+%% Computation aborts after 2 seconds
 nearest(L, Quantity) when is_list(L), is_integer(Quantity) ->
-    nearest(L, Quantity, 3).
+    nearest(L, Quantity, 2).
 
 %% @spec choose([integer()], integer(), integer()) -> [[integer()]]
 %% @see choose/2
@@ -198,9 +204,9 @@ choose(L, Quantity, Maxtime) when is_list(L), is_integer(Quantity), is_integer(M
 %% ```
 %% > choose([1,1,1,1,2,2,3,3,3,4,5,6,7], 5, 10).
 %% [[1,1,1,2],[1,2,2],[1,1,3],[2,3],[1,4],[5]]'''
-%% With choose/2 the computation is aborted after 3 seconds.
+%% With choose/2 the computation is aborted after 2 seconds.
 choose(L, Quantity) when is_list(L), is_integer(Quantity) ->
-    choose(L, Quantity, 3).
+    choose(L, Quantity, 2).
 
 
 % This is based on http://www.nabble.com/Programming-Erlang-Exercise-8.11-t4485540.html

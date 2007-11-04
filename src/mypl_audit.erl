@@ -31,8 +31,8 @@
 -include_lib("stdlib/include/qlc.hrl").
 -include("mypl.hrl").
 
--export([articleaudit/6, articleaudit/5, articleaudit/4, unitaudit/4, unitaudit/3, unitaudit/2,
-         compress_audit/0, compress_audit/1]).
+-export([articleaudit/6, articleaudit/5, articleaudit/4, unitaudit_mui/2, unitaudit/4, unitaudit/3, unitaudit/2,
+         archive/2, spawn_audit_transfer/0, compress_audit/0, compress_audit/1]).
 
 %%% we assume all test and initialisation functionality is provided vby other modules
 
@@ -47,9 +47,10 @@
 %% Transaction can be an movementID or an pickID.
 articleaudit(Quantity, Product, Text, Mui, Transaction, References) ->
     Fun = fun() ->
-            mnesia:write(#articleaudit{id="a" ++ mypl_util:oid(), quantity=Quantity, product=Product,
-                                   text=Text, mui=Mui, transaction=Transaction,
-                                   references=References, created_at=calendar:universal_time()})
+            mnesia:write(#auditbuffer{id=mypl_util:oid(),
+                                      body=#articleaudit{id="a" ++ mypl_util:oid(), quantity=Quantity, product=Product,
+                                                         text=Text, mui=Mui, transaction=Transaction,
+                                                         references=References, created_at=calendar:universal_time()}})
           end,
     mnesia:transaction(Fun).
 
@@ -65,15 +66,25 @@ articleaudit(Quantity, Product, Text, Mui, Transaction) ->
 articleaudit(Quantity, Product, Text, Mui) ->
     articleaudit(Quantity, Product, Text, Mui, undefined).
 
+
+unitaudit_mui(Mui, Text) ->
+    Fun = fun() ->
+            mnesia:write(#auditbuffer{id=mypl_util:oid(),
+                                      body=#unitaudit{id="A" ++ mypl_util:oid(),
+                                                      mui=Mui, text=Text, created_at=calendar:universal_time()}})
+          end,
+    mnesia:transaction(Fun).
+
 %% @private
 %% @spec unitaudit(unitRecord(), string(), string(), externalReferences()) -> {ok, atomic}
 %% @doc to be called whenever Units are moved in the warehouse.
 unitaudit(Unit, Text, Transaction, References) ->
     Fun = fun() ->
-            mnesia:write(#unitaudit{id="A" ++ mypl_util:oid(),
-                                    mui=Unit#unit.mui, quantity=Unit#unit.quantity, product=Unit#unit.product,
-                                    text=Text, transaction=Transaction,
-                                    references=References, created_at=calendar:universal_time()})
+            mnesia:write(#auditbuffer{id=mypl_util:oid(),
+                                      body=#unitaudit{id="A" ++ mypl_util:oid(),
+                                                      mui=Unit#unit.mui, quantity=Unit#unit.quantity, product=Unit#unit.product,
+                                                      text=Text, transaction=Transaction,
+                                                      references=References, created_at=calendar:universal_time()}})
           end,
     mnesia:transaction(Fun).
 
@@ -86,6 +97,43 @@ unitaudit(Unit, Text, Transaction) ->
 %% @doc to be called whenever Units are moved in the warehouse.
 unitaudit(Unit, Text) ->
     unitaudit(Unit, Text, undefined).
+
+
+%% @doc archives an Unit, Movement, Pick when it is deleted.
+archive(Object, Archivaltype) ->
+    Fun = fun() ->
+        mnesia:write(#auditbuffer{id=mypl_util:oid(),
+                                  body=#archive{id="r" ++ mypl_util:oid(),
+                                                body=Object, archived_by=Archivaltype,
+                                                created_at=mypl_util:timestamp()}})
+    end,
+    {atomic, _} = mnesia:transaction(Fun),
+    ok.
+
+%% @doc transfer data from temporary audit table to it's final destination
+transfer_buffers() ->
+    transfer_buffers(mnesia:dirty_first(auditbuffer)).
+
+transfer_buffers('$end_of_table') -> ok;
+transfer_buffers(Key) ->
+    % for set and ordered_set tables this will execute once, for bag tables this could execute many times...
+    case mnesia:dirty_read({auditbuffer, Key}) of
+        [] ->
+            ok;
+        [Buffer] ->
+            mnesia:dirty_write(Buffer#auditbuffer.body),
+            mnesia:dirty_delete(auditbuffer, Buffer#auditbuffer.id),
+            timer:sleep(11), % sleep 11 ms to give disk drives / mnesia time to rest
+            transfer_buffers(mnesia:dirty_first(auditbuffer))
+    end.
+
+% @doc spawn transfer_buffers/0 - but ensure only one is running
+spawn_audit_transfer() ->
+    % the next line will fail if there already is a audit_transfer_process running, which is fine ...
+    mypl_util:spawn_and_register(audit_transfer_process, fun() -> transfer_buffers() end).
+
+
+%% the following compression functions are meant for compacting the archival tables
 
 compress_articleaudit_helper(Quantity, []) ->
     Quantity;

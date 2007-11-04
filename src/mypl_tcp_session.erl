@@ -78,7 +78,8 @@ handle_call(Request, _From, State) ->
     {stop, {bad_call, Request}, State}.
 
 handle_cast({socket_control_transferred, _Sock}, State = #session{socket = Sock}) ->
-    inet:setopts(Sock, [{active, true}]),
+    inet:setopts(Sock, [{active, true},
+                        {recbuf, 65355}]), % recbuf == maximum line length
     {noreply, reply(200, "Hi there", State#session{mode = command})};
 
 handle_cast(Request, State) ->

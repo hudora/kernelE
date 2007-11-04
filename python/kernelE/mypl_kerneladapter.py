@@ -9,7 +9,9 @@ Copyright (c) 2007 HUDORA GmbH. All rights reserved.
 
 
 import unittest
-import socket, uuid, simplejson, pickle, datetime
+import socket, uuid, simplejson, pickle, datetime, time
+
+DEBUG = True
 
 def e2string(data):
     # if we got a list of numbers turn it into a string
@@ -37,6 +39,26 @@ def attributelist2dict(l, fixattnames=[]):
         else:
             ret[name] = value
     return ret
+    
+
+def print_timing(func):
+    """Decorator to print execution time of functions if options.debug is True."""
+    
+    def _wrapper(*args, **kwargs):
+        """Closure providing the actual functionality of print_timing()"""
+        
+        if DEBUG:
+            print "calling %r: " % (func),
+        start = time.time()
+        try:
+            ret = func(*args, **kwargs)
+        finally:
+            if DEBUG:
+                delta = time.time() - start
+                print "\t%2.5fs" % (delta)
+        
+        return ret
+    return _wrapper
     
 
 class Kerneladapter:
@@ -118,6 +140,7 @@ class Kerneladapter:
         d['created_at'] = e2datetime(d['created_at'])
         return d
     
+    @print_timing
     def init_location(self, name, height=1950, floorlevel=False, preference=5, info='', attributes=[]):
         name = name.replace(',','').replace('\n','').replace('\r','')
         info = info.replace(',',' ').replace('\n','').replace('\r','')
@@ -145,6 +168,7 @@ class Kerneladapter:
         self._send("retrieve %s" % (mui,))
         return self._read_code(220)
         
+    @print_timing
     def find_provisioning_candidates(self, quantity, artnr):
         artnr = artnr.replace(',','').replace('\n','').replace('\r','')
         self._send("find_provisioning_candidates %d,%s" % (quantity, artnr))
@@ -156,6 +180,7 @@ class Kerneladapter:
             ret = (ok, retrievals, picks)
         return ret
     
+    @print_timing
     def find_provisioning_candidates_multi(self, poslist):
         self._send("find_provisioning_candidates_multi %s" % (simplejson.dumps(poslist)))
         ret = self._read_json(220)
@@ -166,6 +191,7 @@ class Kerneladapter:
             ret = (ok, retrievals, picks)
         return ret
     
+    @print_timing
     def init_provisionings_multi(self, poslist):
         self._send("init_provisionings_multi %s" % (simplejson.dumps(poslist)))
         ret = self._read_json(220)
@@ -187,7 +213,7 @@ class Kerneladapter:
     def commit_retrieval(self, movementid):
         self._send("commit_retrieval %s" % (movementid))
         return self._read_json(220)
-
+        
     def rollback_retrieval(self, movementid):
         self._send("rollback_retrieval %s" % (movementid))
         return self._read_json(220)
@@ -200,6 +226,7 @@ class Kerneladapter:
         self._send("rollback_pick %s" % (pickid))
         return self._read_json(220)
     
+    @print_timing
     def create_automatic_movements(self):
         self._send("create_automatic_movements")
         ret = self._read_json(220)
@@ -210,3 +237,8 @@ class Kerneladapter:
             ok, movementid = movement
             ret.append(e2string(movementid))
         return ret
+    
+    def init_dayforcast(self, poslist):
+        self._send("init_dayforcast %s" % (simplejson.dumps(poslist)))
+        return self._read_code(220)
+    

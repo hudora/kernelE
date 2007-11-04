@@ -13,18 +13,15 @@
 -export([start/0]).
 
 start() ->
-    {Time , Res} =  timer:tc(application, start, [?APPLICATION, temporary]),
-    
-    Secs = Time div 1000,
+    Res = application:start(?APPLICATION, temporary),
     case Res of 
         ok ->
-            io:format("myPL/kernel-E started in ~p ms on ~w with PID ~s~n.",[Secs, 
-                      {os:type(), os:version()}, os:getpid()]),
+            io:format("~nmyPL/kernel-E started in on ~w with PID ~s~n.", [{os:type(), os:version()}, os:getpid()]),
             ok;
         {error, {already_started, ?APPLICATION}} ->
-            io:format("myPL/kernel-E already started, ~p ms~n",[ Secs]),
+            io:format("~nmyPL/kernel-E already started~n"),
             ok;
         {error, R} ->
-            io:format("myPL/kernel-E failed to start, ~p ms: ~p~n",[ Secs, R]),
+            io:format("~nmyPL/kernel-E failed to start: ~p~n",[R]),
             {error, R}
     end.

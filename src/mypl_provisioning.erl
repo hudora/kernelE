@@ -22,6 +22,8 @@
 %%%% main myPL API - retrieval & picks
 %%%%
 
+%% @doc
+%% To be called within a transaction.
 find_pick_candidates_helper2(Quantity, Units) when is_integer(Quantity), is_list(Units), Quantity >= 0 ->            
     % check if we have enough stuff available to satisfy the request
     case lists:sum([X#unit.quantity - X#unit.pick_quantity || X <- Units]) of
@@ -48,6 +50,7 @@ find_pick_candidates_helper2(Quantity, Units) when is_integer(Quantity), is_list
 %% @doc Finds the Units best suitable to pick Quantity
 %%
 %% Returns `{error, no_fit}' if nothing is found.
+%% To be called within a transaction.
 find_pick_candidates_helper1(Quantity, Units) when is_integer(Quantity), is_list(Units), Quantity >= 0 ->
     % sort candidates - oldes are picked first
     Sorted = lists:keysort(#unit.created_at, Units),
@@ -71,22 +74,25 @@ find_pick_candidates_helper1(Quantity, Units) when is_integer(Quantity), is_list
 %% @doc Finds the Units best suitable to pick Quantity excluding certain MUIs
 %% @see find_pick_candidates/2
 find_pick_candidates(Quantity, Product, Exclude) when is_integer(Quantity), Quantity >= 0 ->
-    % Candidates = mypl_db_util:do(qlc:q([X || X <- find_pickable_units(Product),
-    %                            X#unit.quantity - X#unit.pick_quantity >= Quantity])),
-    Candidates = find_pickable_units(Product) -- Exclude,
-    FilteredCandidates = [X || X <- Candidates, not(lists:member(X#unit.mui, Exclude))],
-    % we only pick from floorlevel
-    FloorCandidates = lists:filter(fun(X) -> Loc = mypl_db_util:get_mui_location(X#unit.mui), 
-                                             Loc#location.floorlevel =:= true
-                                   end, FilteredCandidates),
-    case [X || X <- FloorCandidates, X#unit.quantity - X#unit.pick_quantity =:= Quantity] of
-        [H|_] ->
-            % we found a 100% fit with a single unit ... done
-            {fit, [{Quantity, H#unit.mui}]};
-        _ -> 
-            % go on searching for combinations
-            find_pick_candidates_helper1(Quantity, FloorCandidates)
-    end.
+    Fun = fun() ->
+        % Candidates = mypl_db_util:do(qlc:q([X || X <- find_pickable_units(Product),
+        %                            X#unit.quantity - X#unit.pick_quantity >= Quantity])),
+        Candidates = find_pickable_units(Product) -- Exclude,
+        FilteredCandidates = [X || X <- Candidates, not(lists:member(X#unit.mui, Exclude))],
+        % we only pick from floorlevel
+        FloorCandidates = lists:filter(fun(X) -> Loc = mypl_db_util:get_mui_location(X#unit.mui), 
+                                                 Loc#location.floorlevel =:= true
+                                       end, FilteredCandidates),
+        case [X || X <- FloorCandidates, X#unit.quantity - X#unit.pick_quantity =:= Quantity] of
+            [H|_] ->
+                % we found a 100% fit with a single unit ... done
+                {fit, [{Quantity, H#unit.mui}]};
+            _ -> 
+                % go on searching for combinations
+                find_pick_candidates_helper1(Quantity, FloorCandidates)
+        end
+    end,
+    mypl_db_util:transaction(Fun).
     
 
 %% @spec find_pick_candidates(integer(), string()) -> 
@@ -109,8 +115,11 @@ find_pickable_units(Product) ->
     
 %% @private
 %% TODO: shouldn't this return yes or no?
+%% @doc Checks is a unit os pickable
+%% expects to be caled within a transaction
 unit_pickable_helper(Unit) ->
      Loc = mypl_db_util:get_mui_location(Unit#unit.mui),
+     % TODO: scheck florlevel
      (not(lists:member({no_picks}, Loc#location.attributes))) and (mypl_db_util:unit_moving(Unit) =:= no).
      
 
@@ -173,8 +182,11 @@ find_retrieval_candidates(Quantity, Product) when is_integer(Quantity), Quantity
 %%
 %% (no no_picks attribute on location and no open movements)
 find_retrievable_units(Product) ->
-    [X || X <- mypl_db_util:find_movable_units(Product), unit_pickable_helper(X)].
-
+    Fun = fun() ->
+        [X || X <- mypl_db_util:find_movable_units(Product), unit_pickable_helper(X)]
+    end,
+    mypl_db_util:transaction(Fun).
+    
 
 %% @private
 find_oldest_unit_of(Quantity, Units, Ignore) when is_integer(Quantity), is_list(Units), is_list(Ignore) ->
@@ -229,23 +241,26 @@ find_provisioning_candidates(Quantity, Product) ->
                 {fit, Pickcandidates} ->
                     {ok, Candidates, Pickcandidates};
                 {error, no_fit} ->
-                    % we try just another thing: retrieval only from the upper levels:
-                    NonFloorUnits = lists:filter(fun(X) -> Loc = mypl_db_util:get_mui_location(X#unit.mui), 
-                                     Loc#location.floorlevel =:= false
-                                   end, find_retrievable_units(Product)),
-                    case find_retrieval_candidates(Quantity, Product, NonFloorUnits) of
-                        {ok, NRemainder, NCandidates} ->
-                            case find_pick_candidates(NRemainder, Product, NCandidates) of
-                                {fit, NPickcandidates} ->
-                                    {ok, NCandidates, NPickcandidates};
-                                {error, no_fit} ->
-                                    mypl_requesttracker:in(Quantity, Product),
-                                    {error, no_fit}
-                            end;
-                        {error, no_fit} ->
-                            mypl_requesttracker:in(Quantity, Product),
-                            {error, no_fit}
-                    end
+                    Fun = fun() ->
+                        % we try just another thing: retrieval only from the upper levels:
+                        NonFloorUnits = lists:filter(fun(X) -> Loc = mypl_db_util:get_mui_location(X#unit.mui), 
+                                         Loc#location.floorlevel =:= false
+                                       end, find_retrievable_units(Product)),
+                        case find_retrieval_candidates(Quantity, Product, NonFloorUnits) of
+                            {ok, NRemainder, NCandidates} ->
+                                case find_pick_candidates(NRemainder, Product, NCandidates) of
+                                    {fit, NPickcandidates} ->
+                                        {ok, NCandidates, NPickcandidates};
+                                    {error, no_fit} ->
+                                        mypl_requesttracker:in(Quantity, Product),
+                                        {error, no_fit}
+                                end;
+                            {error, no_fit} ->
+                                mypl_requesttracker:in(Quantity, Product),
+                                {error, no_fit}
+                        end
+                    end,
+                    mypl_db_util:transaction(Fun)
             end;
         {error, no_fit} ->
             mypl_requesttracker:in(Quantity, Product),
@@ -284,8 +299,8 @@ deduper(L) ->
 %% [{ok, [{6, Mui1a0010}], [{4, Mui2a0009}]}, ] = find_provisioning_candidates_multi([{4, "a0009"}, {6, "a0010"}])
 find_provisioning_candidates_multi(L1) ->
     L = deduper(L1),
-    CandList = lists:map(fun({Quantity, Product}) -> find_provisioning_candidates(Quantity, Product);
-                            ([Quantity, Product]) -> find_provisioning_candidates(Quantity, Product) end, L),
+    CandList = plists:map(fun({Quantity, Product}) -> find_provisioning_candidates(Quantity, Product);
+                             ([Quantity, Product]) -> find_provisioning_candidates(Quantity, Product) end, L),
     case lists:all(fun(Reply) -> element(1, Reply) =:= ok end, CandList) of
         false ->
             {error, no_fit};

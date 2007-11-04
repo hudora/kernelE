@@ -5,6 +5,7 @@
 
 start(_Type, Args) ->
     mypl_db:run_me_once(),
+    mypl_integrity:selftest(),
     mypl_sup:start_link(Args).
     
 stop(_State) ->

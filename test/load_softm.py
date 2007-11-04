@@ -31,6 +31,7 @@ def load_platzbestand(platzbestand):
                 k.store_at_location(platz, menge, artnr)
             except RuntimeError, msg:
                 print msg
+                raise
         
 
 def main():

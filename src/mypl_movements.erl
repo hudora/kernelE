@@ -41,7 +41,7 @@ collect_requesed_units(Quantity, _, Acc) when Quantity =< 0 -> lists:reverse(Acc
 collect_requesed_units(_, [], Acc) -> Acc;
 collect_requesed_units(Quantity, Candidates, Acc) ->
    [H|T] = Candidates,
-    collect_requesed_units(Quantity - H#unit.quantity, T, [H|Acc]).
+   collect_requesed_units(Quantity - H#unit.quantity, T, [H|Acc]).
     
 %% @doc generates movement suggestions by looking at requirements from the {@link requesttracker}.
 get_movementsuggestion_from_requesstracker() ->
@@ -51,13 +51,16 @@ get_movementsuggestion_from_requesstracker() ->
         {ok, {Quantity, Product}} ->
             % might return {empty}}
             % find movable pallets not on the floor.
-            Candidates = lists:keysort(#unit.created_at,
-                                       lists:filter(fun(X) -> Loc = mypl_db_util:get_mui_location(X#unit.mui), 
-                                                              Loc#location.floorlevel =:= false
-                                                    end, mypl_db_util:find_movable_units(Product))),
-            Units = collect_requesed_units(Quantity, Candidates, []),
-            Locations = mypl_db_util:best_locations(floorlevel, Units),
-            lists:zip([X#unit.mui || X <- Units], [X#location.name || X <- Locations])
+            Fun = fun() ->
+                Candidates = lists:keysort(#unit.created_at,
+                                           lists:filter(fun(X) -> Loc = mypl_db_util:get_mui_location(X#unit.mui), 
+                                                                  Loc#location.floorlevel =:= false
+                                                        end, mypl_db_util:find_movable_units(Product))),
+                Units = collect_requesed_units(Quantity, Candidates, []),
+                Locations = mypl_db_util:best_locations(floorlevel, Units),
+                lists:zip([X#unit.mui || X <- Units], [X#location.name || X <- Locations])
+            end,
+            mypl_db_util:transaction(Fun)
     end.
     
 
@@ -99,7 +102,12 @@ get_abc_units() ->
 %% are classified as a but have no unit at floorlevel
 get_movementsuggestion_from_abc() ->
     Units = get_abc_units(),
-    Locations = mypl_db_util:best_locations(floorlevel, Units),
+    {Time , Locations} =  timer:tc(mypl_db_util, best_locations, [floorlevel, Units]),
+    erlang:display({get_movementsuggestion_from_abc, Time}),
+    % lists:zip([X#unit.mui || X <- Units], [X#location.name || X <- Locations]),
+    % Locations = mypl_db_util:best_locations(floorlevel, Units),
+    {Time , Locations} =  timer:tc(mypl_db_util, best_locations, [floorlevel, Units]),
+    erlang:display({best_locations, Time}),
     lists:zip([X#unit.mui || X <- Units], [X#location.name || X <- Locations]).
     
 
@@ -109,24 +117,37 @@ get_movementsuggestion_from_abc() ->
 %% {@link get_movementsuggestion_from_requesstracker/0} or if this yields nor results based on
 %% {@link get_movementsuggestion_from_abc/0}.
 init_automovements() ->
-    case get_movementsuggestion_from_requesstracker() of
+    {Time , Res} =  timer:tc(?MODULE, get_movementsuggestion_from_requesstracker, []),
+    erlang:display({get_movementsuggestion_from_requesstracker, Time, Res}),
+    % case get_movementsuggestion_from_requesstracker() of
+    case Res of
         [] ->
-            case get_movementsuggestion_from_abc() of
-                
-                [] ->
-                    erlang:display("No Movementsuggestions"),
-                    {ok, []};
-                L2 ->
-                    erlang:display({abc_suggestions, L2}), 
-                    [H|_] = L2, % we are only interested in the first result
-                    {ok, lists:map(fun({Mui, Destination}) -> 
-                                        mypl_db:init_movement(Mui, Destination, [{mypl_notify_requestracker}])
-                                     end, [H])}
-            end;
+            % erlang:display({nix}),
+            % {Time , Res} =  timer:tc(?MODULE, get_movementsuggestion_from_abc, []),
+            % erlang:display({get_movementsuggestion_from_abc, Time, Res}),
+            % % case get_movementsuggestion_from_abc() of
+            % case Res of
+            %     [] ->
+            %         erlang:display("No Movementsuggestions"),
+            %         {ok, []};
+            %     L2 ->
+            %         erlang:display({abc_suggestions, L2}), 
+            %         [H|_] = L2, % we are only interested in the first result
+            %         {ok, plists:map(fun({Mui, Destination}) -> 
+            %                             mypl_db:init_movement(Mui, Destination, [{mypl_notify_requestracker}])
+            %                          end, [H])}
+            % end;
+            {ok, []};
         L1 ->
-            {ok, lists:map(fun({Mui, Destination}) -> 
+            erlang:display({init_movement1}),
+            {Time , Res} =  timer:tc(plists, map, [fun({Mui, Destination}) -> 
                                mypl_db:init_movement(Mui, Destination, [{mypl_notify_requestracker}])
-                           end, L1)}
+                           end, L1]),
+            erlang:display({init_movement2, Time}),
+            {ok, Res}
+            %{ok, plists:map(fun({Mui, Destination}) -> 
+            %                   mypl_db:init_movement(Mui, Destination, [{mypl_notify_requestracker}])
+            %               end, L1)}
     end.
     
 

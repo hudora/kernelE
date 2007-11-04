@@ -75,6 +75,12 @@
                     created_at
                    }).
 
+
+% archiviert units, movements und picks
+-record(auditbuffer, {id,           % eindeutiger Bezeichner
+                      body
+                     }).
+
 % archiviert units, movements und picks
 -record(archive, {id,           % eindeutiger Bezeichner
                   created_at,

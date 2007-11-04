@@ -132,7 +132,6 @@ handle_info(_Info, State) ->
 %% The return value is ignored.
 %%--------------------------------------------------------------------
 terminate(_Reason, State) ->
-    ets:tab2file(State#state.table, "requesttracker_data.bak"),
     ets:delete(State#state.table),
     ok.
 
