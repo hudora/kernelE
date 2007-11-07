@@ -67,7 +67,7 @@ get_movementsuggestion_from_requesstracker() ->
 % [] == no units at floorlevel 
 % TODO: instead check "no units at floorlevel not having any open movements or open picks"
 get_movementsuggestion_from_abc_helper(Product, []) ->
-            % if nothing is currently moving
+    % if nothing is currently moving
     case mypl_db_query:open_movements_for_product(Product) of
         [] ->
             % suggest a unit to be moved to the floor
@@ -101,14 +101,17 @@ get_abc_units() ->
 %% This is done by consulting {@link mypl_abcserver:get_abc/0} and checking for all products which
 %% are classified as a but have no unit at floorlevel
 get_movementsuggestion_from_abc() ->
-    Units = get_abc_units(),
-    {Time , Locations} =  timer:tc(mypl_db_util, best_locations, [floorlevel, Units]),
-    erlang:display({get_movementsuggestion_from_abc, Time}),
-    % lists:zip([X#unit.mui || X <- Units], [X#location.name || X <- Locations]),
-    % Locations = mypl_db_util:best_locations(floorlevel, Units),
-    {Time , Locations} =  timer:tc(mypl_db_util, best_locations, [floorlevel, Units]),
-    erlang:display({best_locations, Time}),
-    lists:zip([X#unit.mui || X <- Units], [X#location.name || X <- Locations]).
+    Fun = fun() ->
+        Units = get_abc_units(),
+        {Time , Locations} =  timer:tc(mypl_db_util, best_locations, [floorlevel, Units]),
+        erlang:display({get_movementsuggestion_from_abc, Time}),
+        % lists:zip([X#unit.mui || X <- Units], [X#location.name || X <- Locations]),
+        % Locations = mypl_db_util:best_locations(floorlevel, Units),
+        {Time , Locations} =  timer:tc(mypl_db_util, best_locations, [floorlevel, Units]),
+        erlang:display({best_locations, Time}),
+        lists:zip([X#unit.mui || X <- Units], [X#location.name || X <- Locations]).
+    end,
+    mypl_db_util:transaction(Fun),
     
 
 %% @doc generate movements
