@@ -109,9 +109,9 @@ get_movementsuggestion_from_abc() ->
         % Locations = mypl_db_util:best_locations(floorlevel, Units),
         {Time , Locations} =  timer:tc(mypl_db_util, best_locations, [floorlevel, Units]),
         erlang:display({best_locations, Time}),
-        lists:zip([X#unit.mui || X <- Units], [X#location.name || X <- Locations]).
+        lists:zip([X#unit.mui || X <- Units], [X#location.name || X <- Locations])
     end,
-    mypl_db_util:transaction(Fun),
+    mypl_db_util:transaction(Fun).
     
 
 %% @doc generate movements

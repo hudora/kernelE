@@ -16,7 +16,7 @@
 -include_lib("stdlib/include/qlc.hrl").
 -include("include/mypl.hrl").
 
--export([run_me_once/0, init_location/6, init_location/5,store_at_location/5, retrieve/1,
+-export([init_table_info/2, run_me_once/0, init_location/6, init_location/5,store_at_location/5, retrieve/1,
  init_movement/2, init_movement_to_good_location/1, commit_movement/1, rollback_movement/1,
  commit_retrieval/1, rollback_retrieval/1,
  init_pick/2, commit_pick/1, rollback_pick/1]).
@@ -45,14 +45,10 @@ run_me_once() ->
     init_table_info(mnesia:create_table(movement,         [{disc_copies, [node()]}, {attributes, record_info(fields, movement)}]), movement),
     init_table_info(mnesia:create_table(pick,             [{disc_copies, [node()]}, {attributes, record_info(fields, pick)}]), pick),
     init_table_info(mnesia:create_table(reservation,      [{disc_copies, [node()]}, {attributes, record_info(fields, reservation)}]), reservation),
-    init_table_info(mnesia:create_table(abc_pick_detail,  [{disc_copies, [node()]}, {attributes, record_info(fields, abc_pick_detail)}]), abc_pick_detail),
-    init_table_info(mnesia:create_table(auditbuffer,      [{disc_copies, [node()]}, {attributes, record_info(fields, auditbuffer)}]), auditbuffer),
-    % the audit tables are kept ONLY on disk (slow!)
-    init_table_info(mnesia:create_table(archive,          [{disc_only_copies, [node()]}, {attributes, record_info(fields, archive)}]), archive),
-    init_table_info(mnesia:create_table(articleaudit,     [{disc_only_copies, [node()]}, {attributes, record_info(fields, articleaudit)}]), articleaudit),
-    init_table_info(mnesia:create_table(unitaudit,        [{disc_only_copies, [node()]}, {attributes, record_info(fields, unitaudit)}]), unitaudit),
-    init_table_info(mnesia:create_table(abc_pick_summary, [{disc_only_copies, [node()]}, {attributes, record_info(fields, abc_pick_summary)}]), abc_pick_summary),
-    mnesia:add_table_index(abc_pick_summary, #abc_pick_summary.date),
+    
+    % give other modules to initialize database tables
+    mypl_abcserver:run_me_once(),
+    mypl_audit:run_me_once(),
     
     ok = mnesia:wait_for_tables([location, unit, movement, pick, articleaudit, unitaudit], 5000),
     init_location("EINLAG", 3000, true,  0, [{no_picks}]),
@@ -341,8 +337,7 @@ commit_movement(MovementId) ->
         Destination = mypl_db_util:read_location(Movement#movement.to_location),
         % change locationdata
         teleport(Unit, Source, Destination),
-        ok = mnesia:write(#archive{id=mypl_util:oid(), body=Movement, archived_by="commit_movement",
-                                   created_at=mypl_util:timestamp()}),
+        mypl_audit:archive(Movement, commit_movement),
         ok = mnesia:delete({movement, MovementId}),
         mypl_audit:unitaudit(Unit, "Umlagerung von " ++ Source#location.name ++ " nach "
                       ++ Destination#location.name ++ " comitted", Movement#movement.id),
@@ -378,8 +373,7 @@ rollback_movement(MovementId) ->
         Newdestination = Destination#location{reserved_for=lists:filter(fun(X) -> X /= Unit#unit.mui end,
                                                                         Destination#location.reserved_for)},
         ok = mnesia:write(Newdestination),
-        ok = mnesia:write(#archive{id=mypl_util:oid(), body=Movement, archived_by="rollback_movement",
-                                   created_at=mypl_util:timestamp()}),
+        mypl_audit:archive(Movement, rollback_movement),
         ok = mnesia:delete({movement, MovementId}),
         ok = mnesia:delete({reservation, (Movement#movement.to_location ++ "-" ++ Movement#movement.mui)}),
         mypl_audit:unitaudit(Unit, "Umlagerung von " ++ Source#location.name ++ " nach "
@@ -463,8 +457,7 @@ commit_pick(PickId) ->
             true ->
                 % update Unit
                 ok = mnesia:write(NewUnit),
-                ok = mnesia:write(#archive{id=mypl_util:oid(), body=Pick, archived_by="commit_pick",
-                                           created_at=mypl_util:timestamp()}),
+                mypl_audit:archive(Pick, commit_pick),
                 ok = mnesia:delete({pick, PickId}),
                 mypl_audit:articleaudit(-1 * Pick#pick.quantity, Pick#pick.product,
                                         "Pick auf " ++ Unit#unit.mui, Unit#unit.mui, PickId),
@@ -498,9 +491,7 @@ rollback_pick(PickId) ->
             true ->
                 % update Unit
                 ok = mnesia:write(NewUnit),
-                
-                ok = mnesia:write(#archive{id=mypl_util:oid(), body=Pick, archived_by="rollback_pick",
-                                           created_at=mypl_util:timestamp()}),
+                mypl_audit:archive(Pick, rollback_pick),
                 ok = mnesia:delete({pick, PickId}),
                 mypl_audit:unitaudit(Unit, "Pick von " ++ integer_to_list(Pick#pick.quantity) 
                                      ++ " abgebrochen.", PickId),

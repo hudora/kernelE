@@ -14,8 +14,30 @@
 -include_lib("stdlib/include/qlc.hrl").
 -include("include/mypl.hrl").
 
+
+-record(abc_pick_detail, {id,           % eindeutiger Bezeichner
+                  created_at,
+                  quantity,
+                  product,
+                  location,
+                  duration
+                  }).
+
+-record(abc_pick_summary, {id,           % eindeutiger Bezeichner: {Date, Product}
+                  date,
+                  picks,
+                  quantity,
+                  product,
+                  avg_picksize,
+                  picksizes,
+                  avg_duration,
+                  durations,
+                  locations              % anzahl der verschiednene pick locations
+                  }).
+
+
 %% API
--export([start_link/0, feed/3, get_abc/0]).
+-export([run_me_once/0, start_link/0, feed/3, get_abc/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -135,6 +157,14 @@ code_change(_OldVsn, State, _Extra) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+
+
+run_me_once() ->
+    % Tables kept in RAM with disk based backing
+    mypl_db:init_table_info(mnesia:create_table(abc_pick_detail,  [{disc_copies, [node()]}, {attributes, record_info(fields, abc_pick_detail)}]), abc_pick_detail),
+    % the audit tables are kept ONLY on disk (slow!)
+    mypl_db:init_table_info(mnesia:create_table(abc_pick_summary, [{disc_only_copies, [node()]}, {attributes, record_info(fields, abc_pick_summary)}]), abc_pick_summary),
+    mnesia:add_table_index(abc_pick_summary, #abc_pick_summary.date).
 
 
 aggregate_helper([], Dict) -> Dict;

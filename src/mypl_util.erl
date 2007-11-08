@@ -75,7 +75,7 @@ combine_until_fit(Quantity, [H|T]) when H < Quantity ->
     
 
 %% @private
-%% @spec perms2([integer()], integer(), integer()) -> [[integer()]]
+%% @spec perms2([integer()], integer(), integer(), term()) -> [[integer()]]
 %% @doc internal helper for caclulating permutations
 perms2([], _, _, _) -> [];
 perms2(_, Quantity, _, _) when Quantity =< 0 -> [];

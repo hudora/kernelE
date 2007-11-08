@@ -31,7 +31,44 @@
 -include_lib("stdlib/include/qlc.hrl").
 -include("mypl.hrl").
 
--export([articleaudit/6, articleaudit/5, articleaudit/4, unitaudit_mui/2, unitaudit/4, unitaudit/3, unitaudit/2,
+% speichert alle Warenbewegungen zu Protokollzwecken
+-record(articleaudit, {id,           % eindeutiger Bezeichner
+                       quantity,     % Einkeiten des produkts
+                       product,      % ArtNr
+                       text,         % text describing the transaction
+                       mui,          % bebuchte Unit
+                       transaction,  % movement or pick ID
+                       references,   % list of tuples to be used by the client application, not used by the myPL kernel
+                       created_at
+                   }).
+
+
+% speichert alle Unitbewegungen zu Protokollzwecken
+-record(unitaudit, {id,           % eindeutiger Bezeichner
+                    mui,          % bebuchte Unit
+                    quantity,     % Einkeiten des produkts
+                    product,      % ArtNr
+                    text,         % text describing the transaction
+                    transaction,  % movement or pick ID
+                    references,   % list of tuples to be used by the client application, not used by the myPL kernel
+                    created_at
+                   }).
+
+
+% archiviert units, movements und picks
+-record(archive, {id,           % eindeutiger Bezeichner
+                  created_at,
+                  archived_by,  % wodurch wurde der datensatz archiviert
+                  body
+                  }).
+
+% archiviert units, movements und picks
+-record(auditbuffer, {id,           % eindeutiger Bezeichner
+                      body
+                     }).
+
+-export([run_me_once/0, articleaudit/6, articleaudit/5, articleaudit/4,
+         unitaudit_mui/2, unitaudit/4, unitaudit/3, unitaudit/2,
          archive/2, spawn_audit_transfer/0, compress_audit/0, compress_audit/1]).
 
 %%% we assume all test and initialisation functionality is provided vby other modules
@@ -39,6 +76,16 @@
 %%%
 %%% auditlog - to be called whenever goods enter or leave the warehouse
 %%%
+
+
+run_me_once() ->
+    % Tables kept in RAM with disk based backing
+    mypl_db:init_table_info(mnesia:create_table(auditbuffer,      [{disc_copies, [node()]}, {attributes, record_info(fields, auditbuffer)}]), auditbuffer),
+    % Disk only Tables
+    mypl_db:init_table_info(mnesia:create_table(archive,          [{disc_only_copies, [node()]}, {attributes, record_info(fields, archive)}]), archive),
+    mypl_db:init_table_info(mnesia:create_table(articleaudit,     [{disc_only_copies, [node()]}, {attributes, record_info(fields, articleaudit)}]), articleaudit),
+    mypl_db:init_table_info(mnesia:create_table(unitaudit,        [{disc_only_copies, [node()]}, {attributes, record_info(fields, unitaudit)}]), unitaudit).
+
 
 %% @private
 %% @spec articleaudit(integer(), product(), string(), muiID(), string(), externalReferences()) -> {ok, atomic}

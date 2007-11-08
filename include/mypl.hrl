@@ -41,7 +41,8 @@
                quantity,        % menge, die gepickt werden soll
                from_unit,       % unit von der gepickt werden soll
                created_at
-               }). 
+               }).
+
 
 % reservation of a location - usually for a movement
 -record(reservation, {id,
@@ -50,64 +51,6 @@
                      reason,
                      attributes
                 }).
-
-
-% speichert alle Warenbewegungen zu Protokollzwecken
--record(articleaudit, {id,           % eindeutiger Bezeichner
-                       quantity,     % Einkeiten des produkts
-                       product,      % ArtNr
-                       text,         % text describing the transaction
-                       mui,          % bebuchte Unit
-                       transaction,  % movement or pick ID
-                       references,   % list of tuples to be used by the client application, not used by the myPL kernel
-                       created_at
-                   }).
-
-
-% speichert alle Unitbewegungen zu Protokollzwecken
--record(unitaudit, {id,           % eindeutiger Bezeichner
-                    mui,          % bebuchte Unit
-                    quantity,     % Einkeiten des produkts
-                    product,      % ArtNr
-                    text,         % text describing the transaction
-                    transaction,  % movement or pick ID
-                    references,   % list of tuples to be used by the client application, not used by the myPL kernel
-                    created_at
-                   }).
-
-
-% archiviert units, movements und picks
--record(auditbuffer, {id,           % eindeutiger Bezeichner
-                      body
-                     }).
-
-% archiviert units, movements und picks
--record(archive, {id,           % eindeutiger Bezeichner
-                  created_at,
-                  archived_by,  % wodurch wurde der datensatz archiviert
-                  body
-                  }).
-
-
--record(abc_pick_detail, {id,           % eindeutiger Bezeichner
-                  created_at,
-                  quantity,
-                  product,
-                  location,
-                  duration
-                  }).
-
--record(abc_pick_summary, {id,           % eindeutiger Bezeichner: {Date, Product}
-                  date,
-                  picks,
-                  quantity,
-                  product,
-                  avg_picksize,
-                  picksizes,
-                  avg_duration,
-                  durations,
-                  locations              % anzahl der verschiednene pick locations
-                  }).
 
 
 % Trace utilities from adviserl
