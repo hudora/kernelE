@@ -11,7 +11,7 @@ import sys
 import os
 import unittest
 
-TIMEOUT = 5000 # timeout parameter fuer gen_server:call/3
+TIMEOUT = 5000 # timeout parameter in ms fuer gen_server:call/3
 
 # Dies definiert der öffentliche API. Aus dem Code werden die diversen Schnittstellen erstellt
 funcdefs = [
@@ -43,6 +43,8 @@ funcdefs = [
 ('mypl_provisioning', 'find_provisioning_candidates_multi', 'JsonList', ['async']),
 ('mypl_provisioning', 'init_provisionings_multi', 'JsonList', ['async']),
 
+('mypl_provpipeline', 'insert_pipeline', 'JsonList', []),
+
 ('mypl_movements', 'create_automatic_movements', '', ['async']),
 
 ('mypl_oracle', 'init_dayforcast', 'JsonList', []),
@@ -56,12 +58,17 @@ typemap = {
 'Quantity':   'PositiveInteger',
 'Height':     'PositiveInteger',
 'Preference': 'PositiveInteger',
+'Priority':   'PositiveInteger',
+'Weigth':     'PositiveInteger',
+'Volume':     'PositiveInteger',
 'Product':    'String',
 'Locname':    'String',
 'Mui':        'String',
 'MovementId': 'String',
 'PickId':     'String',
+'CId':        'String',
 'Info':       'String',
+'Customer':   'String',
 'Floorlevel': 'Boolean',
 'Attributes': 'Array',
 'JsonList':   'JsonList',

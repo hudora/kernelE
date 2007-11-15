@@ -6,7 +6,19 @@ sys.path.extend(['./python', './test'])
 from kernelE import Kerneladapter
 from load_softm import load_platzbestand
 
-THEDATE = "20071019"
+THEDATE = "20071108"
+"20071018"
+"20071019"
+"20071022"
+"20071023"
+"20071025"
+"20071026"
+"20071029"
+"20071030"
+"20071104"
+"20071107"
+"20071108"
+"20071110"
 
 byauftrag = {}
 bydate = {}
@@ -52,15 +64,18 @@ class PlayerOfOrders(object):
     
     def init_oracle(self):
         k = Kerneladapter()
-        positionen = []
-        for poslist in [lieferung.positionen for lieferung in self.lieferungen_todo]:
-            for pos in poslist:
-                positionen.append((pos.menge, pos.artnr))
-        k.init_dayforcast(positionen)
+        for lieferung in self.lieferungen_todo:
+            positionen = []
+            for pos in lieferung.positionen:
+                positionen.append((pos.menge, pos.artnr, {}))
+            k.insert_pipeline(lieferung.oid, positionen, 5, lieferung.kundennummer,
+                              0, 0, {'liefertermin': lieferung.liefertermin.strftime("%Y-%m-%d")})
+        
         
     
     def simulate(self):
         """Simuliert Lagerbewegungen. Hierbei wird simuliert jede Kommibeleg Position würde unabhaengig von den anderen zurueckgemeldet."""
+        starttime = time.time()
         k = Kerneladapter()
         thisround = 0
         while self.lieferungen_todo:
@@ -71,7 +86,6 @@ class PlayerOfOrders(object):
                    len(self.lieferungen_todo), len(self.open_picks), len(self.open_retrievals),
                    len(self.open_movements))
             print self.stats
-            time.sleep(1)
             
             # process picks
             for i in range(self.picks_per_round):
@@ -96,7 +110,7 @@ class PlayerOfOrders(object):
             
             #### now generate new picks/retrievals (unles both queues are still full)
             init_provisionings_multi_count = 0
-            while ((not self.open_picks) or (not self.open_retrievals) 
+            while self.lieferungen_todo and ((not self.open_picks) or (not self.open_retrievals) 
                    and (len(self.open_picks) <= 3*self.picks_per_round 
                         and len(self.open_retrievals) <= 4*self.retrievals_per_round)):
                 lieferung = self.lieferungen_todo.pop(0)
@@ -138,8 +152,9 @@ class PlayerOfOrders(object):
                 
         # generate highscore information
         fd = open("highscores.txt", 'a')
-        fd.write('#dataset  rounds    $Revision$ ret.orders\n' % (THEDATE, thisround, self.stats['retried_orders']))
-        fd.write('%s    %04d    $Revision$    %04d\n' % (THEDATE, thisround, self.stats['retried_orders']))
+        fd.write('#dataset  rounds    Revision             ret.orders  time\n')
+        fd.write('%s    %04d    $Revision$    %04d        %04.1fs\n' % (THEDATE, thisround, 
+                  self.stats['retried_orders'], time.time()-starttime))
         fd.close()
     
 def main():

@@ -26,7 +26,8 @@
          find_provisioning_candidates/2,find_provisioning_candidates_multi/1,init_provisionings_multi/1,
          create_automatic_movements/0,
          init_dayforcast/1,
-         make_nve/0, make_oid/0]).
+         make_nve/0, make_oid/0,
+         insert_pipeline/1]).
 
 
 %% gen_server callbacks

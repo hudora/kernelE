@@ -75,8 +75,6 @@ find_pick_candidates_helper1(Quantity, Units) when is_integer(Quantity), is_list
 %% @see find_pick_candidates/2
 find_pick_candidates(Quantity, Product, Exclude) when is_integer(Quantity), Quantity >= 0 ->
     Fun = fun() ->
-        % Candidates = mypl_db_util:do(qlc:q([X || X <- find_pickable_units(Product),
-        %                            X#unit.quantity - X#unit.pick_quantity >= Quantity])),
         Candidates = find_pickable_units(Product) -- Exclude,
         FilteredCandidates = [X || X <- Candidates, not(lists:member(X#unit.mui, Exclude))],
         % we only pick from floorlevel
@@ -293,7 +291,8 @@ deduper(L) ->
 %% @spec find_provisioning_candidates_multi(list()) -> term()
 %% @see find_provisioning_candidates/2
 %% @doc calls {@link find_provisioning_candidates/2} for more than a single product.
-%% Possibly Takes advantage of multi-processor system. Returns {ok, [retrievals], [picks]}
+%% Possibly Takes advantage of multi-processor system. Returns `{ok, [retrievals], [picks]}'
+%% or `{error, no_fit}'.
 %%
 %% Example:
 %% [{ok, [{6, Mui1a0010}], [{4, Mui2a0009}]}, ] = find_provisioning_candidates_multi([{4, "a0009"}, {6, "a0010"}])

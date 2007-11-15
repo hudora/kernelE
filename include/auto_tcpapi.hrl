@@ -142,6 +142,10 @@ handle_command("init_provisionings_multi", _Parameters, State) ->
     % implementation for init_provisionings_multi,
     {ok, NewJsonList, _} = rfc4627:decode(_Parameters),
     {noreply, reply(220, rfc4627:encode(mypl_server:init_provisionings_multi(NewJsonList)), reset_buffers(State))};
+handle_command("insert_pipeline", _Parameters, State) ->
+    % implementation for insert_pipeline,
+    {ok, NewJsonList, _} = rfc4627:decode(_Parameters),
+    {noreply, reply(220, rfc4627:encode(mypl_server:insert_pipeline(NewJsonList)), reset_buffers(State))};
 handle_command("create_automatic_movements", _Parameters, State) ->
     % implementation for create_automatic_movements,
     {noreply, reply(220, rfc4627:encode(mypl_server:create_automatic_movements()), reset_buffers(State))};
@@ -182,6 +186,7 @@ pick_info PickId
 find_provisioning_candidates Quantity,Product
 find_provisioning_candidates_multi JsonList
 init_provisionings_multi JsonList
+insert_pipeline JsonList
 create_automatic_movements 
 init_dayforcast JsonList
 make_oid 

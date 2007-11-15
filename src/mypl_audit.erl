@@ -84,6 +84,7 @@ run_me_once() ->
     % Disk only Tables
     mypl_db:init_table_info(mnesia:create_table(archive,          [{disc_only_copies, [node()]}, {attributes, record_info(fields, archive)}]), archive),
     mypl_db:init_table_info(mnesia:create_table(articleaudit,     [{disc_only_copies, [node()]}, {attributes, record_info(fields, articleaudit)}]), articleaudit),
+    mnesia:add_table_index(articleaudit, #articleaudit.product),
     mypl_db:init_table_info(mnesia:create_table(unitaudit,        [{disc_only_copies, [node()]}, {attributes, record_info(fields, unitaudit)}]), unitaudit).
 
 
@@ -150,7 +151,7 @@ unitaudit(Unit, Text) ->
 archive(Object, Archivaltype) ->
     Fun = fun() ->
         mnesia:write(#auditbuffer{id=mypl_util:oid(),
-                                  body=#archive{id="r" ++ mypl_util:oid(),
+                                  body=#archive{id="R" ++ mypl_util:oid(),
                                                 body=Object, archived_by=Archivaltype,
                                                 created_at=mypl_util:timestamp()}})
     end,
@@ -191,10 +192,11 @@ compress_articleaudit_helper(Quantity, [Record|T]) ->
     
 compress_articleaudit(Product, BeforeDate) ->
     BeforeDays = calendar:date_to_gregorian_days(BeforeDate),
-    Records = mypl_db_util:do(qlc:q([X || X <- mnesia:table(articleaudit),
-                                          X#articleaudit.product =:= Product,
-                                          X#articleaudit.text /= "Zusammenfassung vorheriger Einträge",
-                                          BeforeDays > calendar:date_to_gregorian_days(element(1, X#articleaudit.created_at))])),
+    Records = mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(articleaudit),
+                                                X#articleaudit.product =:= Product,
+                                                X#articleaudit.text /= "Zusammenfassung vorheriger Einträge",
+                                                BeforeDays > calendar:date_to_gregorian_days(element(1, X#articleaudit.created_at))])),
+    erlang:display({Product, length(Records)}),
     case Records of
         [] ->
             nothing_to_do;
@@ -210,7 +212,8 @@ compress_articleaudit(Product, BeforeDate) ->
     
 
 compress_articleaudit(BeforeDate) ->
-    Products = lists:usort(mypl_db_util:do(qlc:q([X#articleaudit.product || X <- mnesia:table(articleaudit)]))),
+    Products = lists:usort(mypl_db_util:do_trans(qlc:q([X#articleaudit.product || X <- mnesia:table(articleaudit)]))),
+    % TODO: iterate over records instead of reading them all to memory
     lists:map(fun(Product) -> compress_articleaudit(Product, BeforeDate) end, Products).
     
 
@@ -222,9 +225,10 @@ compress_unitaudit_helper([Record|T]) ->
 
 compress_unitaudit(BeforeDate) ->
     BeforeDays = calendar:date_to_gregorian_days(BeforeDate),
-    Records = mypl_db_util:do(qlc:q([X|| X <- mnesia:table(unitaudit),
-                                         BeforeDays > calendar:date_to_gregorian_days(element(1, X#unitaudit.created_at))])),
     Fun = fun() ->
+        % TODO: iterate over records instead of reading them all to memory
+        Records = mypl_db_util:do(qlc:q([X|| X <- mnesia:table(unitaudit),
+                                             BeforeDays > calendar:date_to_gregorian_days(element(1, X#unitaudit.created_at))])),
         compress_unitaudit_helper(Records)
     end,
     {atomic, Ret} = mnesia:transaction(Fun),
@@ -232,7 +236,8 @@ compress_unitaudit(BeforeDate) ->
     
 
 compress_audit(BeforeDate) ->
-    compress_unitaudit(BeforeDate),
+    % compress_unitaudit(BeforeDate),
+    mnesia:add_table_index(articleaudit, #articleaudit.product),
     compress_articleaudit(BeforeDate).
 
 compress_audit() ->

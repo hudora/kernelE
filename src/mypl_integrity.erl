@@ -16,7 +16,7 @@
 
 %% @doc check for Units which are not actually booked into a Location
 orphaned_units() ->
-    lists:all(fun(X) -> X =:= ok end, mypl_db_util:do(qlc:q([orphaned_unit(X) || X <- mnesia:table(unit)]))).
+    lists:all(fun(X) -> X =:= ok end, mypl_db_util:do_trans(qlc:q([orphaned_unit(X) || X <- mnesia:table(unit)]))).
     
 orphaned_unit(Unit) ->
     Location = mypl_db_util:read_location(Unit#unit.location),
@@ -42,8 +42,8 @@ orphaned_unit(Unit) ->
 
 %% verify location records actually have their allocated_by and reserved_by fields pointing to something actually existing
 locations_pointing_nowhere() ->
-    Locations = mypl_db_util:do(qlc:q([location_pointing_nowhere(X) || X <- mnesia:table(location)])),
     Fun = fun() ->
+        Locations = mypl_db_util:do(qlc:q([location_pointing_nowhere(X) || X <- mnesia:table(location)])),
         lists:all(fun(X) -> X =:= ok end, Locations)
     end,
     {atomic, Ret} = mnesia:transaction(Fun),

@@ -2,13 +2,14 @@
 # snatched from adviserl
 
 CMD_ERL      = erl
-CMD_ERLC     = erlc -Ivendor -Iinclude
+CMD_ERLC     = erlc +smp -Ivendor -Iinclude
 CMD_DIALYZER = dialyzer
 APPNAME      = myPL
 
 ERLPATH=-pa ebin -pa vendor/eunit/ebin
 
-DOCOPT={todo, true}, {private, true}
+#DOCOPT={todo, true}, {private, true}
+DOCOPT={todo, true}
 
 APP_MOD    = $(patsubst src/%.erl,ebin/%.beam,$(wildcard src/*.erl))
 
@@ -77,7 +78,7 @@ regression: devbuild
 		-kernel error_logger      "{file, \"log/utest-kernel.log\"}" \
 		-sasl   sasl_error_logger "{file, \"log/utest-sasl.log\"}" \
 		${ERLPATH} \
-		-eval "lists:map(fun(M) ->io:format(\"Testing ~p~n\", [M]), eunit:test(M, [{verbose, true}]) end, [mypl_db, mypl_db_query, mypl_provisioning, mypl_util, mypl_movements, mypl_abcserver, mypl_nveserver])." \
+		-eval "lists:map(fun(M) ->io:format(\"Testing ~p~n\", [M]), eunit:test(M, [{verbose, true}]) end, [mypl_db, mypl_db_query, mypl_provisioning, mypl_util, mypl_movements, mypl_abcserver, mypl_nveserver, mypl_provpipeline])." \
 		-s init stop
 
 

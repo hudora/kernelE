@@ -52,6 +52,9 @@ def print_timing(func):
         start = time.time()
         try:
             ret = func(*args, **kwargs)
+        except:
+            print '\n', repr((args, kwargs)), '\n'
+            raise
         finally:
             if DEBUG:
                 delta = time.time() - start
@@ -107,22 +110,53 @@ class Kerneladapter:
         self.sock.send(line + '\n')
     
     def count_product(self, product):
+        """Gibt die Mengen und NVEs zu einem Produkt an.
+        
+        >>> import kernelE
+        >>> k = kernelE.Kerneladapter_mock()
+        >>> k.count_product("14612/01")
+        ([85, 85, 0, 0], ['012701|31.0|14612/01|4d183fee-7fb4-11dc-97fa-0017f2c8caff', '024603|56.0|14612/01|4e20d496-7fb4-11dc-97fa-0017f2c8caff'])
+        """
+        
         mui = product.replace(',','').replace('\n','').replace('\r','')
         self._send("count_product %s" % (product,))
         mengen, muis = self._read_json(220)
         return (mengen, [e2string(x) for x in muis])
     
     def count_products(self):
+        """Gibt die Mengen für alle Produkte im Lager zurück.
+        
+        >>> import kernelE
+        >>> k = kernelE.Kerneladapter_mock()
+        >>> k.count_products()
+        [('10011', 8, 8, 0, 0), ('10104', 131, 131, 0, 0), '...']
+        """
+        
         self._send("count_products")
         ret = self._read_json(220)
         return [(e2string(product), fmenge, amenge, rmenge, pmenge) for (product, fmenge, amenge, rmenge, pmenge) in ret]
         #return (mengen, [e2string(x) for x in muis])
     
     def location_list(self):
+        """Returns a list of all location names.
+        
+        >>> import kernelE
+        >>> location_list()
+        ['011601', '011701', '011801', '012001', '...']
+        """
+        
         self._send("location_list")
         return [e2string(x) for x in self._read_json(220)]
     
     def location_info(self, name):
+        """Gibt Informationen zu einem Lagerplatz aus.
+        
+        >>> import kernelE
+        >>> k = kernelE.Kerneladapter_mock()
+        >>> k.location_info("104103")
+        {u'info': 'BRUECKE', u'reserved_for': [], u'name': '104103', u'height': 3000, u'preference': 3, u'floorlevel': False, u'attributes': [], u'allocated_by': ['104103|30.0|10106/WK|4d820122-7fb4-11dc-97fa-0017f2c8caff']}
+        """
+        
         self._send("location_info %s" % name)
         ok, d = self._read_json(220)
         d = attributelist2dict(d, ['name'])
@@ -132,6 +166,13 @@ class Kerneladapter:
         return d
     
     def unit_info(self, name):
+        """
+        >>> import kernelE
+        >>> k = kernelE.Kerneladapter_mock()
+        >>> k.unit_info("100903|24.0|10120|4dac128c-7fb4-11dc-97fa-0017f2c8caff")
+        {u'product': '10120', u'created_at': datetime.datetime(2007, 10, 21, 9, 2, 8, 823722), u'height': 1950, u'pick_quantity': 0, u'location': '100903', u'picks': [], u'attributes': [], u'movements': [], u'mui': '100903|24.0|10120|4dac128c-7fb4-11dc-97fa-0017f2c8caff', u'quantity': 24},
+        """
+        
         self._send("unit_info %s" % name)
         ok, d = self._read_json(220)
         d = attributelist2dict(d, ['mui', 'product', 'location'])
@@ -139,6 +180,34 @@ class Kerneladapter:
         d['picks'] = [e2string(x) for x in d['picks']]
         d['created_at'] = e2datetime(d['created_at'])
         return d
+    
+    
+    def movement_list(self):
+        """Liefert eine Liste aller (offenen) Movements.
+        
+        >>> import kernelE
+        >>> k = kernelE.Kerneladapter_mock()
+        >>> k.movement_list()
+        ["m1193-85203-450126-mypl_test@lichtblick",
+         "m1193-85203-453117-mypl_test@lichtblick",
+         "m1193-85203-455263-mypl_test@lichtblick",
+         "m1193-85203-456898-mypl_test@lichtblick",
+         "m1193-85203-459094-mypl_test@lichtblick"]
+        """
+        raise NotImplementedError
+    
+    
+    def pick_list(self):
+        """Liefert eine Liste aller (offenen) Picks.
+        
+        >>> import kernelE
+        >>> k = kernelE.Kerneladapter_mock()
+        >>> k.pick_list()
+        ["p1193-85203-460109-mypl_test@lichtblick", "p1193-85203-461143-mypl_test@lichtblick"]
+        """
+        
+        raise NotImplementedError
+    
     
     @print_timing
     def init_location(self, name, height=1950, floorlevel=False, preference=5, info='', attributes=[]):
@@ -202,6 +271,7 @@ class Kerneladapter:
             ret = (ok, retrievals, picks)
         return ret
     
+    @print_timing
     def commit_movement(self, movementid):
         self._send("commit_movement %s" % (movementid))
         return self._read_json(220)
@@ -210,6 +280,7 @@ class Kerneladapter:
         self._send("rollback_movement %s" % (movementid))
         return self._read_json(220)
         
+    @print_timing
     def commit_retrieval(self, movementid):
         self._send("commit_retrieval %s" % (movementid))
         return self._read_json(220)
@@ -218,6 +289,7 @@ class Kerneladapter:
         self._send("rollback_retrieval %s" % (movementid))
         return self._read_json(220)
         
+    @print_timing
     def commit_pick(self, pickid):
         self._send("commit_pick %s" % (pickid))
         return self._read_json(220)
@@ -230,7 +302,6 @@ class Kerneladapter:
     def create_automatic_movements(self):
         self._send("create_automatic_movements")
         ret = self._read_json(220)
-        print ret
         ok, movements = ret
         ret = []
         for movement in movements:
@@ -238,7 +309,34 @@ class Kerneladapter:
             ret.append(e2string(movementid))
         return ret
     
-    def init_dayforcast(self, poslist):
-        self._send("init_dayforcast %s" % (simplejson.dumps(poslist)))
-        return self._read_code(220)
+    def insert_pipeline(self, cid, orderlines, priority, customer, weigth, volume, attributes):
+        """adds an order to the provisioningpipeline
+        
+        `CId' is a unique Id used by the client to refer to this Picking order, e.g. the "Lieferscheinnummer" 
+        or something similar. `Orderlines' is a list of Articles to 
+        provision. The List elements are tuples `{Quanity, Product, Attributes}' where Attributes contains
+        arbitrary data for use at tha client side.
+        The higher the `priority' the more likely it is, that the Order is processed early. If you want the
+        scheduler to also consider day to deliver you have to encode that into priority. E.g.
+        E.g. `NewPriority = Priority + 10 * max([(now() + 5 - order.day_to_deliver), 0])'.
+        'Customer' is to aggregate shippments to the same customer. 'Weigth' and 'Volume' are the calculated
+        total Weigth and Volume of the shippment and are used to make scheduling descisions.
+        
+        
+        add(Id, [(20, 10106, [{"auftragsposition": 1, "gewicht": 34567}]),
+                 (70, 14650, [{"auftragsposition": 2, "gewicht": 35667}]),
+                 (30, 76500, [{"auftragsposition": 3, "gewicht": 12367}])],
+                 28, "34566", 345000, 581.34,
+                 [{"auftragsnumer": "123432", "liefertermin": "2007-12-23"}]).
+        """
+        
+        newOrderlines = []
+        for orderline in orderlines:
+            newOrderlines.append((orderline[0], orderline[1], orderline[2].items()))
+        parameters = (cid, newOrderlines, int(priority), unicode(customer).encode('utf-8'),
+                           int(weigth), float(volume), attributes.items())
+        print parameters
+        print simplejson.dumps(parameters)
+        self._send("insert_pipeline %s" % (simplejson.dumps(parameters)))
+
     

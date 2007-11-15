@@ -420,7 +420,7 @@ init_pick(Quantity, Mui) when is_integer(Quantity) ->
                 % update Unit
                 ok = mnesia:write(Unit#unit{pick_quantity=UnitPickQuantity}),
                 % generate Pick
-                Pick = #pick{id=("p" ++ mypl_util:oid()), quantity=Quantity,
+                Pick = #pick{id=("P" ++ mypl_util:oid()), quantity=Quantity,
                              product=Unit#unit.product, from_unit=Unit#unit.mui,
                              created_at=mypl_util:timestamp()},
                 ok = mnesia:write(Pick),

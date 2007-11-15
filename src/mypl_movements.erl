@@ -45,6 +45,7 @@ collect_requesed_units(Quantity, Candidates, Acc) ->
     
 %% @doc generates movement suggestions by looking at requirements from the {@link requesttracker}.
 get_movementsuggestion_from_requesstracker() ->
+    erlang:display({get_movementsuggestion_from_requesstracker_x}),
     case mypl_requesttracker:out() of
         {empty} ->
             [];
@@ -89,6 +90,7 @@ get_movementsuggestion_from_abc_helper(_Product, _Units) ->
 
 %% @doc gets a list of units which should be moved to floorlevel based on ABC classification
 get_abc_units() ->
+    erlang:display({get_abc_units}),
     {A, _B, _C} = mypl_abcserver:get_abc(),
     lists:flatten(lists:map(fun({_Picks, Product}) ->
                   get_movementsuggestion_from_abc_helper(Product, 
@@ -121,7 +123,7 @@ get_movementsuggestion_from_abc() ->
 %% {@link get_movementsuggestion_from_abc/0}.
 init_automovements() ->
     {Time , Res} =  timer:tc(?MODULE, get_movementsuggestion_from_requesstracker, []),
-    erlang:display({get_movementsuggestion_from_requesstracker, Time, Res}),
+    erlang:display({xxxxxxxxx_get_movementsuggestion_from_requesstracker, Time, Res}),
     % case get_movementsuggestion_from_requesstracker() of
     case Res of
         [] ->
@@ -142,12 +144,12 @@ init_automovements() ->
             % end;
             {ok, []};
         L1 ->
-            erlang:display({init_movement1}),
-            {Time , Res} =  timer:tc(plists, map, [fun({Mui, Destination}) -> 
-                               mypl_db:init_movement(Mui, Destination, [{mypl_notify_requestracker}])
-                           end, L1]),
-            erlang:display({init_movement2, Time}),
-            {ok, Res}
+            erlang:display({xxxxxxxxx_init_movement1, L1}),
+            Ret = lists:map(fun({Mui, Destination}) -> 
+                          mypl_db:init_movement(Mui, Destination, [{mypl_notify_requestracker}])
+                      end, L1),
+            erlang:display({xxxxxxxxx_init_movement2, Time}),
+            {ok, Ret}
             %{ok, plists:map(fun({Mui, Destination}) -> 
             %                   mypl_db:init_movement(Mui, Destination, [{mypl_notify_requestracker}])
             %               end, L1)}
