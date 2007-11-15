@@ -6,7 +6,7 @@ sys.path.extend(['./python', './test'])
 from kernelE import Kerneladapter
 from load_softm import load_platzbestand
 
-THEDATE = "20071108"
+THEDATE = "20071115"
 "20071018"
 "20071019"
 "20071022"
@@ -19,6 +19,9 @@ THEDATE = "20071108"
 "20071107"
 "20071108"
 "20071110"
+"20071112"
+"20071114"
+"20071115"
 
 byauftrag = {}
 bydate = {}
