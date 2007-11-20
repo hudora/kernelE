@@ -323,7 +323,7 @@ class Kerneladapter:
         total Weigth and Volume of the shippment and are used to make scheduling descisions.
         
         
-        add(Id, [(20, 10106, [{"auftragsposition": 1, "gewicht": 34567}]),
+        insert_pipeline(Id, [(20, 10106, [{"auftragsposition": 1, "gewicht": 34567}]),
                  (70, 14650, [{"auftragsposition": 2, "gewicht": 35667}]),
                  (30, 76500, [{"auftragsposition": 3, "gewicht": 12367}])],
                  28, "34566", 345000, 581.34,

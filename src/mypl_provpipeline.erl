@@ -61,7 +61,7 @@
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
-%% @spec add(string(), Orderlines, integer(), string(), integer(), float(), Attributes) -> ok
+%% @spec insert_pipeline(string(), Orderlines, integer(), string(), integer(), float(), Attributes) -> ok
 %%           Orderlines = [{Quanity::integer(), Product::string(), Attributes}]
 %%           Attributes = [{name, value}]
 %% @doc adds an order to the provisioningpipeline.
@@ -77,12 +77,12 @@ start_link() ->
 %% total Weigth and Volume of the shippment and are used to make scheduling descisions.
 %%
 %% Example:
-%% ```add(Id, [{20, 10106, [{"auftragsposition", "1"}, {"gewicht", "34567"}]},
+%% ```insert_pipeline(Id, [{20, 10106, [{"auftragsposition", "1"}, {"gewicht", "34567"}]},
 %%             {70, 14650, [{"auftragsposition", "2"}, {"gewicht", "35667"}]},
 %%             {30, 76500, [{"auftragsposition", "3"}, {"gewicht", "12367"}]}],
 %%             28, "34566",
 %%             345000, 581.34,
-%%          [{"auftragsnumer", "123432"}, {}"liefertermin", "2007-12-23"}]).'''
+%%          [{"auftragsnumer", "123432"}, {"liefertermin", "2007-12-23"}]).'''
 insert_pipeline([CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes]) ->
     mnesia:create_table(provpipeline, [{disc_copies, [node()]},
                                        {attributes, record_info(fields, provpipeline)}

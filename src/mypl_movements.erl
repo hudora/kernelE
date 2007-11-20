@@ -3,7 +3,7 @@
 %% @author Maximillian Dornseif <md@hudora.de>
 %% @doc myPL/kernel-E movement chooser
 %%
-%% This module is meant ro decide what to move where in the warehouse. All this movements are
+%% This module is meant to decide what to move where in the warehouse. All this movements are
 %% only optimisations and not directly related to provisioning goods.
 %% This tries to decide what to move where and what would be the best next move.
 %% 
