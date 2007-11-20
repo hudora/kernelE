@@ -181,6 +181,17 @@ class Kerneladapter:
         d['created_at'] = e2datetime(d['created_at'])
         return d
     
+    def movement_info(self, name):
+		"""
+		>>> import kernelE
+        >>> k = kernelE.Kerneladapter_mock()
+        >>> k.movement_info(MovementId)
+		"""
+		self._send("movement_info %s" % name)
+		ok, d = self._read_json(220)
+		# Hier passiert dann wirrer Konvertierungskram von der Erlang-Datenstruktur in die Python-Struktur, 
+		# Strings werden gewandelt und so...
+		return d
     
     def movement_list(self):
         """Liefert eine Liste aller (offenen) Movements.
@@ -323,11 +334,11 @@ class Kerneladapter:
         total Weigth and Volume of the shippment and are used to make scheduling descisions.
         
         
-        insert_pipeline(Id, [(20, 10106, [{"auftragsposition": 1, "gewicht": 34567}]),
-                 (70, 14650, [{"auftragsposition": 2, "gewicht": 35667}]),
-                 (30, 76500, [{"auftragsposition": 3, "gewicht": 12367}])],
+        insert_pipeline(Id, [(20, 10106, {"auftragsposition": 1, "gewicht": 34567}),
+                 (70, 14650, {"auftragsposition": 2, "gewicht": 35667}),
+                 (30, 76500, {"auftragsposition": 3, "gewicht": 12367})],
                  28, "34566", 345000, 581.34,
-                 [{"auftragsnumer": "123432", "liefertermin": "2007-12-23"}]).
+                 {"auftragsnumer": "123432", "liefertermin": "2007-12-23"}).
         """
         
         newOrderlines = []
