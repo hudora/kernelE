@@ -43,7 +43,9 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0, insert_pipeline/1, delete/1, get_picks/0, get_movements/0, commit_picks/3, commit_movements/3]).
+-export([start_link/0, insert_pipeline/1, delete/1, get_picklists/0, get_retrievallists/0,
+         get_movements/0, 
+         commit_picklist/1, commit_retrievallist/1, commit_movements/3]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -61,7 +63,7 @@
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
-%% @spec insert_pipeline(string(), Orderlines, integer(), string(), integer(), float(), Attributes) -> ok
+%% @spec insert_pipeline({string(), Orderlines, integer(), string(), integer(), float(), Attributes}) -> ok
 %%           Orderlines = [{Quanity::integer(), Product::string(), Attributes}]
 %%           Attributes = [{name, value}]
 %% @doc adds an order to the provisioningpipeline.
@@ -78,11 +80,12 @@ start_link() ->
 %%
 %% Example:
 %% ```insert_pipeline(Id, [{20, 10106, [{"auftragsposition", "1"}, {"gewicht", "34567"}]},
-%%             {70, 14650, [{"auftragsposition", "2"}, {"gewicht", "35667"}]},
-%%             {30, 76500, [{"auftragsposition", "3"}, {"gewicht", "12367"}]}],
-%%             28, "34566",
-%%             345000, 581.34,
-%%          [{"auftragsnumer", "123432"}, {"liefertermin", "2007-12-23"}]).'''
+%%                         {70, 14650, [{"auftragsposition", "2"}, {"gewicht", "35667"}]},
+%%                         {30, 76500, [{"auftragsposition", "3"}, {"gewicht", "12367"}]}],
+%%                    28, "34566", 345000, 581.34,
+%%                    [{"auftragsnumer", "123432"}, {}"liefertermin", "2007-12-23"}]).'''
+insert_pipeline({CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes}) ->
+    insert_pipeline([CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes]);
 insert_pipeline([CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes]) ->
     mnesia:create_table(provpipeline, [{disc_copies, [node()]},
                                        {attributes, record_info(fields, provpipeline)}
@@ -103,7 +106,8 @@ insert_pipeline([CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes
                                                         {Quantity, Product, OlAttributes};
                                                     ([Quantity, Product, OlAttributes]) -> 
                                                         {Quantity, Product, OlAttributes} end, Orderlines)},
-    mypl_db_util:transaction(fun() -> mnesia:write(PPline) end).
+    mypl_db_util:transaction(fun() -> mnesia:write(PPline) end),
+    ok.
 
 
 %% @spec delete(CId::string()) -> aborted|ok
@@ -115,7 +119,7 @@ insert_pipeline([CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes
 delete(CId) -> ok.
 
 
-%% @spec get_picks() -> PicklistList|nothing_available
+%% @spec get_picklists() -> PicklistList|nothing_available
 %%      PicklistList = [{Id::string(), CId::string(), Destination::string(), Attributes, Parts::integer(),
 %%                      [{LineId::string(), Mui::string(), Location::string(), Quantity::integer(), Product::string(), Attributes}]}]
 %%      Attributes = [{name, value}]
@@ -124,14 +128,14 @@ delete(CId) -> ok.
 %%
 %% If there is noting to pick at the moment it returns `noting_available'.
 %% Else it returns a List of Picklist Tuples. These Tuples each represent a "Kommissionierbeleg" and
-%% consist of an Id to be used in {@link commit_picks/1}, the CId which was
+%% consist of an Id to be used in {@link commit_picklist/1}, the CId which was
 %% used in the call to {@link insert_pipeline/7}, a Destination, where the Picked gods should be dropped of,
 %% a list of arrtributes provided to {@link add/7}. Parts indicates in how many parts this Order is divided.
 %% So far only the values 1 for Pick only and 2 for Pick and Retrieval are used.
 %%
 %% The Picklist ends with a list of "Orderlines" consisting of the Location where to get the goods, a
 %% Quantity on how much to Pick and a String Representing the Produkt ID (SKU).
-get_picks() ->
+get_picklists() ->
     % check if we have picks available
     case mypl_db_util:transaction(fun() -> mnesia:first(provpipeline) end) of
         '$end_of_table' ->
@@ -160,7 +164,8 @@ get_picks() ->
             mypl_db_util:transaction(Fun)
     end.
 
-get_retrievals() ->
+% @see get_picklists/0
+get_retrievallists() ->
     % check if we have picks available
     case mypl_db_util:transaction(fun() -> mnesia:first(provpipeline) end) of
         '$end_of_table' ->
@@ -189,6 +194,8 @@ get_retrievals() ->
             mypl_db_util:transaction(Fun)
     end.
 
+% @private
+% 
 choose_next_pick() ->
     % refill pipeline if that is needed
     case mypl_db_util:transaction(fun() -> mnesia:first(pickpipeline) end) of
@@ -306,10 +313,10 @@ refill_pipeline(Type, Candidates) ->
 get_movements() -> ok.
 
 
-commit_picks(Id) ->
-    commit_picks(Id, [], []).
+commit_picklist(Id) ->
+    commit_picklist(Id, [], []).
 
-%% @spec commit_picks(Id::string(), Attributes, [{LineId::string(), Quantity::integer()}]) -> provisioned|unfinished
+%% @spec commit_picklist(Id::string(), Attributes, [{LineId::string(), Quantity::integer()}]) -> provisioned|unfinished
 %%      Attributes = [{name, value}]
 %% @doc commit a Picklist you got from get_picks/0
 %% 
@@ -318,7 +325,7 @@ commit_picks(Id) ->
 %% 
 %% Returns `provisioned' if the CId is finished (no additional Picks or Movements).
 %% @TODO:  save attributes
-commit_picks(Id, Attributes, Lines) ->
+commit_picklist(Id, Attributes, Lines) ->
     commit_anything(Id, Attributes, Lines).
 
 %% @spec commit_movements(Id::string(), Attributes, [{LineId::string(), Quantity::integer()}]) -> provisioned|unfinished
@@ -327,8 +334,8 @@ commit_picks(Id, Attributes, Lines) ->
 %% @TODO: fixme
 commit_movements(Id, Attributes, Lines) -> ok.
 
-commit_retrievals(Id) -> commit_retrievals(Id, [], []).
-commit_retrievals(Id, Attributes, Lines) ->
+commit_retrievallist(Id) -> commit_retrievallist(Id, [], []).
+commit_retrievallist(Id, Attributes, Lines) ->
     commit_anything(Id, Attributes, Lines).
 
 commit_anything(Id, Attributes, Lines) ->
@@ -512,28 +519,28 @@ mypl_simple_test() ->
     insert_pipeline([lieferschein2, [{10, "a0005", []}, {1, "a0004", []}], 5, "kunde02", 0, 0, []]),
     insert_pipeline([lieferschein3, [{50, "a0005", []}, {16, "a0004", []}], 5, "kunde02", 0, 0, []]),
     insert_pipeline([lieferschein4, [{1,  "a0005", []}, {1,  "a0004", []}], 5, "kunde03", 0, 0, []]),
-    R1 = get_retrievals(),
+    R1 = get_retrievallists(),
     [{R1id,lieferschein1,"AUSLAG",[],2,[{_,mui6,"010302",10,"a0005",[]}]}] = R1,
-    P2 = get_picks(),
+    P2 = get_picklists(),
     [{P2id,lieferschein1,"AUSLAG",[],2,[{_,mui4,"010201",1, "a0004",[]}]}] = P2,
-    P3 = get_picks(),
+    P3 = get_picklists(),
     [{P3id,lieferschein2,"AUSLAG",[],1,[{_,mui4,"010201",1,"a0004",[]},{_,mui5,"010301",10,"a0005",[]}]}] = P3,
-    P4 = get_picks(),
+    P4 = get_picklists(),
     [{P4id,lieferschein3,"AUSLAG",[],1,[{_,mui4,"010201",16,"a0004",[]},{_,mui5,"010301",50,"a0005",[]}]}] = P4,
-    P5 = get_picks(),
+    P5 = get_picklists(),
     [{P5id,lieferschein4,"AUSLAG",[],1,[{_,mui4,"010201",1,"a0004",[]},{_,mui5,"010301",1,"a0005",[]}]}] = P5,
     
     % checks that goods are reserved for picking and retrieval
     [{"a0004",36,17,19,0},{"a0005",71,0,61,10},{"a0003",10,10,0,0}] = mypl_db_query:count_products(),
     
     unfinished = is_provisioned(lieferschein1),
-    unfinished = commit_retrievals(R1id),
+    unfinished = commit_retrievallist(R1id),
     unfinished = is_provisioned(lieferschein1),
-    provisioned = commit_picks(P2id),
+    provisioned = commit_picklist(P2id),
     provisioned = is_provisioned(lieferschein1),
-    provisioned = commit_picks(P3id),
-    provisioned = commit_picks(P4id),
-    provisioned = commit_picks(P5id),
+    provisioned = commit_picklist(P3id),
+    provisioned = commit_picklist(P4id),
+    provisioned = commit_picklist(P5id),
     mark_as_finished(lieferschein1),
     mark_as_finished(lieferschein2),
     mark_as_finished(lieferschein3),
