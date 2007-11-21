@@ -200,7 +200,8 @@ class Kerneladapter:
         """
         >>> import kernelE
         >>> k = kernelE.Kerneladapter_mock()
-        >>> k.movement_info(MovementId)
+        >>> k.movement_info('m1195651098.535517')
+        {u'to_location': '212402', u'from_location': '012801', u'created_at': datetime.datetime(2007, 11, 21, 13, 18, 18, 538711), u'attributes': [], u'mui': '012801|30.0|10106|340059981000000463', u'id': 'm1195651098.535517'}
         """
         self._send("movement_info %s" % name)
         ok, d = self._read_json(220)
@@ -269,7 +270,10 @@ class Kerneladapter:
     def retrieve(self, mui):
         mui = mui.replace(',','').replace('\n','').replace('\r','')
         self._send("retrieve %s" % (mui,))
-        return self._read_code(220)
+        ok, ret = self._read_code(220)
+        ret[1] = e2string(ret[1])
+        return ret
+        
     
     @print_timing
     def find_provisioning_candidates(self, quantity, artnr):
