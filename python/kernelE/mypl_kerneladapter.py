@@ -15,7 +15,7 @@ DEBUG = True
 
 def e2string(data):
     # if we got a list of numbers turn it into a string
-    if data and data[0] and type(data[0]) == type(17):
+    if data and data[0] and type(data[0]) == type(17): # type(17) == Integer
         return ''.join([chr(x) for x in data])
     return data
 
@@ -32,12 +32,27 @@ def e2datetime(data):
 
 
 def attributelist2dict(l, fixattnames=[]):
+    """Converts an Erlang Proplit to a Python Dict.
+    
+    See http://www.erlang.org/doc/man/proplists.html for proplists.
+    Using Json we have issues converting Erlang Strings to Pytohn Stings.
+    This function tries to konvert ak Keys to strings and all Values where
+    the Key is present in fixattnames.
+    """
     ret = {}
     for name, value in l:
         if name in fixattnames:
-            ret[name] = e2string(value)
+            ret[e2string(name)] = e2string(value)
         else:
-            ret[name] = value
+            ret[e2string(name)] = value
+    return ret
+    
+def attributelist2dict_str(l):
+    """Like attributelist2dict but tries to convert _all_ Values to strings."""
+    
+    ret = {}
+    for name, value in l:
+        ret[e2string(name)] = e2string(value)
     return ret
     
 
@@ -182,16 +197,16 @@ class Kerneladapter:
         return d
     
     def movement_info(self, name):
-		"""
-		>>> import kernelE
+        """
+        >>> import kernelE
         >>> k = kernelE.Kerneladapter_mock()
         >>> k.movement_info(MovementId)
-		"""
-		self._send("movement_info %s" % name)
-		ok, d = self._read_json(220)
-		# Hier passiert dann wirrer Konvertierungskram von der Erlang-Datenstruktur in die Python-Struktur, 
-		# Strings werden gewandelt und so...
-		return d
+        """
+        self._send("movement_info %s" % name)
+        ok, d = self._read_json(220)
+        # Hier passiert dann wirrer Konvertierungskram von der Erlang-Datenstruktur in die Python-Struktur, 
+        # Strings werden gewandelt und so...
+        return d
     
     def movement_list(self):
         """Liefert eine Liste aller (offenen) Movements.
@@ -367,8 +382,8 @@ class Kerneladapter:
                 nve = e2string(nve)
                 source = e2string(source)
                 product = e2string(product)
-                poslist.append((posId, nve, source, product, attributelist2dict(posattributes)))
-            out.append((pickListId, cId, destination, parts, attributelist2dict(attributes), poslist))
+                poslist.append((posId, nve, source, product, attributelist2dict_str(posattributes)))
+            out.append((pickListId, cId, destination, parts, attributelist2dict_str(attributes), poslist))
         return out
         
     
