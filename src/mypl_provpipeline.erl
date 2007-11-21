@@ -7,38 +7,6 @@
 -include_lib("stdlib/include/qlc.hrl").
 -include("mypl.hrl").
 
-% orders to be provisioned
--record(provpipeline,
-            {id,
-             priority,
-             orderlines,
-             weigth,
-             volume,
-             attributes,
-             status,          % new, processing, provisioned
-             tries            % how often we tried to find a match for that pick
-            }).
-
--record(pickpipeline,
-            {id,
-             provpipelineid,
-             pickids,
-             retrievalids
-            }).
-
--record(retrievalpipeline, 
-            {id,
-             provpipelineid,
-             retrievalids,
-             pickids
-            }).
-
--record(provpipeline_processing,
-            {id,
-             provpipelineid,
-             retrievalids,
-             pickids
-            }).
 
 -behaviour(gen_server).
 
@@ -126,7 +94,7 @@ delete(CId) -> ok.
 %%
 %% @doc gets the next Picklist to be processed.
 %%
-%% If there is noting to pick at the moment it returns `noting_available'.
+%% If there is noting to pick at the moment it returns `nothing_available'.
 %% Else it returns a List of Picklist Tuples. These Tuples each represent a "Kommissionierbeleg" and
 %% consist of an Id to be used in {@link commit_picklist/1}, the CId which was
 %% used in the call to {@link insert_pipeline/7}, a Destination, where the Picked gods should be dropped of,
@@ -139,7 +107,7 @@ get_picklists() ->
     % check if we have picks available
     case mypl_db_util:transaction(fun() -> mnesia:first(provpipeline) end) of
         '$end_of_table' ->
-            noting_available;
+            nothing_available;
         _ ->
             Fun = fun() ->
                 P = choose_next_pick(),
@@ -167,32 +135,39 @@ get_picklists() ->
 % @see get_picklists/0
 get_retrievallists() ->
     % check if we have picks available
+    erlang:display({get_retrievallists}),
     case mypl_db_util:transaction(fun() -> mnesia:first(provpipeline) end) of
         '$end_of_table' ->
-            noting_available;
+            nothing_available;
         _ ->
             Fun = fun() ->
-                R = choose_next_retrieval(),
-                Id = "r" ++ R#retrievalpipeline.id,
-                [PPEntry] = mnesia:read({provpipeline, R#retrievalpipeline.provpipelineid}),
-                mnesia:write(#provpipeline_processing{id=Id, provpipelineid=PPEntry#provpipeline.id,
-                                                      pickids=[], retrievalids=R#retrievalpipeline.retrievalids}),
-                [{Id, PPEntry#provpipeline.id,
-                  "AUSLAG", PPEntry#provpipeline.attributes, 1 + length(R#retrievalpipeline.pickids),
-                   lists:map(fun(RetrievalId) ->
-                                  {ok, RetrievalInfo} = mypl_db_query:movement_info(RetrievalId),
-                                  {RetrievalId,
-                                   proplists:get_value(mui, RetrievalInfo),
-                                   proplists:get_value(from_location, RetrievalInfo),
-                                   proplists:get_value(quantity, RetrievalInfo),
-                                   proplists:get_value(product, RetrievalInfo),
-                                   proplists:get_value(attributes, RetrievalInfo)
-                                  }
-                              end, R#retrievalpipeline.retrievalids)
-                }]
+                case choose_next_retrieval() of
+                    nothing_available ->
+                        nothing_available;
+                    {ok, R} ->
+                        Id = "r" ++ R#retrievalpipeline.id,
+                        [PPEntry] = mnesia:read({provpipeline, R#retrievalpipeline.provpipelineid}),
+                        mnesia:write(#provpipeline_processing{id=Id, provpipelineid=PPEntry#provpipeline.id,
+                                                              pickids=[], retrievalids=R#retrievalpipeline.retrievalids}),
+                        [{Id, PPEntry#provpipeline.id,
+                          "AUSLAG", PPEntry#provpipeline.attributes, 1 + length(R#retrievalpipeline.pickids),
+                           lists:map(fun(RetrievalId) -> get_retrievallists_build_proplist(RetrievalId) end,
+                                     R#retrievalpipeline.retrievalids)
+                        }]
+                end
             end,
             mypl_db_util:transaction(Fun)
     end.
+
+get_retrievallists_build_proplist(RetrievalId) ->
+    {ok, RetrievalInfo} = mypl_db_query:movement_info(RetrievalId),
+    {RetrievalId,
+     proplists:get_value(mui, RetrievalInfo),
+     proplists:get_value(from_location, RetrievalInfo),
+     proplists:get_value(quantity, RetrievalInfo),
+     proplists:get_value(product, RetrievalInfo),
+     proplists:get_value(attributes, RetrievalInfo)
+    }.
 
 % @private
 % 
@@ -207,7 +182,7 @@ choose_next_pick() ->
     % now return first entry, unless pipeline is still empty
     case mypl_db_util:transaction(fun() -> mnesia:first(pickpipeline) end) of
         '$end_of_table' ->
-            noting_available;
+            nothing_available;
         PipelineId ->
             Fun = fun() ->
                 % get entry from DB
@@ -232,7 +207,7 @@ choose_next_retrieval() ->
     % now return first entry, unless pipeline is still empty
     case mypl_db_util:transaction(fun() -> mnesia:first(retrievalpipeline) end) of
         '$end_of_table' ->
-            noting_available;
+            nothing_available;
         PipelineId ->
             Fun = fun() ->
                 % get entry from DB
@@ -240,7 +215,7 @@ choose_next_retrieval() ->
                 % remove entry from the pipeline
                 mnesia:delete({retrievalpipeline, PipelineId}),
                 % return pickids
-                PipelineEntry
+                {ok, PipelineEntry}
             end,
             mypl_db_util:transaction(Fun)
     end.
@@ -278,13 +253,13 @@ refill_pipeline(Type, Candidates) ->
                     Fun = fun() ->
                         case RetrievalIds of
                             [] -> ignore;
-                            _ -> mnesia:write(#retrievalpipeline{id=mypl_util:oid(), 
+                            _ -> mnesia:write(#retrievalpipeline{id=mypl_util:serial(), 
                                                                  provpipelineid=Entry#provpipeline.id,
                                                                  retrievalids=RetrievalIds, pickids=PickIds})
                         end,
                         case PickIds of
                             [] -> ignore;
-                            _ -> mnesia:write(#pickpipeline{id=mypl_util:oid(),
+                            _ -> mnesia:write(#pickpipeline{id=mypl_util:serial(),
                                                             provpipelineid=Entry#provpipeline.id,
                                                             pickids=PickIds, retrievalids=RetrievalIds})
                         end,

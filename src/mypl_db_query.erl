@@ -197,22 +197,26 @@ movement_list() ->
 
 movement_info(MovementId) -> 
     Fun = fun() ->
-        [Movement] = mnesia:read({movement, MovementId}),
-        Unit = mypl_db_util:mui_to_unit(Movement#movement.mui),
-        Quantity = Unit#unit.quantity,
-        Product = Unit#unit.product,
-        [{id ,            Movement#movement.id},
-         {mui,            Movement#movement.mui},
-         {from_location,  Movement#movement.from_location},
-         {to_location,    Movement#movement.to_location},
-         {attributes,     Movement#movement.attributes},
-         {created_at,     Movement#movement.created_at},
-         {quantity,       Quantity},
-         {product,        Product}
-        ]
+        case mnesia:read({movement, MovementId}) of
+            [] -> {error, unknown_movement, {MovementId}};
+            [Movement] ->
+                Unit = mypl_db_util:mui_to_unit(Movement#movement.mui),
+                Quantity = Unit#unit.quantity,
+                Product = Unit#unit.product,
+                {ok, 
+                 [{id ,            Movement#movement.id},
+                  {mui,            Movement#movement.mui},
+                  {from_location,  Movement#movement.from_location},
+                  {to_location,    Movement#movement.to_location},
+                  {attributes,     Movement#movement.attributes},
+                  {created_at,     Movement#movement.created_at},
+                  {quantity,       Quantity},
+                  {product,        Product}
+                 ]}
+        end
     end,
     {atomic, Ret} = mnesia:transaction(Fun),
-    {ok, Ret}.
+    Ret.
     
 
 %% @spec pick_list() -> [PickID]
@@ -280,6 +284,7 @@ test_init() ->
 %%% test if counting works as expected
 mypl_simple_counting_test() ->
     test_init(),
+    {error, unknown_movement, {"gibtsnicht"}} = movement_info("gibtsnicht"),
     Mui3 = mypl_util:generate_mui(),
     Mui4 = mypl_util:generate_mui(),
     Mui6 = mypl_util:generate_mui(),

@@ -101,7 +101,8 @@ handle_cast({in, {Quantity, Product}}, State) ->
                     ets:update_counter(State#state.table, Product, {2, Quantity})
             end;
         Movements ->
-            erlang:display({not_adding, {Quantity, Product}, Movements}),
+            % since there are open movements we can't be sure that the open movements
+            % would't be sufficient to fullfill the request so ...
             ok % we add nothing
     end,
     {noreply, State};

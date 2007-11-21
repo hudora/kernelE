@@ -148,7 +148,7 @@ find_retrieval_candidates(Quantity, Product, Units) when is_integer(Quantity), Q
             if
                 FullQuantity < Quantity ->
                     % this really shouldn't happen. Something is deeply broken - or isn't it?
-                    erlang:display({error, not_enough, internal_error, {Quantity, Product}, FullQuantity, AvailableQuantity}),
+                    error_logger:warning_msg("Not enough goods for Retrieval ~wx~s (Available ~w of ~w)", [Quantity, Product, AvailableQuantity, FullQuantity]),
                     {error, not_enough};
                 true ->
                     {error, not_enough}
@@ -263,7 +263,7 @@ find_provisioning_candidates(Quantity, Product) ->
         {error, no_fit} ->
             mypl_requesttracker:in(Quantity, Product),
             {error, no_fit};
-        {error,not_enough} ->
+        {error, not_enough} ->
             % this might happen, if to much of a certain product is on the move in the warehouse
             mypl_requesttracker:in(Quantity, Product),
             {error, not_enough}
@@ -468,7 +468,7 @@ mypl_simple_retrieval_test() ->
     {ok, 0, [Mui2]} = find_retrieval_candidates(7, "a0008"),
     {ok, 0, [Mui2, Mui1]} = find_retrieval_candidates(18, "a0008"),
     {ok, 0, [Mui3, Mui2, Mui1]} = find_retrieval_candidates(23, "a0008"),
-    {error,not_enough} = find_retrieval_candidates(25, "a0008"),
+    {error, not_enough} = find_retrieval_candidates(25, "a0008"),
     {ok, 1, [Mui3, Mui1]} = find_retrieval_candidates(17, "a0008"),
     {ok, 3, [Mui3, Mui2]} = find_retrieval_candidates(15, "a0008"),
     {ok, 2, [Mui3, Mui2]} = find_retrieval_candidates(14, "a0008"),

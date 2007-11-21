@@ -270,7 +270,7 @@ class Kerneladapter:
     def retrieve(self, mui):
         mui = mui.replace(',','').replace('\n','').replace('\r','')
         self._send("retrieve %s" % (mui,))
-        ok, ret = self._read_code(220)
+        ok, ret = self._read_json(220)
         ret[1] = e2string(ret[1])
         return ret
         

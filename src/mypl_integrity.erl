@@ -11,7 +11,8 @@
 -import(mnesia).
 -import(mypl_db_util).
 
--export([selftest/0, locations_pointing_nowhere/0, orphaned_units/0]).
+-export([selftest/0, locations_pointing_nowhere/0, orphaned_units/0,
+         orphaned_pickpipeline/0, orphaned_retrievalpipeline/0]).
 
 
 %% @doc check for Units which are not actually booked into a Location
@@ -32,7 +33,8 @@ orphaned_unit(Unit) ->
             TransFun = fun() ->
                 ok = mnesia:write(Destination#location{allocated_by=[Unit#unit.mui|Destination#location.allocated_by]}),
                 ok = mnesia:write(Unit#unit{location=Destination#location.name}),
-                mypl_audit:unitaudit(Unit, ErrorText)
+                mypl_audit:unitaudit(Unit, ErrorText),
+                error_logger:error_msg(ErrorText)
             end,
             {atomic, _} = mnesia:transaction(TransFun),
             erlang:display(ErrorText),
@@ -68,7 +70,7 @@ location_pointing_nowhere_allocated_helper(Location, Mui) ->
                                 ++ "'. allocated_by wurde angepasst.",
                     ok = mnesia:write(Location#location{allocated_by=Location#location.allocated_by -- [Mui]}),
                     mypl_audit:unitaudit_mui(Mui, ErrorText),
-                    erlang:display(ErrorText),
+                    error_logger:error_msg(ErrorText),
                     error
             end;
         [] ->
@@ -79,19 +81,41 @@ location_pointing_nowhere_allocated_helper(Location, Mui) ->
                         ++ " Eintrag wurde entfernt.",
             ok = mnesia:write(Location#location{allocated_by=Location#location.allocated_by -- [Mui]}),
             mypl_audit:unitaudit_mui(Mui, ErrorText),
-            erlang:display(ErrorText),
+            error_logger:error_msg(ErrorText),
             error
     end.
     
+
+% TODO: check for every entry in retrivalpipeline there are the associated movements
+% dito for pickpipeline
+%% @doc finds pickepipeline entries which don't have associated picks anymore.
+orphaned_pickpipeline() ->
+    lists:all(fun(X) -> X =:= ok end, 
+              mypl_db_util:do_trans(qlc:q([orphaned_pickpipeline(X) || X <- mnesia:table(pickpipeline)]))).
+    
+orphaned_pickpipeline(Entry) ->
+    lists:map(fun(PickId) ->
+                  {ok, _} = mypl_db_query:pick_info(PickId)
+              end, Entry#pickpipeline.pickids).
+
+orphaned_retrievalpipeline() ->
+    lists:all(fun(X) -> X =:= ok end, 
+              mypl_db_util:do_trans(qlc:q([orphaned_retrievalpipeline(X) || X <- mnesia:table(retrievalpipeline)]))).
+    
+orphaned_retrievalpipeline(Entry) ->
+    lists:map(fun(RetrievalId) ->
+                  {ok, _} = mypl_db_query:retrieval_info(RetrievalId)
+              end, Entry#pickpipeline.retrievalids).
+
 
 run_a_test(Testname) ->
     {TimeMicro , Res} =  timer:tc(?MODULE, Testname, []),
     TimeMilli = TimeMicro div 1000,
     TimeSec = TimeMilli / 1000,
-    io:format("~w   ~p s   ~w~n", [Testname, TimeSec, Res]).
+    io:format("~w   ~f s   ~w~n", [Testname, TimeSec, Res]).
     
 selftest() ->
-    TestList = [locations_pointing_nowhere, orphaned_units],
+    TestList = [locations_pointing_nowhere, orphaned_units, orphaned_pickpipeline, orphaned_retrievalpipeline],
     lists:map(fun(X) -> run_a_test(X) end, TestList),
     ok.
     

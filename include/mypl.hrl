@@ -53,6 +53,39 @@
                 }).
 
 
+% orders to be provisioned
+-record(provpipeline,
+            {id,
+             priority,
+             orderlines,
+             weigth,
+             volume,
+             attributes,
+             status,          % new, processing, provisioned
+             tries            % how often we tried to find a match for that pick
+            }).
+
+-record(pickpipeline,
+            {id,
+             provpipelineid,
+             pickids,
+             retrievalids
+            }).
+
+-record(retrievalpipeline, 
+            {id,
+             provpipelineid,
+             retrievalids,
+             pickids
+            }).
+
+-record(provpipeline_processing,
+            {id,
+             provpipelineid,
+             retrievalids,
+             pickids
+            }).
+
 % Trace utilities from adviserl
 
 -ifdef(LOG_DEBUG).

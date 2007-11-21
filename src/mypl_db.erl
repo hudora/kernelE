@@ -274,7 +274,7 @@ init_movement(Mui, DestinationName, Attributes) when is_list(Attributes) ->
                 % now we can write to the database
                 ok = mnesia:write(Destination#location{reserved_for=Destination#location.reserved_for ++ [Mui]}),
                 % generate movement record
-                Movement = #movement{id=("m" ++ mypl_util:oid()), mui=Mui,
+                Movement = #movement{id=("m" ++ mypl_util:serial()), mui=Mui,
                                      from_location=Source#location.name,
                                      to_location=Destination#location.name,
                                      created_at=mypl_util:timestamp(),
@@ -420,7 +420,7 @@ init_pick(Quantity, Mui) when is_integer(Quantity) ->
                 % update Unit
                 ok = mnesia:write(Unit#unit{pick_quantity=UnitPickQuantity}),
                 % generate Pick
-                Pick = #pick{id=("P" ++ mypl_util:oid()), quantity=Quantity,
+                Pick = #pick{id=("P" ++ mypl_util:serial()), quantity=Quantity,
                              product=Unit#unit.product, from_unit=Unit#unit.mui,
                              created_at=mypl_util:timestamp()},
                 ok = mnesia:write(Pick),
