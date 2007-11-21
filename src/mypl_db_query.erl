@@ -189,8 +189,12 @@ movement_list() ->
     Ret.
     
 
-%% @spec movement_info(movementId()) -> tuple()
-%% @doc gets a tuple with information concerning a movement
+%% @spec movement_info(movementId()) -> [Attribute]
+%%      Attribute = {Name::string(), Value::term()}
+%% @doc gets a tuple with information concerning a movement.
+%%
+%% Attributes returned are id, mui, from_location, to_location, attributes, created_at, quantity and product.
+
 movement_info(MovementId) -> 
     Fun = fun() ->
         [Movement] = mnesia:read({movement, MovementId}),
