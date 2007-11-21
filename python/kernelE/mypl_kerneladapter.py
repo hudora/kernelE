@@ -269,11 +269,10 @@ class Kerneladapter:
     
     def retrieve(self, mui):
         mui = mui.replace(',','').replace('\n','').replace('\r','')
-        self._send("retrieve %s" % mui)
-        print self._read_code(220)
-        # FIXME: Too many values to unpack... XXX
-        #print ret
-        
+        self._send("retrieve %s" % (mui,))
+        ok, ret = self._read_code(220)
+        ret[1] = e2string(ret[1])
+        return ret
         
     
     @print_timing
@@ -384,7 +383,9 @@ class Kerneladapter:
         
         >>> get_picklist()
         [('p1195654200.622052', '40145201', 'AUSLAG', 1, {'liefertermin': '2007-11-12'},
-             [('P1195654200.621917', '340059981000021932', '092001', '83161', {})])]
+             [('P1195654200.621917', '340059981000021932', '092001', '83161', {})]),
+         ('p1195654200.622053', '40145202', 'AUSLAG', 1, {'liefertermin': '2007-11-13'},
+             [('P1195654200.621918', '340059981000021943', '092002', '83161', {})])]
         
         """
         self._send("get_picklists")
@@ -417,6 +418,8 @@ class Kerneladapter:
         
         self._send("get_retrievallists")
         ret = self._read_json(220)
+        if ret == 'nothing_available':
+            return []
         out = []
         for data in ret:
             retrievalListId, cId, destination, attributes, parts, positions = data
