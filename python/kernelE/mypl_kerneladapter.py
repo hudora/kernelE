@@ -269,10 +269,11 @@ class Kerneladapter:
     
     def retrieve(self, mui):
         mui = mui.replace(',','').replace('\n','').replace('\r','')
-        self._send("retrieve %s" % (mui,))
-        ok, ret = self._read_code(220)
-        ret[1] = e2string(ret[1])
-        return ret
+        self._send("retrieve %s" % mui)
+        print self._read_code(220)
+        # FIXME: Too many values to unpack... XXX
+        #print ret
+        
         
     
     @print_timing
