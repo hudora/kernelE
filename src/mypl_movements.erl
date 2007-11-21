@@ -103,14 +103,17 @@ get_abc_units() ->
 %% are classified as a but have no unit at floorlevel
 get_movementsuggestion_from_abc() ->
     Fun = fun() ->
+        erlang:display({zz1_get_movementsuggestion_from_abc}),
         Units = get_abc_units(),
+        erlang:display({zz2_get_movementsuggestion_from_abc}),
         {Time , Locations} =  timer:tc(mypl_db_util, best_locations, [floorlevel, Units]),
-        erlang:display({get_movementsuggestion_from_abc, Time}),
+        erlang:display({zz3_get_movementsuggestion_from_abc, Time}),
         % lists:zip([X#unit.mui || X <- Units], [X#location.name || X <- Locations]),
         % Locations = mypl_db_util:best_locations(floorlevel, Units),
         {Time , Locations} =  timer:tc(mypl_db_util, best_locations, [floorlevel, Units]),
-        erlang:display({best_locations, Time}),
-        lists:zip([X#unit.mui || X <- Units], [X#location.name || X <- Locations])
+        erlang:display({best_locations, Time, Units, Locations}),
+        Ret = lists:zip([X#unit.mui || X <- Units], [X#location.name || X <- Locations]),
+        erlang:display({best_locations_done, Ret})
     end,
     mypl_db_util:transaction(Fun).
     
@@ -128,7 +131,7 @@ init_automovements() ->
         [] ->
             erlang:display({nix}),
             {Time , Res} =  timer:tc(?MODULE, get_movementsuggestion_from_abc, []),
-            erlang:display({get_movementsuggestion_from_abc, Time, Res}),
+            erlang:display({bbb_get_movementsuggestion_from_abc, Time, Res}),
             % case get_movementsuggestion_from_abc() of
             case Res of
                 % TODO: dalyzer says:
@@ -140,13 +143,15 @@ init_automovements() ->
                     erlang:display({abc_suggestions, L2}), 
                     [H|_] = L2, % we are only interested in the first result
                     {ok, plists:map(fun({Mui, Destination}) -> 
-                                        mypl_db:init_movement(Mui, Destination, [{mypl_notify_requestracker}])
+                                        {ok, MovementId} = mypl_db:init_movement(Mui, Destination, [{mypl_notify_requestracker}]),
+                                        MovementId
                                      end, [H])}
             end;
         L1 ->
             erlang:display({xxxxxxxxx_init_movement1, L1}),
             Ret = lists:map(fun({Mui, Destination}) -> 
-                          mypl_db:init_movement(Mui, Destination, [{mypl_notify_requestracker}])
+                          {ok, MovementId} = mypl_db:init_movement(Mui, Destination, [{mypl_notify_requestracker}]),
+                          MovementId
                       end, L1),
             erlang:display({xxxxxxxxx_init_movement2, Time}),
             {ok, Ret}

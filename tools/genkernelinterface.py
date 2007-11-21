@@ -48,6 +48,8 @@ funcdefs = [
 ('mypl_provpipeline', 'get_retrievallists', '', []),
 ('mypl_provpipeline', 'commit_picklist', 'CId', []),
 ('mypl_provpipeline', 'commit_retrievallist', 'CId', []),
+('mypl_provpipeline', 'get_movementlist', '', []),
+('mypl_provpipeline', 'commit_movementlist', 'CId', []),
 ('mypl_provpipeline', 'is_provisioned', 'CId', []),
 
 ('mypl_movements', 'create_automatic_movements', '', ['async']),

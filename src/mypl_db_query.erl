@@ -189,7 +189,7 @@ movement_list() ->
     Ret.
     
 
-%% @spec movement_info(movementId()) -> [Attribute]
+%% @spec movement_info(movementId()) -> {ok, [Attribute]}
 %%      Attribute = {Name::string(), Value::term()}
 %% @doc gets a tuple with information concerning a movement.
 %%
@@ -226,22 +226,27 @@ pick_list() ->
     Ret.
     
 
-%% @spec pick_info(pickId()) -> tuple()
+%% @spec pick_info(pickId()) -> {ok, [Attribute]}
+%%      Attribute = {Name::string(), Value::term()}
 %% @doc gets a proplist with information concerning a pick
 pick_info(PickId) -> 
     Fun = fun() ->
-        [Pick] = mnesia:read({pick, PickId}),
-        Unit = mypl_db_util:mui_to_unit(Pick#pick.from_unit),
-        [{id ,        Pick#pick.id},
-         {from_unit,  Pick#pick.from_unit},
-         {quantity,   Pick#pick.quantity},
-         {product,    Unit#unit.product},
-         {attributes, []},
-         {created_at, Pick#pick.created_at}
-        ]
+        case mnesia:read({pick, PickId}) of
+            [] -> {error, unknown_pick, {PickId}};
+            [Pick] -> 
+                Unit = mypl_db_util:mui_to_unit(Pick#pick.from_unit),
+                {ok, 
+                 [{id ,        Pick#pick.id},
+                  {from_unit,  Pick#pick.from_unit},
+                  {quantity,   Pick#pick.quantity},
+                  {product,    Unit#unit.product},
+                  {attributes, []},
+                  {created_at, Pick#pick.created_at}
+                 ]}
+        end
     end,
     {atomic, Ret} = mnesia:transaction(Fun),
-    {ok, Ret}.
+    Ret.
     
 
 

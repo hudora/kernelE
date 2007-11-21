@@ -11,9 +11,8 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0, insert_pipeline/1, delete/1, get_picklists/0, get_retrievallists/0,
-         get_movements/0, 
-         commit_picklist/1, commit_retrievallist/1, commit_movements/3,
+-export([start_link/0, insert_pipeline/1, delete/1, get_picklists/0, get_retrievallists/0, get_movementlist/0,
+         commit_picklist/1, commit_retrievallist/1, commit_movementlist/1,
          is_provisioned/1]).
 
 %% gen_server callbacks
@@ -281,7 +280,7 @@ refill_pipeline(Type, Candidates) ->
     end.
     
     
-%% @spec get_movements() -> MovementlistList|nothing_available
+%% @spec get_movementlist() -> MovementlistList|nothing_available
 %%      MovementlistList = [{Id::string(), CId::string(), Destination::string(), Attributes, Parts::integer(),
 %%                          [{LineId::string(), Location::string(), Product::string()}]}]
 %% @see get_picks/0
@@ -291,7 +290,12 @@ refill_pipeline(Type, Candidates) ->
 %% System decides to prefer that a internal Movement is done to optimize the Warehouse instead of a Retrieval
 %% for actually fullfilling an order. In such cases the `CId == ""'.
 %% @TODO: fixme
-get_movements() -> ok.
+get_movementlist() ->
+    mypl_movements:create_automatic_movements().
+    
+%% @spec commit_movements(Id::string()) -> ok
+%% @TODO: fixme
+commit_movementlist(Id) -> ok.
 
 
 commit_picklist(Id) ->
@@ -309,13 +313,11 @@ commit_picklist(Id) ->
 commit_picklist(Id, Attributes, Lines) ->
     commit_anything(Id, Attributes, Lines).
 
-%% @spec commit_movements(Id::string(), Attributes, [{LineId::string(), Quantity::integer()}]) -> provisioned|unfinished
+commit_retrievallist(Id) -> commit_retrievallist(Id, [], []).
+%% @spec commit_retrievallist(Id::string(), Attributes, [{LineId::string(), Quantity::integer()}]) -> provisioned|unfinished
 %%      Attributes = [{name, value}]
 %% @doc commit a Picklist you got from get_picks/0
 %% @TODO: fixme
-commit_movements(Id, Attributes, Lines) -> ok.
-
-commit_retrievallist(Id) -> commit_retrievallist(Id, [], []).
 commit_retrievallist(Id, Attributes, Lines) ->
     commit_anything(Id, Attributes, Lines).
 

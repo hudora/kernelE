@@ -50,7 +50,7 @@ run_me_once() ->
     mypl_abcserver:run_me_once(),
     mypl_audit:run_me_once(),
     
-    ok = mnesia:wait_for_tables([location, unit, movement, pick, articleaudit, unitaudit], 5000),
+    ok = mnesia:wait_for_tables([location, unit, movement, pick, articleaudit, unitaudit], 30000),
     init_location("EINLAG", 3000, true,  0, [{no_picks}]),
     init_location("AUSLAG", 3000, true,  0, [{no_picks}]),
     init_location("FEHLER", 3000, true,  0, [{no_picks}]),

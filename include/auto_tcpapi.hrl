@@ -164,6 +164,15 @@ handle_command("commit_retrievallist", _Parameters, State) ->
     [CId] = Tokens,
     NewCId = convertString(CId),
     {noreply, reply(220, rfc4627:encode(mypl_server:commit_retrievallist(NewCId)), reset_buffers(State))};
+handle_command("get_movementlist", _Parameters, State) ->
+    % implementation for get_movementlist,
+    {noreply, reply(220, rfc4627:encode(mypl_server:get_movementlist()), reset_buffers(State))};
+handle_command("commit_movementlist", _Parameters, State) ->
+    % implementation for commit_movementlist,
+    Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
+    [CId] = Tokens,
+    NewCId = convertString(CId),
+    {noreply, reply(220, rfc4627:encode(mypl_server:commit_movementlist(NewCId)), reset_buffers(State))};
 handle_command("is_provisioned", _Parameters, State) ->
     % implementation for is_provisioned,
     Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
@@ -215,6 +224,8 @@ get_picklists
 get_retrievallists 
 commit_picklist CId
 commit_retrievallist CId
+get_movementlist 
+commit_movementlist CId
 is_provisioned CId
 create_automatic_movements 
 init_dayforcast JsonList

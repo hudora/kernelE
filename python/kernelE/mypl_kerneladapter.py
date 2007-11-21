@@ -238,7 +238,6 @@ class Kerneladapter:
         raise NotImplementedError
     
     
-    @print_timing
     def init_location(self, name, height=1950, floorlevel=False, preference=5, info='', attributes=[]):
         name = name.replace(',','').replace('\n','').replace('\r','')
         info = info.replace(',',' ').replace('\n','').replace('\r','')
@@ -276,7 +275,6 @@ class Kerneladapter:
         return ret
         
     
-    @print_timing
     def find_provisioning_candidates(self, quantity, artnr):
         artnr = artnr.replace(',','').replace('\n','').replace('\r','')
         self._send("find_provisioning_candidates %d,%s" % (quantity, artnr))
@@ -288,7 +286,6 @@ class Kerneladapter:
             ret = (ok, retrievals, picks)
         return ret
     
-    @print_timing
     def find_provisioning_candidates_multi(self, poslist):
         self._send("find_provisioning_candidates_multi %s" % (simplejson.dumps(poslist)))
         ret = self._read_json(220)
@@ -299,7 +296,6 @@ class Kerneladapter:
             ret = (ok, retrievals, picks)
         return ret
     
-    @print_timing
     def init_provisionings_multi(self, poslist):
         self._send("init_provisionings_multi %s" % (simplejson.dumps(poslist)))
         ret = self._read_json(220)
@@ -318,7 +314,6 @@ class Kerneladapter:
         self._send("rollback_movement %s" % (movementid))
         return self._read_json(220)
     
-    @print_timing
     def commit_retrieval(self, movementid):
         self._send("commit_retrieval %s" % (movementid))
         return self._read_json(220)
@@ -327,7 +322,6 @@ class Kerneladapter:
         self._send("rollback_retrieval %s" % (movementid))
         return self._read_json(220)
     
-    @print_timing
     def commit_pick(self, pickid):
         self._send("commit_pick %s" % (pickid))
         return self._read_json(220)
@@ -336,7 +330,6 @@ class Kerneladapter:
         self._send("rollback_pick %s" % (pickid))
         return self._read_json(220)
     
-    @print_timing
     def create_automatic_movements(self):
         self._send("create_automatic_movements")
         ret = self._read_json(220)
@@ -373,8 +366,6 @@ class Kerneladapter:
             newOrderlines.append((orderline[0], orderline[1], orderline[2].items()))
         parameters = (str(cid), newOrderlines, int(priority), unicode(customer).encode('utf-8'),
                            int(weigth), float(volume), attributes.items())
-        print parameters
-        print simplejson.dumps(parameters)
         self._send("insert_pipeline %s" % (simplejson.dumps(parameters)))
     
     
@@ -437,20 +428,25 @@ class Kerneladapter:
                 product = e2string(product)
                 poslist.append((posId, nve, source, product, attributelist2dict_str(posattributes)))
             out.append((retrievalListId, cId, destination, parts, attributelist2dict_str(attributes), poslist))
-        print out
         return out
+        
     
+    def get_movementlist(self):
+        self._send("get_movementlist")
+        ret = self._read_json(220)
+        if ret == 'nothing_available':
+            return []
+        print repr(ret)
+        return ret
     
-    # def commit_picklist():
-    #     self._send("commit_picklist")
-    #     ret = self._read_json(220)
-    #     print ret
-    #     return ret
-    #
-    # def commit_retrievallist():
-    #     self._send("commit_retrievallist")
-    #     ret = self._read_json(220)
-    #     print ret
-    #     return ret
+    def commit_picklist(self, cId):
+        self._send("commit_picklist %s" % (cId,))
+        ret = self._read_json(220)
+        return ret
+    
+    def commit_retrievallist(self, cId):
+        self._send("commit_retrievallist %s" % (cId,))
+        ret = self._read_json(220)
+        return ret
     
     

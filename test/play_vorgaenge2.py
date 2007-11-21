@@ -55,27 +55,39 @@ def simulate():
     
     # im folgenden das ist im Grunde der Prozess, der biem komissionieren passiert.
     while 1:
-        ids = []
+        picklistids = []
+        retrievallistids = []
         
         # Ein "Pickbeleg" wird von jemandem mit Handwagen angefordert.
         p1list = k.get_picklists()
         for p1 in p1list:
             picklistId, vorgangsnummer, zielplatz, totallists, attributes, picks = p1
-            ids.append(picklistId)
+            picklistids.append(picklistId)
             print "PPP", repr((picklistId, vorgangsnummer, zielplatz, attributes, picks))
             # print kommibeleg via jasper
         
         # ein staplerfahrer kommt.
-        # m1 = k.get_movements()
+        m1 = k.get_movementlist()
+        print "MMM", repr(m1)
+        
         r1list = k.get_retrievallists()
         for r1 in r1list:
-            print "RRR", r1
-        #for p in p1 + p2:
-        #    k.commit_picklist(p)
-        #for r in r1:
-        #   k.get_retrievallist(r)
+            retrievalId, vorgangsnummer, zielplatz, totallists, attributes, retrievals = r1
+            print "RRR", repr((retrievalId, vorgangsnummer, zielplatz, attributes, picks))
+            retrievallistids.append(retrievalId)
+        
+        # nun munteres zurueckmelden
+        for theid in picklistids:
+            k.commit_picklist(theid)
+        picklistids = []
+        for theid in retrievallistids:
+            k.commit_retrievallist(theid)
+        retrievallistids = []
         #for m in m1:
         #   k.commit_movement()
+        
+        # start over again
+        print "loop"
         time.sleep(0.1)
             
 def main():

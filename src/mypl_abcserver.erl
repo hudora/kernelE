@@ -123,8 +123,7 @@ handle_cast({feed, {pick, Pick, Locationname}}, State) ->
                                           location=Locationname,
                                           created_at=calendar:universal_time()})
     end,
-    {atomic, _ } = mnesia:transaction(Fun),
-    {noreply, State}.
+    mypl_db_util:transaction(Fun).
 %handle_cast(_Msg, State) ->
 %    {noreply, State}.
 
@@ -174,9 +173,9 @@ aggregate_helper([H|T], Dict) ->
 
 aggregate(Start, End) ->
     update_summary(),
-    Records = mypl_db_util:do(qlc:q([X || X <- mnesia:table(abc_pick_summary),
-                                          X#abc_pick_summary.date > Start,
-                                          X#abc_pick_summary.date =< End])),
+    Records = mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(abc_pick_summary),
+                                                X#abc_pick_summary.date > Start,
+                                                X#abc_pick_summary.date =< End])),
     lists:reverse(lists:sort(lists:map(fun({Product, NumPicks}) -> 
                              {NumPicks, Product} end, 
                          dict:to_list(aggregate_helper(Records, dict:new()))))).
@@ -241,11 +240,11 @@ update_summary(Record) ->
         ok = mnesia:write(Summary2),
         ok = mnesia:delete({abc_pick_detail, Record#abc_pick_detail.id})
     end,
-    {atomic, _} = mnesia:transaction(Fun).
+    mypl_db_util:transaction(Fun).
 
 %% @doc aggregate records in abc_pick_detail into abc_pick_summary
 update_summary() ->
-    lists:map(fun(X) -> update_summary(X) end, mypl_db_util:do(qlc:q([X || X <- mnesia:table(abc_pick_detail)]))).
+    lists:map(fun(X) -> update_summary(X) end, mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(abc_pick_detail)]))).
 
 
 average([]) -> 0.0;
