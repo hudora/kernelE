@@ -245,6 +245,12 @@ class Kerneladapter:
         # attributes are not implemented so far
         self._send("init_location %s,%d,%r,%d,%s,[]" % (name, height, floorlevel, preference, info))
         return self._read_code(220)
+        
+    def init_movement_to_good_location(self, mui):
+        """Initialisiert ein movement an einen geeigneten Ort"""
+        self._send("init_movement_to_good_location %s" % mui)
+        ok, ret = self._read_json(220)
+        return e2string(ret)
     
     def make_nve(self):
         self._send("make_nve")
