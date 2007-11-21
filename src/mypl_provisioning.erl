@@ -148,7 +148,7 @@ find_retrieval_candidates(Quantity, Product, Units) when is_integer(Quantity), Q
             if
                 FullQuantity < Quantity ->
                     % this really shouldn't happen. Something is deeply broken - or isn't it?
-                    error_logger:warning_msg("Not enough goods for Retrieval ~wx~s (Available ~w of ~w)", [Quantity, Product, AvailableQuantity, FullQuantity]),
+                    error_logger:warning_msg("Not enough goods for Retrieval ~w x ~s (Available ~w of ~w)", [Quantity, Product, AvailableQuantity, FullQuantity]),
                     {error, not_enough};
                 true ->
                     {error, not_enough}

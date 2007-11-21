@@ -108,27 +108,32 @@ get_picklists() ->
     % check if we have picks available
     case mypl_db_util:transaction(fun() -> mnesia:first(provpipeline) end) of
         '$end_of_table' ->
+            erlang:display({bbb}),
             nothing_available;
         _ ->
             Fun = fun() ->
-                P = choose_next_pick(),
-                Id = "p" ++ P#pickpipeline.id,
-                [PPEntry] = mnesia:read({provpipeline, P#pickpipeline.provpipelineid}),
-                mnesia:write(#provpipeline_processing{id=Id, provpipelineid=PPEntry#provpipeline.id,
-                                                      pickids=P#pickpipeline.pickids, retrievalids=[]}),
-                [{Id, PPEntry#provpipeline.id,
-                  "AUSLAG", PPEntry#provpipeline.attributes, 1 + length(P#pickpipeline.retrievalids),
-                   lists:map(fun(PickId) ->
-                                  {ok, PickInfo} = mypl_db_query:pick_info(PickId),
-                                  FromLocation = mypl_db_util:get_mui_location(proplists:get_value(from_unit, PickInfo)),
-                                  {PickId,
-                                   proplists:get_value(from_unit, PickInfo),
-                                   FromLocation#location.name,
-                                   proplists:get_value(quantity, PickInfo),
-                                   proplists:get_value(product, PickInfo),
-                                   []}
-                              end, P#pickpipeline.pickids)
-                }]
+                case choose_next_pick() of
+                    nothing_available ->
+                        nothing_available;
+                    {ok, P} ->
+                        Id = "p" ++ P#pickpipeline.id,
+                        [PPEntry] = mnesia:read({provpipeline, P#pickpipeline.provpipelineid}),
+                        mnesia:write(#provpipeline_processing{id=Id, provpipelineid=PPEntry#provpipeline.id,
+                                                              pickids=P#pickpipeline.pickids, retrievalids=[]}),
+                        [{Id, PPEntry#provpipeline.id,
+                          "AUSLAG", PPEntry#provpipeline.attributes, 1 + length(P#pickpipeline.retrievalids),
+                           lists:map(fun(PickId) ->
+                                          {ok, PickInfo} = mypl_db_query:pick_info(PickId),
+                                          FromLocation = mypl_db_util:get_mui_location(proplists:get_value(from_unit, PickInfo)),
+                                          {PickId,
+                                           proplists:get_value(from_unit, PickInfo),
+                                           FromLocation#location.name,
+                                           proplists:get_value(quantity, PickInfo),
+                                           proplists:get_value(product, PickInfo),
+                                           []}
+                                      end, P#pickpipeline.pickids)
+                        }]
+                end
             end,
             mypl_db_util:transaction(Fun)
     end.
@@ -136,7 +141,6 @@ get_picklists() ->
 % @see get_picklists/0
 get_retrievallists() ->
     % check if we have picks available
-    erlang:display({get_retrievallists}),
     case mypl_db_util:transaction(fun() -> mnesia:first(provpipeline) end) of
         '$end_of_table' ->
             nothing_available;
@@ -191,7 +195,7 @@ choose_next_pick() ->
                 % remove entry from the pipeline
                 mnesia:delete({pickpipeline, PipelineId}),
                 % return pickids
-                PipelineEntry
+                {ok, PipelineEntry}
             end,
             mypl_db_util:transaction(Fun)
     end.
@@ -231,7 +235,8 @@ refill_pipeline(Type) ->
     % check provisinings until we find one which would generate picks
     Candidates = mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(provpipeline),
                                                    X#provpipeline.status =:= new])),
-    refill_pipeline(Type, lists:sort(fun(A, B) -> A#provpipeline.priority > B#provpipeline.priority end,
+    refill_pipeline(Type, lists:sort(fun(A, B) -> {A#provpipeline.priority, A#provpipeline.tries} 
+                                                  > {B#provpipeline.priority, B#provpipeline.tries} end,
                                      Candidates)).
 
 refill_pipeline(_Type, []) -> no_fit;

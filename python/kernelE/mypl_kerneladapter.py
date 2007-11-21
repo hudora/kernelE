@@ -265,7 +265,8 @@ class Kerneladapter:
         artnr = artnr.replace(',','').replace('\n','').replace('\r','')
         mui = mui.replace(',','').replace('\n','').replace('\r','')
         self._send("store_at_location %s,%s,%d,%s,%d" % (name, mui, quantity, artnr, height))
-        return self._read_code(220)
+        ok, mui = self._read_json(220)
+        return e2string(mui)
     
     def retrieve(self, mui):
         mui = mui.replace(',','').replace('\n','').replace('\r','')
@@ -309,7 +310,6 @@ class Kerneladapter:
             ret = (ok, retrievals, picks)
         return ret
     
-    @print_timing
     def commit_movement(self, movementid):
         self._send("commit_movement %s" % (movementid))
         return self._read_json(220)
@@ -390,6 +390,8 @@ class Kerneladapter:
         """
         self._send("get_picklists")
         ret = self._read_json(220)
+        if ret == 'nothing_available':
+            return []
         out = []
         for data in ret:
             pickListId, cId, destination, attributes, parts, positions = data

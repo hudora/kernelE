@@ -29,13 +29,13 @@ def load_platzbestand(platzbestand):
                     k.retrieve(mui)
             try:
                 mui = k.store_at_location(platz, menge, artnr)
+                if platz == 'FEHLER':
+                    # move Muis on FEHLER somewhere else
+                    movementid = k.init_movement_to_good_location(mui)
+                    k.commit_movement(movementid)
             except RuntimeError, msg:
                 print msg
                 raise
-            if platz == 'FEHLER':
-                # move Muis on FEHLER somewhere else
-                movementid = k.init_movement_to_good_location(mui)
-                k.commit_movement(movementid)
 
 def main():
     platzbestand = pickle.load(gzip.GzipFile('test/data/platzbestand-20071019.pickle.gz', 'r'))
