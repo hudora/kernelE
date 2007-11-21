@@ -33,7 +33,6 @@ def e2datetime(data):
 
 def attributelist2dict(l, fixattnames=[]):
     ret = {}
-    print "XXX", repr(l)
     for name, value in l:
         if name in fixattnames:
             ret[name] = e2string(value)
