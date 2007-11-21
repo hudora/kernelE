@@ -146,6 +146,18 @@ handle_command("insert_pipeline", _Parameters, State) ->
     % implementation for insert_pipeline,
     {ok, NewJsonList, _} = rfc4627:decode(_Parameters),
     {noreply, reply(220, rfc4627:encode(mypl_server:insert_pipeline(NewJsonList)), reset_buffers(State))};
+handle_command("get_picklists", _Parameters, State) ->
+    % implementation for get_picklists,
+    {noreply, reply(220, rfc4627:encode(mypl_server:get_picklists()), reset_buffers(State))};
+handle_command("get_retrievallists", _Parameters, State) ->
+    % implementation for get_retrievallists,
+    {noreply, reply(220, rfc4627:encode(mypl_server:get_retrievallists()), reset_buffers(State))};
+handle_command("commit_picklist", _Parameters, State) ->
+    % implementation for commit_picklist,
+    {noreply, reply(220, rfc4627:encode(mypl_server:commit_picklist()), reset_buffers(State))};
+handle_command("commit_retrievallist", _Parameters, State) ->
+    % implementation for commit_retrievallist,
+    {noreply, reply(220, rfc4627:encode(mypl_server:commit_retrievallist()), reset_buffers(State))};
 handle_command("create_automatic_movements", _Parameters, State) ->
     % implementation for create_automatic_movements,
     {noreply, reply(220, rfc4627:encode(mypl_server:create_automatic_movements()), reset_buffers(State))};
@@ -187,6 +199,10 @@ find_provisioning_candidates Quantity,Product
 find_provisioning_candidates_multi JsonList
 init_provisionings_multi JsonList
 insert_pipeline JsonList
+get_picklists 
+get_retrievallists 
+commit_picklist 
+commit_retrievallist 
 create_automatic_movements 
 init_dayforcast JsonList
 make_oid 

@@ -45,7 +45,6 @@ collect_requesed_units(Quantity, Candidates, Acc) ->
     
 %% @doc generates movement suggestions by looking at requirements from the {@link requesttracker}.
 get_movementsuggestion_from_requesstracker() ->
-    erlang:display({get_movementsuggestion_from_requesstracker_x}),
     case mypl_requesttracker:out() of
         {empty} ->
             [];

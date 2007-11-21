@@ -44,6 +44,10 @@ funcdefs = [
 ('mypl_provisioning', 'init_provisionings_multi', 'JsonList', ['async']),
 
 ('mypl_provpipeline', 'insert_pipeline', 'JsonList', []),
+('mypl_provpipeline', 'get_picklists', '', []),
+('mypl_provpipeline', 'get_retrievallists', '', []),
+('mypl_provpipeline', 'commit_picklist', '', []),
+('mypl_provpipeline', 'commit_retrievallist', '', []),
 
 ('mypl_movements', 'create_automatic_movements', '', ['async']),
 

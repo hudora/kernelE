@@ -33,6 +33,7 @@ def e2datetime(data):
 
 def attributelist2dict(l, fixattnames=[]):
     ret = {}
+    print "XXX", repr(l)
     for name, value in l:
         if name in fixattnames:
             ret[name] = e2string(value)
@@ -344,10 +345,51 @@ class Kerneladapter:
         newOrderlines = []
         for orderline in orderlines:
             newOrderlines.append((orderline[0], orderline[1], orderline[2].items()))
-        parameters = (cid, newOrderlines, int(priority), unicode(customer).encode('utf-8'),
+        parameters = (str(cid), newOrderlines, int(priority), unicode(customer).encode('utf-8'),
                            int(weigth), float(volume), attributes.items())
         print parameters
         print simplejson.dumps(parameters)
         self._send("insert_pipeline %s" % (simplejson.dumps(parameters)))
+        
+    
+    def get_picklists(self):
+        self._send("get_picklists")
+        ret = self._read_json(220)
+        out = []
+        for data in ret:
+            pickListId, cId, destination, attributes, parts, positions = data
+            pickListId = e2string(pickListId)
+            cId = e2string(cId)
+            destination = e2string(destination)
+            poslist = []
+            for position in positions:
+                (posId, nve, source, quantity, product, posattributes) = position
+                posId = e2string(posId)
+                nve = e2string(nve)
+                source = e2string(source)
+                product = e2string(product)
+                poslist.append((posId, nve, source, product, attributelist2dict(posattributes)))
+            out.append((pickListId, cId, destination, parts, attributelist2dict(attributes), poslist))
+        return out
+        
+    
+    def get_retrievallists(self):
+        self._send("get_retrievallists")
+        ret = self._read_json(220)
+        print ret
+        return ret
+        
+    
+    # def commit_picklist():
+    #     self._send("commit_picklist")
+    #     ret = self._read_json(220)
+    #     print ret
+    #     return ret
+    # 
+    # def commit_retrievallist():
+    #     self._send("commit_retrievallist")
+    #     ret = self._read_json(220)
+    #     print ret
+    #     return ret
 
     
