@@ -205,6 +205,7 @@ class Kerneladapter:
         self._send("movement_info %s" % name)
         ok, d = self._read_json(220)
         d = attributelist2dict_str(d)
+        d['created_at'] = e2datetime(d['created_at'])
         return d
         
     
@@ -222,7 +223,6 @@ class Kerneladapter:
         """
         self._send("movement_list")
         return [e2string(x) for x in self._read_json(220)]
-        #raise NotImplementedError
     
     
     def pick_list(self):
