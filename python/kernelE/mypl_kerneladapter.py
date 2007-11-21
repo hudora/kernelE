@@ -220,7 +220,9 @@ class Kerneladapter:
          "m1193-85203-456898-mypl_test@lichtblick",
          "m1193-85203-459094-mypl_test@lichtblick"]
         """
-        raise NotImplementedError
+        self._send("location_list")
+        return [e2string(x) for x in self._read_json(220)]
+        #raise NotImplementedError
     
     
     def pick_list(self):
