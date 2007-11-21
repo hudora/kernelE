@@ -255,7 +255,10 @@ find_provisioning_candidates(Quantity, Product) ->
                                 end;
                             {error, no_fit} ->
                                 mypl_requesttracker:in(Quantity, Product),
-                                {error, no_fit}
+                                {error, no_fit};
+                            {error, not_enough} ->
+                                % this shouldn't happen
+                                {error, not_enough}
                         end
                     end,
                     mypl_db_util:transaction(Fun)

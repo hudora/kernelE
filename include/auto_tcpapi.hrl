@@ -154,10 +154,22 @@ handle_command("get_retrievallists", _Parameters, State) ->
     {noreply, reply(220, rfc4627:encode(mypl_server:get_retrievallists()), reset_buffers(State))};
 handle_command("commit_picklist", _Parameters, State) ->
     % implementation for commit_picklist,
-    {noreply, reply(220, rfc4627:encode(mypl_server:commit_picklist()), reset_buffers(State))};
+    Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
+    [CId] = Tokens,
+    NewCId = convertString(CId),
+    {noreply, reply(220, rfc4627:encode(mypl_server:commit_picklist(NewCId)), reset_buffers(State))};
 handle_command("commit_retrievallist", _Parameters, State) ->
     % implementation for commit_retrievallist,
-    {noreply, reply(220, rfc4627:encode(mypl_server:commit_retrievallist()), reset_buffers(State))};
+    Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
+    [CId] = Tokens,
+    NewCId = convertString(CId),
+    {noreply, reply(220, rfc4627:encode(mypl_server:commit_retrievallist(NewCId)), reset_buffers(State))};
+handle_command("is_provisioned", _Parameters, State) ->
+    % implementation for is_provisioned,
+    Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
+    [CId] = Tokens,
+    NewCId = convertString(CId),
+    {noreply, reply(220, rfc4627:encode(mypl_server:is_provisioned(NewCId)), reset_buffers(State))};
 handle_command("create_automatic_movements", _Parameters, State) ->
     % implementation for create_automatic_movements,
     {noreply, reply(220, rfc4627:encode(mypl_server:create_automatic_movements()), reset_buffers(State))};
@@ -201,8 +213,9 @@ init_provisionings_multi JsonList
 insert_pipeline JsonList
 get_picklists 
 get_retrievallists 
-commit_picklist 
-commit_retrievallist 
+commit_picklist CId
+commit_retrievallist CId
+is_provisioned CId
 create_automatic_movements 
 init_dayforcast JsonList
 make_oid 

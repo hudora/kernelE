@@ -13,7 +13,8 @@
 %% API
 -export([start_link/0, insert_pipeline/1, delete/1, get_picklists/0, get_retrievallists/0,
          get_movements/0, 
-         commit_picklist/1, commit_retrievallist/1, commit_movements/3]).
+         commit_picklist/1, commit_retrievallist/1, commit_movements/3,
+         is_provisioned/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -68,7 +69,7 @@ insert_pipeline([CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes
                                        {attributes, record_info(fields, retrievalpipeline)}
                                       ]),
     PPline = #provpipeline{id=CId, priority=Priority, weigth=Weigth, volume=Volume,
-                           attributes=Attributes, tries=0, status=new,
+                           attributes=[{kernel_customer, Customer}|Attributes], tries=0, status=new,
                            % normalize on tuples instead of lists
                            orderlines=lists:map(fun({Quantity, Product, OlAttributes}) -> 
                                                         {Quantity, Product, OlAttributes};
@@ -233,7 +234,7 @@ refill_pipeline(Type) ->
     refill_pipeline(Type, lists:sort(fun(A, B) -> A#provpipeline.priority > B#provpipeline.priority end,
                                      Candidates)).
 
-refill_pipeline(Type, []) -> no_fit;
+refill_pipeline(_Type, []) -> no_fit;
 refill_pipeline(Type, Candidates) ->
     [Entry|CandidatesTail] = Candidates,
     Orderlines = [{Quantity, Product} || {Quantity, Product, _Attributes} <- Entry#provpipeline.orderlines],
@@ -495,15 +496,15 @@ mypl_simple_test() ->
     insert_pipeline([lieferschein3, [{50, "a0005", []}, {16, "a0004", []}], 5, "kunde02", 0, 0, []]),
     insert_pipeline([lieferschein4, [{1,  "a0005", []}, {1,  "a0004", []}], 5, "kunde03", 0, 0, []]),
     R1 = get_retrievallists(),
-    [{R1id,lieferschein1,"AUSLAG",[],2,[{_,mui6,"010302",10,"a0005",[]}]}] = R1,
+    [{R1id,lieferschein1,"AUSLAG",[{kernel_customer,"kunde01"}],2,[{_,mui6,"010302",10,"a0005",[]}]}] = R1,
     P2 = get_picklists(),
-    [{P2id,lieferschein1,"AUSLAG",[],2,[{_,mui4,"010201",1, "a0004",[]}]}] = P2,
+    [{P2id,lieferschein1,"AUSLAG",[{kernel_customer,"kunde01"}],2,[{_,mui4,"010201",1, "a0004",[]}]}] = P2,
     P3 = get_picklists(),
-    [{P3id,lieferschein2,"AUSLAG",[],1,[{_,mui4,"010201",1,"a0004",[]},{_,mui5,"010301",10,"a0005",[]}]}] = P3,
+    [{P3id,lieferschein2,"AUSLAG",[{kernel_customer,"kunde02"}],1,[{_,mui4,"010201",1,"a0004",[]},{_,mui5,"010301",10,"a0005",[]}]}] = P3,
     P4 = get_picklists(),
-    [{P4id,lieferschein3,"AUSLAG",[],1,[{_,mui4,"010201",16,"a0004",[]},{_,mui5,"010301",50,"a0005",[]}]}] = P4,
+    [{P4id,lieferschein3,"AUSLAG",[{kernel_customer,"kunde02"}],1,[{_,mui4,"010201",16,"a0004",[]},{_,mui5,"010301",50,"a0005",[]}]}] = P4,
     P5 = get_picklists(),
-    [{P5id,lieferschein4,"AUSLAG",[],1,[{_,mui4,"010201",1,"a0004",[]},{_,mui5,"010301",1,"a0005",[]}]}] = P5,
+    [{P5id,lieferschein4,"AUSLAG",[{kernel_customer,"kunde03"}],1,[{_,mui4,"010201",1,"a0004",[]},{_,mui5,"010301",1,"a0005",[]}]}] = P5,
     
     % checks that goods are reserved for picking and retrieval
     [{"a0004",36,17,19,0},{"a0005",71,0,61,10},{"a0003",10,10,0,0}] = mypl_db_query:count_products(),

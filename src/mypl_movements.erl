@@ -126,22 +126,23 @@ init_automovements() ->
     % case get_movementsuggestion_from_requesstracker() of
     case Res of
         [] ->
-            % erlang:display({nix}),
-            % {Time , Res} =  timer:tc(?MODULE, get_movementsuggestion_from_abc, []),
-            % erlang:display({get_movementsuggestion_from_abc, Time, Res}),
-            % % case get_movementsuggestion_from_abc() of
-            % case Res of
-            %     [] ->
-            %         erlang:display("No Movementsuggestions"),
-            %         {ok, []};
-            %     L2 ->
-            %         erlang:display({abc_suggestions, L2}), 
-            %         [H|_] = L2, % we are only interested in the first result
-            %         {ok, plists:map(fun({Mui, Destination}) -> 
-            %                             mypl_db:init_movement(Mui, Destination, [{mypl_notify_requestracker}])
-            %                          end, [H])}
-            % end;
-            {ok, []};
+            erlang:display({nix}),
+            {Time , Res} =  timer:tc(?MODULE, get_movementsuggestion_from_abc, []),
+            erlang:display({get_movementsuggestion_from_abc, Time, Res}),
+            % case get_movementsuggestion_from_abc() of
+            case Res of
+                % TODO: dalyzer says:
+                % mypl_movements.erl:137: The variable L2 can never match since previous clauses completely covered the type []
+                [] ->
+                    erlang:display("No Movementsuggestions"),
+                    {ok, []};
+                L2 ->
+                    erlang:display({abc_suggestions, L2}), 
+                    [H|_] = L2, % we are only interested in the first result
+                    {ok, plists:map(fun({Mui, Destination}) -> 
+                                        mypl_db:init_movement(Mui, Destination, [{mypl_notify_requestracker}])
+                                     end, [H])}
+            end;
         L1 ->
             erlang:display({xxxxxxxxx_init_movement1, L1}),
             Ret = lists:map(fun({Mui, Destination}) -> 

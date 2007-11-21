@@ -17,7 +17,7 @@
 -include("include/mypl.hrl").
 
 -export([init_table_info/2, run_me_once/0, init_location/6, init_location/5,store_at_location/5, retrieve/1,
- init_movement/2, init_movement_to_good_location/1, commit_movement/1, rollback_movement/1,
+ init_movement/2, init_movement/3, init_movement_to_good_location/1, commit_movement/1, rollback_movement/1,
  commit_retrieval/1, rollback_retrieval/1,
  init_pick/2, commit_pick/1, rollback_pick/1]).
 

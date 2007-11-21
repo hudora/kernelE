@@ -243,6 +243,8 @@ compress_audit(BeforeDate) ->
 compress_audit() ->
     {Date, _} = calendar:now_to_datetime(erlang:now()),
     BeforeDate = calendar:gregorian_days_to_date(calendar:date_to_gregorian_days(Date) - 180),
-    compress_audit(BeforeDate).
+    compress_audit(BeforeDate),
+    compress_unitaudit(BeforeDate),
+    ok.
     
 

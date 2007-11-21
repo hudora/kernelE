@@ -11,7 +11,7 @@
 -import(mnesia).
 -import(mypl_db_util).
 
--export([selftest/0, locations_pointing_nowhere/0, orphaned_units/0,
+-export([selftest/0, locations_pointing_nowhere/0, orphaned_units/0, orphaned_unit/1,
          orphaned_pickpipeline/0, orphaned_retrievalpipeline/0]).
 
 
@@ -104,7 +104,7 @@ orphaned_retrievalpipeline() ->
     
 orphaned_retrievalpipeline(Entry) ->
     lists:map(fun(RetrievalId) ->
-                  {ok, _} = mypl_db_query:retrieval_info(RetrievalId)
+                  {ok, _} = mypl_db_query:movement_info(RetrievalId)
               end, Entry#pickpipeline.retrievalids).
 
 
