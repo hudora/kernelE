@@ -34,7 +34,7 @@ def load_platzbestand(platzbestand):
                 raise
             if platz == 'FEHLER':
                 # move Muis on FEHLER somewhere else
-                movementid = k.move_to_good_location(mui)
+                movementid = k.init_movement_to_good_location(mui)
                 k.commit_movement(movementid)
 
 def main():
