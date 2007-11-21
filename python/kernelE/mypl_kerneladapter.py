@@ -130,7 +130,7 @@ class Kerneladapter:
         >>> import kernelE
         >>> k = kernelE.Kerneladapter_mock()
         >>> k.count_product("14612/01")
-        ([85, 85, 0, 0], ['012701|31.0|14612/01|4d183fee-7fb4-11dc-97fa-0017f2c8caff', '024603|56.0|14612/01|4e20d496-7fb4-11dc-97fa-0017f2c8caff'])
+        ([85, 85, 0, 0], ['4d183fee-7fb4-11dc-97fa-0017f2c8caff', '4e20d496-7fb4-11dc-97fa-0017f2c8caff'])
         """
         
         mui = product.replace(',','').replace('\n','').replace('\r','')
@@ -169,7 +169,7 @@ class Kerneladapter:
         >>> import kernelE
         >>> k = kernelE.Kerneladapter_mock()
         >>> k.location_info("104103")
-        {u'info': 'BRUECKE', u'reserved_for': [], u'name': '104103', u'height': 3000, u'preference': 3, u'floorlevel': False, u'attributes': [], u'allocated_by': ['104103|30.0|10106/WK|4d820122-7fb4-11dc-97fa-0017f2c8caff']}
+        {u'info': 'BRUECKE', u'reserved_for': [], u'name': '104103', u'height': 3000, u'preference': 3, u'floorlevel': False, u'attributes': [], u'allocated_by': ['4d820122-7fb4-11dc-97fa-0017f2c8caff']}
         """
         
         self._send("location_info %s" % name)
@@ -184,8 +184,8 @@ class Kerneladapter:
         """
         >>> import kernelE
         >>> k = kernelE.Kerneladapter_mock()
-        >>> k.unit_info("100903|24.0|10120|4dac128c-7fb4-11dc-97fa-0017f2c8caff")
-        {u'product': '10120', u'created_at': datetime.datetime(2007, 10, 21, 9, 2, 8, 823722), u'height': 1950, u'pick_quantity': 0, u'location': '100903', u'picks': [], u'attributes': [], u'movements': [], u'mui': '100903|24.0|10120|4dac128c-7fb4-11dc-97fa-0017f2c8caff', u'quantity': 24},
+        >>> k.unit_info("4dac128c-7fb4-11dc-97fa-0017f2c8caff")
+        {u'product': '10120', u'created_at': datetime.datetime(2007, 10, 21, 9, 2, 8, 823722), u'height': 1950, u'pick_quantity': 0, u'location': '100903', u'picks': [], u'attributes': [], u'movements': [], u'mui': '4dac128c-7fb4-11dc-97fa-0017f2c8caff', u'quantity': 24},
         """
         
         self._send("unit_info %s" % name)
@@ -259,7 +259,7 @@ class Kerneladapter:
     
     def store_at_location(self, name, quantity, artnr, mui=None, height=1950):
         if mui == None:
-            mui = "%s|%s|%s|%s" % (name, quantity, artnr, self.make_nve())
+            mui = "%s" % (self.make_nve())
         name = name.replace(',','').replace('\n','').replace('\r','')
         artnr = artnr.replace(',','').replace('\n','').replace('\r','')
         mui = mui.replace(',','').replace('\n','').replace('\r','')
@@ -375,6 +375,13 @@ class Kerneladapter:
     
     
     def get_picklists(self):
+        """returns one or more Picklists to be processed next.
+        
+        >>> get_picklist()
+        [('p1195654200.622052', '40145201', 'AUSLAG', 1, {'liefertermin': '2007-11-12'},
+             [('P1195654200.621917', '340059981000021932', '092001', '83161', {})])]
+        
+        """
         self._send("get_picklists")
         ret = self._read_json(220)
         out = []
@@ -396,10 +403,32 @@ class Kerneladapter:
     
     
     def get_retrievallists(self):
+        """returns one or more Retrievallists to be processed next.
+        
+        >>> get_retrievallists()
+        [('r1195655518.977542', '40145183', 'AUSLAG', 2, {'liefertermin': '2007-11-19'}, 
+            [('m1195655518.977156', '340059981000897650', '042802', '14695', {})])]
+        """
+        
         self._send("get_retrievallists")
         ret = self._read_json(220)
-        print ret
-        return ret
+        out = []
+        for data in ret:
+            retrievalListId, cId, destination, attributes, parts, positions = data
+            retrievalListId = e2string(retrievalListId)
+            cId = e2string(cId)
+            destination = e2string(destination)
+            poslist = []
+            for position in positions:
+                (posId, nve, source, quantity, product, posattributes) = position
+                posId = e2string(posId)
+                nve = e2string(nve)
+                source = e2string(source)
+                product = e2string(product)
+                poslist.append((posId, nve, source, product, attributelist2dict_str(posattributes)))
+            out.append((retrievalListId, cId, destination, parts, attributelist2dict_str(attributes), poslist))
+        print out
+        return out
     
     
     # def commit_picklist():
