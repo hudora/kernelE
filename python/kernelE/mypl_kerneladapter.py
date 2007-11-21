@@ -35,9 +35,9 @@ def attributelist2dict(l, fixattnames=[]):
     """Converts an Erlang Proplit to a Python Dict.
     
     See http://www.erlang.org/doc/man/proplists.html for proplists.
-    Using Json we have issues converting Erlang Strings to Pytohn Stings.
-    This function tries to konvert ak Keys to strings and all Values where
-    the Key is present in fixattnames.
+    Using Json we have issues converting Erlang strings to Python strings.
+    This function tries to convert all keys to strings and all values where
+    the key is present in fixattnames.
     """
     ret = {}
     for name, value in l:
@@ -46,15 +46,15 @@ def attributelist2dict(l, fixattnames=[]):
         else:
             ret[e2string(name)] = value
     return ret
-    
+
 def attributelist2dict_str(l):
-    """Like attributelist2dict but tries to convert _all_ Values to strings."""
+    """Like attributelist2dict but tries to convert _all_ values to strings."""
     
     ret = {}
     for name, value in l:
         ret[e2string(name)] = e2string(value)
     return ret
-    
+
 
 def print_timing(func):
     """Decorator to print execution time of functions if options.debug is True."""
@@ -77,7 +77,7 @@ def print_timing(func):
         
         return ret
     return _wrapper
-    
+
 
 class Kerneladapter:
     def __init__(self):
@@ -98,7 +98,7 @@ class Kerneladapter:
             header = self.sock.makefile().readline().strip()
             if not header.startswith("200 "):
                 raise RuntimeError, "Error reading header: %r" % header
-                 
+    
     def _read(self):
         data = self.sock.makefile().readline().strip()
         # print "<<<", data
@@ -204,9 +204,9 @@ class Kerneladapter:
         """
         self._send("movement_info %s" % name)
         ok, d = self._read_json(220)
-        # Hier passiert dann wirrer Konvertierungskram von der Erlang-Datenstruktur in die Python-Struktur, 
-        # Strings werden gewandelt und so...
+        d = attributelist2dict_str(d)
         return d
+        
     
     def movement_list(self):
         """Liefert eine Liste aller (offenen) Movements.
@@ -243,12 +243,12 @@ class Kerneladapter:
         # attributes are not implemented so far
         self._send("init_location %s,%d,%r,%d,%s,[]" % (name, height, floorlevel, preference, info))
         return self._read_code(220)
-        
+    
     def make_nve(self):
         self._send("make_nve")
         ret = self._read_json(220)
         return e2string(ret)
-        
+    
     def store_at_location(self, name, quantity, artnr, mui=None, height=1950):
         if mui == None:
             mui = "%s|%s|%s|%s" % (name, quantity, artnr, self.make_nve())
@@ -262,7 +262,7 @@ class Kerneladapter:
         mui = mui.replace(',','').replace('\n','').replace('\r','')
         self._send("retrieve %s" % (mui,))
         return self._read_code(220)
-        
+    
     @print_timing
     def find_provisioning_candidates(self, quantity, artnr):
         artnr = artnr.replace(',','').replace('\n','').replace('\r','')
@@ -301,20 +301,20 @@ class Kerneladapter:
     def commit_movement(self, movementid):
         self._send("commit_movement %s" % (movementid))
         return self._read_json(220)
-        
+    
     def rollback_movement(self, movementid):
         self._send("rollback_movement %s" % (movementid))
         return self._read_json(220)
-        
+    
     @print_timing
     def commit_retrieval(self, movementid):
         self._send("commit_retrieval %s" % (movementid))
         return self._read_json(220)
-        
+    
     def rollback_retrieval(self, movementid):
         self._send("rollback_retrieval %s" % (movementid))
         return self._read_json(220)
-        
+    
     @print_timing
     def commit_pick(self, pickid):
         self._send("commit_pick %s" % (pickid))
@@ -338,8 +338,8 @@ class Kerneladapter:
     def insert_pipeline(self, cid, orderlines, priority, customer, weigth, volume, attributes):
         """adds an order to the provisioningpipeline
         
-        `CId' is a unique Id used by the client to refer to this Picking order, e.g. the "Lieferscheinnummer" 
-        or something similar. `Orderlines' is a list of Articles to 
+        `CId' is a unique Id used by the client to refer to this Picking order, e.g. the "Lieferscheinnummer"
+        or something similar. `Orderlines' is a list of Articles to
         provision. The List elements are tuples `{Quanity, Product, Attributes}' where Attributes contains
         arbitrary data for use at tha client side.
         The higher the `priority' the more likely it is, that the Order is processed early. If you want the
@@ -364,7 +364,7 @@ class Kerneladapter:
         print parameters
         print simplejson.dumps(parameters)
         self._send("insert_pipeline %s" % (simplejson.dumps(parameters)))
-        
+    
     
     def get_picklists(self):
         self._send("get_picklists")
@@ -385,25 +385,25 @@ class Kerneladapter:
                 poslist.append((posId, nve, source, product, attributelist2dict_str(posattributes)))
             out.append((pickListId, cId, destination, parts, attributelist2dict_str(attributes), poslist))
         return out
-        
+    
     
     def get_retrievallists(self):
         self._send("get_retrievallists")
         ret = self._read_json(220)
         print ret
         return ret
-        
+    
     
     # def commit_picklist():
     #     self._send("commit_picklist")
     #     ret = self._read_json(220)
     #     print ret
     #     return ret
-    # 
+    #
     # def commit_retrievallist():
     #     self._send("commit_retrievallist")
     #     ret = self._read_json(220)
     #     print ret
     #     return ret
-
+    
     
