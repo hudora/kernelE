@@ -49,6 +49,7 @@ run_me_once() ->
     % give other modules to initialize database tables
     mypl_abcserver:run_me_once(),
     mypl_audit:run_me_once(),
+    mypl_provpipeline:run_me_once(),
     
     ok = mnesia:wait_for_tables([location, unit, movement, pick, articleaudit, unitaudit], 30000),
     init_location("EINLAG", 3000, true,  0, [{no_picks}]),

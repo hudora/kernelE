@@ -103,9 +103,10 @@ orphaned_retrievalpipeline() ->
               mypl_db_util:do_trans(qlc:q([orphaned_retrievalpipeline(X) || X <- mnesia:table(retrievalpipeline)]))).
     
 orphaned_retrievalpipeline(Entry) ->
+
     lists:map(fun(RetrievalId) ->
                   {ok, _} = mypl_db_query:movement_info(RetrievalId)
-              end, Entry#pickpipeline.retrievalids).
+              end, Entry#retrievalpipeline.retrievalids).
 
 
 run_a_test(Testname) ->
