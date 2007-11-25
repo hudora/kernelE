@@ -329,7 +329,11 @@ commit_anything(Id, Attributes, Lines) ->
                 Ret = provisioned,
                 % mark in provpipeline as done
                 [PPEntry] = mnesia:read({provpipeline, Processing#provpipeline_processing.provpipelineid}),
-                mnesia:write(PPEntry#provpipeline{status=provisioned})
+                mnesia:write(PPEntry#provpipeline{status=provisioned});
+            X ->
+                Ret = unfinished,
+                error_logger:warning_msg("Unexpected provpipeline_processing content in regard to ~w",
+                                         [Processing])
         end,
         Ret
     end,

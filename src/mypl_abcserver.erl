@@ -123,7 +123,8 @@ handle_cast({feed, {pick, Pick, Locationname}}, State) ->
                                           location=Locationname,
                                           created_at=calendar:universal_time()})
     end,
-    mypl_db_util:transaction(Fun).
+    mypl_db_util:transaction(Fun),
+    {noreply, State}.
 %handle_cast(_Msg, State) ->
 %    {noreply, State}.
 

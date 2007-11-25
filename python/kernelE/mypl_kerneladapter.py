@@ -436,8 +436,11 @@ class Kerneladapter:
         ret = self._read_json(220)
         if ret == 'nothing_available':
             return []
-        print repr(ret)
-        return ret
+        ok, mIds = ret
+        out = []
+        for mId in mIds:
+            out.append(e2string(mId))
+        return out
     
     def commit_picklist(self, cId):
         self._send("commit_picklist %s" % (cId,))

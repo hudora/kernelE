@@ -347,7 +347,6 @@ commit_movement(MovementId) ->
         case (lists:member({mypl_notify_requestracker}, Movement#movement.attributes) 
               andalso Movement#movement.to_location /= "AUSLAG") of
             true ->
-                erlang:display("informing requestracker"),
                 mypl_requesttracker:movement_done(Unit#unit.quantity, Unit#unit.product);
             _ -> []
         end,

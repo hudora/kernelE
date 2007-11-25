@@ -89,7 +89,6 @@ get_movementsuggestion_from_abc_helper(_Product, _Units) ->
 
 %% @doc gets a list of units which should be moved to floorlevel based on ABC classification
 get_abc_units() ->
-    erlang:display({get_abc_units}),
     {A, _B, _C} = mypl_abcserver:get_abc(),
     lists:flatten(lists:map(fun({_Picks, Product}) ->
                   get_movementsuggestion_from_abc_helper(Product, 
@@ -97,23 +96,16 @@ get_abc_units() ->
               end, A)).
     
 
+%% @spec get_movementsuggestion_from_abc() -> []
 %% @doc generates movement suggestions by looking at ABC classification.
 %% 
 %% This is done by consulting {@link mypl_abcserver:get_abc/0} and checking for all products which
 %% are classified as a but have no unit at floorlevel
 get_movementsuggestion_from_abc() ->
     Fun = fun() ->
-        erlang:display({zz1_get_movementsuggestion_from_abc}),
         Units = get_abc_units(),
-        erlang:display({zz2_get_movementsuggestion_from_abc}),
-        {Time , Locations} =  timer:tc(mypl_db_util, best_locations, [floorlevel, Units]),
-        erlang:display({zz3_get_movementsuggestion_from_abc, Time}),
-        % lists:zip([X#unit.mui || X <- Units], [X#location.name || X <- Locations]),
-        % Locations = mypl_db_util:best_locations(floorlevel, Units),
-        {Time , Locations} =  timer:tc(mypl_db_util, best_locations, [floorlevel, Units]),
-        erlang:display({best_locations, Time, Units, Locations}),
-        Ret = lists:zip([X#unit.mui || X <- Units], [X#location.name || X <- Locations]),
-        erlang:display({best_locations_done, Ret})
+        Locations =  mypl_db_util:best_locations(floorlevel, Units),
+        lists:zip([X#unit.mui || X <- Units], [X#location.name || X <- Locations])
     end,
     mypl_db_util:transaction(Fun).
     
@@ -124,23 +116,15 @@ get_movementsuggestion_from_abc() ->
 %% {@link get_movementsuggestion_from_requesstracker/0} or if this yields nor results based on
 %% {@link get_movementsuggestion_from_abc/0}.
 init_automovements() ->
-    {Time , Res} =  timer:tc(?MODULE, get_movementsuggestion_from_requesstracker, []),
-    erlang:display({xxxxxxxxx_get_movementsuggestion_from_requesstracker, Time, Res}),
-    % case get_movementsuggestion_from_requesstracker() of
-    case Res of
+    case get_movementsuggestion_from_requesstracker() of
         [] ->
-            erlang:display({nix}),
-            {Time , Res} =  timer:tc(?MODULE, get_movementsuggestion_from_abc, []),
-            erlang:display({bbb_get_movementsuggestion_from_abc, Time, Res}),
-            % case get_movementsuggestion_from_abc() of
-            case Res of
+            case get_movementsuggestion_from_abc() of
                 % TODO: dalyzer says:
                 % mypl_movements.erl:137: The variable L2 can never match since previous clauses completely covered the type []
                 [] ->
-                    erlang:display("No Movementsuggestions"),
+                    % No Movementsuggestions
                     {ok, []};
                 L2 ->
-                    erlang:display({abc_suggestions, L2}), 
                     [H|_] = L2, % we are only interested in the first result
                     {ok, plists:map(fun({Mui, Destination}) -> 
                                         {ok, MovementId} = mypl_db:init_movement(Mui, Destination, [{mypl_notify_requestracker}]),
@@ -148,12 +132,10 @@ init_automovements() ->
                                      end, [H])}
             end;
         L1 ->
-            erlang:display({xxxxxxxxx_init_movement1, L1}),
             Ret = lists:map(fun({Mui, Destination}) -> 
                           {ok, MovementId} = mypl_db:init_movement(Mui, Destination, [{mypl_notify_requestracker}]),
                           MovementId
                       end, L1),
-            erlang:display({xxxxxxxxx_init_movement2, Time}),
             {ok, Ret}
             %{ok, plists:map(fun({Mui, Destination}) -> 
             %                   mypl_db:init_movement(Mui, Destination, [{mypl_notify_requestracker}])

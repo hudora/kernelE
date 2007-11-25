@@ -6,7 +6,7 @@ sys.path.extend(['./python', './test'])
 from kernelE import Kerneladapter
 from load_softm import load_platzbestand
 
-THEDATE = "20071112"
+THEDATE = "20071018"
 "20071018"
 "20071019"
 "20071022"
@@ -57,6 +57,7 @@ def simulate():
     while 1:
         picklistids = []
         retrievallistids = []
+        movementids = []
         
         # Ein "Pickbeleg" wird von jemandem mit Handwagen angefordert.
         p1list = k.get_picklists()
@@ -67,8 +68,9 @@ def simulate():
             # print kommibeleg via jasper
         
         # ein staplerfahrer kommt.
-        m1 = k.get_movementlist()
-        print "MMM", repr(m1)
+        m1list = k.get_movementlist()
+        print "MMM", repr(m1list)
+        movementids.extend(m1list)
         
         r1list = k.get_retrievallists()
         for r1 in r1list:
@@ -83,8 +85,8 @@ def simulate():
         for theid in retrievallistids:
             k.commit_retrievallist(theid)
         retrievallistids = []
-        #for m in m1:
-        #   k.commit_movement()
+        for m in movementids:
+           k.commit_movement(m)
         
         # start over again
         print "loop"
