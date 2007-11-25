@@ -374,9 +374,9 @@ class Kerneladapter:
         
         >>> get_picklist()
         [('p1195654200.622052', '40145201', 'AUSLAG', 1, {'liefertermin': '2007-11-12'},
-             [('P1195654200.621917', '340059981000021932', '092001', '83161', {})]),
+             [('P1195654200.621917', '340059981000021932', 15, 092001', '83161', {})]),
          ('p1195654200.622053', '40145202', 'AUSLAG', 1, {'liefertermin': '2007-11-13'},
-             [('P1195654200.621918', '340059981000021943', '092002', '83161', {})])]
+             [('P1195654200.621918', '340059981000021943', 4, '092002', '83161', {})])]
         
         """
         self._send("get_picklists")
@@ -396,7 +396,7 @@ class Kerneladapter:
                 nve = e2string(nve)
                 source = e2string(source)
                 product = e2string(product)
-                poslist.append((posId, nve, source, product, attributelist2dict_str(posattributes)))
+                poslist.append((posId, nve, source, quantity, product, attributelist2dict_str(posattributes)))
             out.append((pickListId, cId, destination, parts, attributelist2dict_str(attributes), poslist))
         return out
     
