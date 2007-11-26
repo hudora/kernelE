@@ -149,9 +149,15 @@ best_location_helper(Unit) ->
 %% @see mypl_db:init_movement_to_good_location/1
 %% @doc finds the best location for an Unit
 best_location(Unit) ->
-    [H|_] = best_location_helper(Unit),
-    H.
-
+    Locations = best_location_helper(Unit),
+    case Locations of
+        [] ->
+            error_logger:warning_msg("can't dind a suitable location for ~w.", [Unit]),
+            no_location_available;
+        [H|_] ->
+            H
+    end.
+    
 
 best_location(floorlevel, Unit, Ignore) ->
     % order by heigth, so we prefer lower locations

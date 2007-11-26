@@ -6,22 +6,29 @@ sys.path.extend(['./python', './test'])
 from kernelE import Kerneladapter
 from load_softm import load_platzbestand
 
-THEDATE = "20071018"
-"20071018"
-"20071019"
-"20071022"
-"20071023"
-"20071025"
-"20071026"
-"20071029"
-"20071030"
-"20071104"
-"20071107"
-"20071108"
-"20071110"
-"20071112"
-"20071114"
-"20071115"
+THEDATE = "20071125"
+
+# Mögliche Datasets
+alldates = [
+ "20071018" # Tag funktioniert
+#"20071019" # Fehlbestand bei 14600/03
+#"20071022" # Fehlbestand bei 14600/03
+ "20071023" # Tag funktioniert
+ "20071025" # Tag funktioniert
+ "20071026" # Tag funktioniert
+ "20071029" # Tag funktioniert
+ "20071030" # Tag funktioniert
+ "20071104" # Tag funktioniert
+#"20071107" # Fehlbestend bei 74500/TR
+#"20071108" # Fehlbestand bei 71570 und 76111
+#"20071110" # Fehlbestand bei 14600/03 62120 62121 62124
+#"20071112" # Fehlbestand bei 62120 und 62121
+#"20071114" # Fehlbestand bei 14600/03
+#"20071115" # Fehlbestand bei 14600/03
+ "20071121" # Tag funktioniert
+ "20071123" # Tag funktioniert
+ "20071125" # Tag funktioniert
+]
 
 byauftrag = {}
 bydate = {}
