@@ -60,6 +60,7 @@ insert_pipeline([CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes
                                                     ([Quantity, Product, OlAttributes]) -> 
                                                         {Quantity, Product, OlAttributes} end, Orderlines)},
     mypl_db_util:transaction(fun() -> mnesia:write(PPline) end),
+    [mypl_requesttracker:in(Quantity, Product) || {Quantity, Product, _} <- PPline#provpipeline.orderlines],
     ok.
 
 
@@ -332,8 +333,8 @@ commit_anything(Id, Attributes, Lines) ->
                 mnesia:write(PPEntry#provpipeline{status=provisioned});
             X ->
                 Ret = unfinished,
-                error_logger:warning_msg("Unexpected provpipeline_processing content in regard to ~w",
-                                         [Processing])
+                error_logger:warning_msg("Unexpected provpipeline_processing content in regard to ~w|~w",
+                                         [Processing, X])
         end,
         Ret
     end,
