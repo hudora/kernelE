@@ -9,13 +9,13 @@ Copyright (c) 2007 HUDORA GmbH. All rights reserved.
 
 
 import unittest
-import socket, uuid, simplejson, pickle, datetime, time
+import socket, uuid, simplejson, pickle, datetime, time, types
 
 DEBUG = True
 
 def e2string(data):
     # if we got a list of numbers turn it into a string
-    if data and data[0] and type(data[0]) == type(17): # type(17) == Integer
+    if data and data[0] and type(data[0]) == types.IntType: # type(17) == Integer
         return ''.join([chr(x) for x in data])
     return data
 
@@ -52,7 +52,10 @@ def attributelist2dict_str(l):
     
     ret = {}
     for name, value in l:
-        ret[e2string(name)] = e2string(value)
+        if type(value) == types.ListType:
+            ret[e2string(name)] = e2string(value)
+        else:
+            ret[e2string(name)] = value
     return ret
 
 
@@ -84,6 +87,7 @@ class Kerneladapter:
         self.host = 'localhost'
         self.port = 5711
         self.connected = False
+        self.debug = False
     
     def __del__(self):
         if self.connected:
@@ -101,7 +105,8 @@ class Kerneladapter:
     
     def _read(self):
         data = self.sock.makefile().readline().strip()
-        # print "<<<", data
+        if self.debug:
+            print "<<<", data
         return data
     
     def _read_json(self, code):
@@ -121,7 +126,8 @@ class Kerneladapter:
     
     def _send(self, line):
         self._init_connection()
-        # print ">>>", line
+        if self.debug:
+            print ">>>", line
         self.sock.send(line + '\n')
     
     def count_product(self, product):
