@@ -1,3 +1,4 @@
+%% @version 0.2
 %% ---
 %%  Excerpted from "Programming Erlang"
 %%  Copyrights apply to this code. It may not be used to create training material, 

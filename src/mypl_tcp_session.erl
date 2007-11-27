@@ -1,3 +1,5 @@
+%% @version 0.2
+%% Original Codebase:
 %%---------------------------------------------------------------------------
 %% Copyright (c) 2007 Tony Garnock-Jones <tonyg@kcbbs.gen.nz>
 %% Copyright (c) 2007 LShift Ltd. <query@lshift.net>
@@ -22,6 +24,8 @@
 %% CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 %% SOFTWARE.
 %%---------------------------------------------------------------------------
+
+%% Heavily modified by Macimillian Dornseif 2006
 
 -module(mypl_tcp_session).
 

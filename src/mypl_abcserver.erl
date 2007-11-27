@@ -1,3 +1,4 @@
+%% @version 0.2
 %% Author  : Maximillian Dornseif
 %% Created :  Created by Maximillian Dornseif on 2007-10-21.
 %% @doc ABC-analysis

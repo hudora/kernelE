@@ -1,4 +1,4 @@
-%% @version 0.1
+%% @version 0.2
 %% @copyright 2007 HUDORA GmbH
 %% @author Maximillian Dornseif <md@hudora.de>
 %% @doc myPL/kernel-E movement chooser
@@ -96,16 +96,23 @@ get_abc_units() ->
               end, A)).
     
 
-%% @spec get_movementsuggestion_from_abc() -> []
+%% @spec get_movementsuggestion_from_abc() -> [Suggestion]
+%%          Suggestion = {Mui, Location}
+%%
 %% @doc generates movement suggestions by looking at ABC classification.
 %% 
 %% This is done by consulting {@link mypl_abcserver:get_abc/0} and checking for all products which
-%% are classified as a but have no unit at floorlevel
+%% are classified as "A" but have no unit at floorlevel
 get_movementsuggestion_from_abc() ->
     Fun = fun() ->
-        Units = get_abc_units(),
-        Locations =  mypl_db_util:best_locations(floorlevel, Units),
-        lists:zip([X#unit.mui || X <- Units], [X#location.name || X <- Locations])
+        case get_abc_units() of
+            [] ->
+                [];
+            [Unit|_] ->
+                % @TODO: better handle situations where no floorlevel locations are available
+                [Location] = mypl_db_util:best_locations(floorlevel, [Unit]),
+                [{Unit#unit.mui, Location#location.name}]
+        end
     end,
     mypl_db_util:transaction(Fun).
     
@@ -126,21 +133,26 @@ init_automovements() ->
                     {ok, []};
                 L2 ->
                     [H|_] = L2, % we are only interested in the first result
-                    {ok, plists:map(fun({Mui, Destination}) -> 
-                                        {ok, MovementId} = mypl_db:init_movement(Mui, Destination, [{mypl_notify_requestracker}]),
-                                        MovementId
-                                     end, [H])}
+                    {ok, init_movements([H])}
             end;
         L1 ->
-            Ret = lists:map(fun({Mui, Destination}) -> 
-                          {ok, MovementId} = mypl_db:init_movement(Mui, Destination, [{mypl_notify_requestracker}]),
-                          MovementId
-                      end, L1),
-            {ok, Ret}
-            %{ok, plists:map(fun({Mui, Destination}) -> 
-            %                   mypl_db:init_movement(Mui, Destination, [{mypl_notify_requestracker}])
-            %               end, L1)}
+            {ok, init_movements(L1)}
     end.
+    
+
+%% @spec init_movements([{Mui, Destination}]) -> [mypl_db:movementID()]
+%% @see mypl_db:init_movement/2
+%% @doc call init_movement/2 for several movements at once
+init_movements(L) ->
+    %% we use a transaction to ensure all movements fail if a single one fails.
+    Fun = fun() ->
+        lists:map(fun({Mui, Destination}) -> 
+                       {ok, MovementId} = mypl_db:init_movement(Mui, Destination,
+                                                                [{mypl_notify_requestracker}]),
+                       MovementId
+                    end, L)
+          end,
+    mypl_db_util:transaction(Fun).
     
 
 %% @doc create one or more movements which make the warehouse a better place ...

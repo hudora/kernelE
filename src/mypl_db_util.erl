@@ -1,12 +1,6 @@
-%%%-------------------------------------------------------------------
-%%% File    : mypl_db_util
-%%% Author  : Maximillian Dornseif
-%%% Description : 
-%%%
-%%% Created :  Created by Maximillian Dornseif on 2007-10-07.
-%%%-------------------------------------------------------------------
+%% @version 0.2
+%% Created :  Created by Maximillian Dornseif on 2007-10-07.
 
-%% @version 0.1
 %% @copyright 2007 HUDORA GmbH
 %% @author Maximillian Dornseif <md@hudora.de>
 %% @doc myPL/kernel-E storage Engine auxiliary functions

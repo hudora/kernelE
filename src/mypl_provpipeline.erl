@@ -1,3 +1,4 @@
+%% @version 0.2
 %%% File    : mypl_provpipeline
 %%% Author  : Maximillian Dornseif
 %%% Created :  Created by Maximillian Dornseif on 2007-11-07.
@@ -93,8 +94,7 @@ get_picklists() ->
     % check if we have picks available
     case mypl_db_util:transaction(fun() -> mnesia:first(provpipeline) end) of
         '$end_of_table' ->
-            erlang:display({bbb}),
-            nothing_available;
+            no_more_provisionings_requested;
         _ ->
             Fun = fun() ->
                 case choose_next_pick() of

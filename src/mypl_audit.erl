@@ -1,4 +1,4 @@
-%% @version 0.1
+%% @version 0.2
 %% @copyright 2007 HUDORA GmbH
 %% @author Maximillian Dornseif <md@hudora.de>
 %% @doc audit log for myPL/kernel-E

@@ -1,3 +1,4 @@
+%% @version 0.2
 %% Author  : Maximillian Dornseif
 %% Created :  Created by Maximillian Dornseif on 2007-10-08.
 %% @doc this server keeps track of the requests for movements (e.g. "Fixplatznachschub")

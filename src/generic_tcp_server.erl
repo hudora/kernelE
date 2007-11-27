@@ -1,3 +1,4 @@
+%% @version 0.2
 %%---------------------------------------------------------------------------
 %% Copyright (c) 2007 Tony Garnock-Jones <tonyg@kcbbs.gen.nz>
 %% Copyright (c) 2007 LShift Ltd. <query@lshift.net>

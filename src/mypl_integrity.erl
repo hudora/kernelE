@@ -1,3 +1,4 @@
+%% @version 0.2
 %%% File    : mypl_check
 %%% Author  : Maximillian Dornseif
 %%% Created :  Created by Maximillian Dornseif on 2007-10-31.
