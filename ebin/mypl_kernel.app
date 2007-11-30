@@ -19,5 +19,5 @@
               {applications,[kernel,stdlib]},
               {mod,{mypl_app,[]}},
               {env, [{listen_host, "0.0.0.0"},
-                    {listen_port, 5711}]}
+                    {listen_port, 1919}]}
 ]}.

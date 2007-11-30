@@ -136,7 +136,9 @@ best_location_helper(Unit) ->
     % locations with preference == 0 are never considered
     Candidates = [X || X <- find_empty_location(Unit#unit.height), X#location.preference > 0],
     % order by heigth, so we prefer lower locations (and in addition order by preference)
-    lists:keysort(#location.height, lists:reverse(lists:keysort(#location.preference, Candidates))).
+    lists:sort(fun(A, B) ->
+                   {A#location.preference, A#location.height} < {B#location.preference, B#location.height}
+               end, Candidates).
 
 %% @private
 %% @spec best_location(unitRecord()) -> locationRecord()
@@ -174,10 +176,11 @@ best_locations(floorlevel, Units) ->
 %% expects to be called within a mnesia transaction
 read_location(Locname) when is_list(Locname)->
     case mnesia:read({location, Locname}) of
+        [] ->
+            error_logger:error_msg("unknown_location ~s" [Locname]),
+            unknown_location;
         [Location] ->
             Location;
-        [] ->
-            erlang:error({unknown_location, Locname});
         L ->
             erlang:error({internal_error, Locname, L})
     end.

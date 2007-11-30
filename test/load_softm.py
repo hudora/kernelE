@@ -16,6 +16,7 @@ def load_platzbestand(platzbestand):
         (artnr, menge) = platzbestand[platz]
         if artnr and menge > 0:
             if platz in ['KATALO', '######', 'BEREIT', 'FERTAB', 'FERTZU', 'SOFORT', 'SONDER', 'UMLAG', 'RETOUR', 'VERSAN']:
+                print "problem mit %r" % ((artnr, menge, platz),)
                 platz = 'FEHLER'
             k = Kerneladapter()
             loc = k.location_info(platz)
@@ -38,7 +39,7 @@ def load_platzbestand(platzbestand):
                 raise
 
 def main():
-    platzbestand = pickle.load(gzip.GzipFile('test/data/platzbestand-20071019.pickle.gz', 'r'))
+    platzbestand = pickle.load(gzip.GzipFile('test/data/platzbestand-20071128-umstellung.pickle.gz', 'r'))
     load_platzbestand(platzbestand)
     
 if __name__ == '__main__':

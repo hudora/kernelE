@@ -127,6 +127,12 @@ handle_command("pick_info", _Parameters, State) ->
     [PickId] = Tokens,
     NewPickId = convertString(PickId),
     {noreply, reply(220, rfc4627:encode(mypl_server:pick_info(NewPickId)), reset_buffers(State))};
+handle_command("get_articleaudit", _Parameters, State) ->
+    % implementation for get_articleaudit,
+    Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
+    [Product] = Tokens,
+    NewProduct = convertString(Product),
+    {noreply, reply(220, rfc4627:encode(mypl_server:get_articleaudit(NewProduct)), reset_buffers(State))};
 handle_command("find_provisioning_candidates", _Parameters, State) ->
     % implementation for find_provisioning_candidates,
     Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
@@ -216,6 +222,7 @@ movement_list
 movement_info MovementId
 pick_list 
 pick_info PickId
+get_articleaudit Product
 find_provisioning_candidates Quantity,Product
 find_provisioning_candidates_multi JsonList
 init_provisionings_multi JsonList

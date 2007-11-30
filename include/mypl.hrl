@@ -15,6 +15,7 @@
                       % ]
                    }).    
 
+
 % dies stellt eine palette dar
 -record(unit, {mui,             % eindeutige Numer, z.B. NVE,
                quantity,        % einkeiten des produkts
@@ -60,9 +61,10 @@
              orderlines,
              weigth,
              volume,
-             attributes,
              status,          % new, processing, provisioned
-             tries            % how often we tried to find a match for that pick
+             tries,           % how often we tried to find a match for that pick
+             provisioninglists,
+             attributes
             }).
 
 -record(pickpipeline,

@@ -54,7 +54,8 @@ insert_pipeline({CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes
     insert_pipeline([CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes]);
 insert_pipeline([CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes]) ->
     PPline = #provpipeline{id=CId, priority=Priority, weigth=Weigth, volume=Volume,
-                           attributes=[{kernel_customer, Customer}|Attributes], tries=0, status=new,
+                           attributes=[{kernel_customer, Customer}|Attributes], 
+                           provisioninglists=[], tries=0, status=new,
                            % normalize on tuples instead of lists
                            orderlines=lists:map(fun({Quantity, Product, OlAttributes}) -> 
                                                         {Quantity, Product, OlAttributes};

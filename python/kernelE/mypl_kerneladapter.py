@@ -9,7 +9,7 @@ Copyright (c) 2007 HUDORA GmbH. All rights reserved.
 
 
 import unittest
-import socket, uuid, simplejson, pickle, datetime, time, types
+import socket, uuid, simplejson, pickle, datetime, time, types, sys
 
 DEBUG = True
 
@@ -17,6 +17,8 @@ def e2string(data):
     # if we got a list of numbers turn it into a string
     if data and data[0] and type(data[0]) == types.IntType: # type(17) == Integer
         return ''.join([chr(x) for x in data])
+    if data == []:
+        return ''
     return data
 
 
@@ -79,13 +81,32 @@ def print_timing(func):
                 print "\t%2.5fs" % (delta)
         
         return ret
+    _wrapper.__doc__ = func.__doc__
+    _wrapper.__dict__ = func.__dict__
+    return _wrapper
+
+def nice_exception(func):
+    """Decorator to print call parameters should an exception occur."""
+    
+    def _wrapper(*args, **kwargs):
+        """Closure providing the actual functionality of nice_exception()"""
+        
+        ret = RuntimeError
+        try:
+            ret = func(*args, **kwargs)
+        except:
+            sys.stderr.write('\n%r = %r\n' % ((args, kwargs), ret))
+            raise
+        return ret
+    _wrapper.__doc__ = func.__doc__
+    _wrapper.__dict__ = func.__dict__
     return _wrapper
 
 
 class Kerneladapter:
     def __init__(self):
-        self.host = 'localhost'
-        self.port = 5711
+        self.host = 'airvent.local.hudora.biz'
+        self.port = 1919
         self.connected = False
         self.debug = False
     
@@ -130,6 +151,7 @@ class Kerneladapter:
             print ">>>", line
         self.sock.send(line + '\n')
     
+    @nice_exception
     def count_product(self, product):
         """Gibt die Mengen und NVEs zu einem Produkt an.
         
@@ -139,11 +161,12 @@ class Kerneladapter:
         ([85, 85, 0, 0], ['4d183fee-7fb4-11dc-97fa-0017f2c8caff', '4e20d496-7fb4-11dc-97fa-0017f2c8caff'])
         """
         
-        mui = product.replace(',','').replace('\n','').replace('\r','')
+        product = product.replace(',','').replace('\n','').replace('\r','')
         self._send("count_product %s" % (product,))
         mengen, muis = self._read_json(220)
         return (mengen, [e2string(x) for x in muis])
     
+    @nice_exception
     def count_products(self):
         """Gibt die Mengen für alle Produkte im Lager zurück.
         
@@ -156,8 +179,21 @@ class Kerneladapter:
         self._send("count_products")
         ret = self._read_json(220)
         return [(e2string(product), fmenge, amenge, rmenge, pmenge) for (product, fmenge, amenge, rmenge, pmenge) in ret]
-        #return (mengen, [e2string(x) for x in muis])
+        
     
+    @nice_exception
+    def get_articleaudit(self, product):
+        """Liefert das Auditlog fuer einen artikel zurueck."""
+        mui = product.replace(',','').replace('\n','').replace('\r','')
+        self._send("get_articleaudit %s" % (product,))
+        ret = self._read_json(220)
+        out = []
+        for d in ret:
+            out.append(attributelist2dict_str(d))
+        return out
+        
+    
+    @nice_exception
     def location_list(self):
         """Returns a list of all location names.
         
@@ -169,6 +205,7 @@ class Kerneladapter:
         self._send("location_list")
         return [e2string(x) for x in self._read_json(220)]
     
+    @nice_exception
     def location_info(self, name):
         """Gibt Informationen zu einem Lagerplatz aus.
         
@@ -186,6 +223,7 @@ class Kerneladapter:
         d['info'] = e2string(d['info'])
         return d
     
+    @nice_exception
     def unit_info(self, name):
         """
         >>> import kernelE
@@ -202,6 +240,7 @@ class Kerneladapter:
         d['created_at'] = e2datetime(d['created_at'])
         return d
     
+    @nice_exception
     def movement_info(self, name):
         """
         >>> import kernelE
@@ -216,6 +255,7 @@ class Kerneladapter:
         return d
         
     
+    @nice_exception
     def movement_list(self):
         """Liefert eine Liste aller (offenen) Movements.
         
@@ -232,6 +272,7 @@ class Kerneladapter:
         return [e2string(x) for x in self._read_json(220)]
     
     
+    @nice_exception
     def pick_list(self):
         """Liefert eine Liste aller (offenen) Picks.
         
@@ -241,9 +282,11 @@ class Kerneladapter:
         ["p1193-85203-460109-mypl_test@lichtblick", "p1193-85203-461143-mypl_test@lichtblick"]
         """
         
-        raise NotImplementedError
+        self._send("pick_list")
+        return [e2string(x) for x in self._read_json(220)]
+            
     
-    
+    @nice_exception
     def init_location(self, name, height=1950, floorlevel=False, preference=5, info='', attributes=[]):
         name = name.replace(',','').replace('\n','').replace('\r','')
         info = info.replace(',',' ').replace('\n','').replace('\r','')
@@ -252,17 +295,25 @@ class Kerneladapter:
         self._send("init_location %s,%d,%r,%d,%s,[]" % (name, height, floorlevel, preference, info))
         return self._read_code(220)
         
+    
+    @nice_exception
     def init_movement_to_good_location(self, mui):
         """Initialisiert ein movement an einen geeigneten Ort"""
         self._send("init_movement_to_good_location %s" % mui)
-        ok, ret = self._read_json(220)
-        return e2string(ret)
+        ret = self._read_json(220)
+        if len(ret) == 2:
+            ok, ret = ret
+            return e2string(ret)
+        else:
+            raise RuntimeError, "Fehler im kernel: %r" % ret
     
+    @nice_exception
     def make_nve(self):
         self._send("make_nve")
         ret = self._read_json(220)
         return e2string(ret)
     
+    @nice_exception
     def store_at_location(self, name, quantity, artnr, mui=None, height=1950):
         if mui == None:
             mui = "%s" % (self.make_nve())
@@ -273,6 +324,7 @@ class Kerneladapter:
         ok, mui = self._read_json(220)
         return e2string(mui)
     
+    @nice_exception
     def retrieve(self, mui):
         mui = mui.replace(',','').replace('\n','').replace('\r','')
         self._send("retrieve %s" % (mui,))
@@ -281,6 +333,7 @@ class Kerneladapter:
         return ret
         
     
+    @nice_exception
     def find_provisioning_candidates(self, quantity, artnr):
         artnr = artnr.replace(',','').replace('\n','').replace('\r','')
         self._send("find_provisioning_candidates %d,%s" % (quantity, artnr))
@@ -292,6 +345,7 @@ class Kerneladapter:
             ret = (ok, retrievals, picks)
         return ret
     
+    @nice_exception
     def find_provisioning_candidates_multi(self, poslist):
         self._send("find_provisioning_candidates_multi %s" % (simplejson.dumps(poslist)))
         ret = self._read_json(220)
@@ -302,6 +356,7 @@ class Kerneladapter:
             ret = (ok, retrievals, picks)
         return ret
     
+    @nice_exception
     def init_provisionings_multi(self, poslist):
         self._send("init_provisionings_multi %s" % (simplejson.dumps(poslist)))
         ret = self._read_json(220)
@@ -312,30 +367,37 @@ class Kerneladapter:
             ret = (ok, retrievals, picks)
         return ret
     
+    @nice_exception
     def commit_movement(self, movementid):
         self._send("commit_movement %s" % (movementid))
         return self._read_json(220)
     
+    @nice_exception
     def rollback_movement(self, movementid):
         self._send("rollback_movement %s" % (movementid))
         return self._read_json(220)
     
+    @nice_exception
     def commit_retrieval(self, movementid):
         self._send("commit_retrieval %s" % (movementid))
         return self._read_json(220)
     
+    @nice_exception
     def rollback_retrieval(self, movementid):
         self._send("rollback_retrieval %s" % (movementid))
         return self._read_json(220)
     
+    @nice_exception
     def commit_pick(self, pickid):
         self._send("commit_pick %s" % (pickid))
         return self._read_json(220)
     
+    @nice_exception
     def rollback_pick(self, pickid):
         self._send("rollback_pick %s" % (pickid))
         return self._read_json(220)
     
+    @nice_exception
     def create_automatic_movements(self):
         self._send("create_automatic_movements")
         ret = self._read_json(220)
@@ -346,6 +408,7 @@ class Kerneladapter:
             ret.append(e2string(movementid))
         return ret
     
+    @nice_exception
     def insert_pipeline(self, cid, orderlines, priority, customer, weigth, volume, attributes):
         """adds an order to the provisioningpipeline
         
@@ -375,6 +438,7 @@ class Kerneladapter:
         self._send("insert_pipeline %s" % (simplejson.dumps(parameters)))
     
     
+    @nice_exception
     def get_picklists(self):
         """returns one or more Picklists to be processed next.
         
@@ -407,6 +471,7 @@ class Kerneladapter:
         return out
     
     
+    @nice_exception
     def get_retrievallists(self):
         """returns one or more Retrievallists to be processed next.
         
@@ -432,11 +497,12 @@ class Kerneladapter:
                 nve = e2string(nve)
                 source = e2string(source)
                 product = e2string(product)
-                poslist.append((posId, nve, source, product, attributelist2dict_str(posattributes)))
+                poslist.append((posId, nve, source, quantity, product, attributelist2dict_str(posattributes)))
             out.append((retrievalListId, cId, destination, parts, attributelist2dict_str(attributes), poslist))
         return out
         
     
+    @nice_exception
     def get_movementlist(self):
         self._send("get_movementlist")
         ret = self._read_json(220)
@@ -448,11 +514,13 @@ class Kerneladapter:
             out.append(e2string(mId))
         return out
     
+    @nice_exception
     def commit_picklist(self, cId):
         self._send("commit_picklist %s" % (cId,))
         ret = self._read_json(220)
         return ret
     
+    @nice_exception
     def commit_retrievallist(self, cId):
         self._send("commit_retrievallist %s" % (cId,))
         ret = self._read_json(220)

@@ -125,16 +125,17 @@ get_movementsuggestion_from_abc() ->
 init_automovements() ->
     case get_movementsuggestion_from_requesstracker() of
         [] ->
-            case get_movementsuggestion_from_abc() of
-                % TODO: dalyzer says:
-                % mypl_movements.erl:137: The variable L2 can never match since previous clauses completely covered the type []
-                [] ->
-                    % No Movementsuggestions
-                    {ok, []};
-                L2 ->
-                    [H|_] = L2, % we are only interested in the first result
-                    {ok, init_movements([H])}
-            end;
+            %case get_movementsuggestion_from_abc() of
+            %    % TODO: dalyzer says:
+            %    % mypl_movements.erl:137: The variable L2 can never match since previous clauses completely covered the type []
+            %    [] ->
+            %        % No Movementsuggestions
+            %        {ok, []};
+            %    L2 ->
+            %        [H|_] = L2, % we are only interested in the first result
+            %        {ok, init_movements([H])}
+            %end;
+            {ok, []};
         L1 ->
             {ok, init_movements(L1)}
     end.

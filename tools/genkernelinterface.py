@@ -39,6 +39,8 @@ funcdefs = [
 ('mypl_db_query', 'pick_list', '', []),
 ('mypl_db_query', 'pick_info', 'PickId', []),
 
+('mypl_audit', 'get_articleaudit', 'Product', []),
+
 ('mypl_provisioning', 'find_provisioning_candidates', 'Quantity, Product', ['async']),
 ('mypl_provisioning', 'find_provisioning_candidates_multi', 'JsonList', ['async']),
 ('mypl_provisioning', 'init_provisionings_multi', 'JsonList', ['async']),

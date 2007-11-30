@@ -167,16 +167,20 @@ location_list() ->
 %% @doc gets a tuple with information concerning a location
 location_info(Locname) -> 
     Fun = fun() ->
-        Location = mypl_db_util:read_location(Locname),
-        {{name,          Location#location.name},
-         {height,        Location#location.height},
-         {floorlevel,    Location#location.floorlevel},
-         {preference,    Location#location.preference},
-         {info,          Location#location.info},
-         {attributes,    Location#location.attributes},
-         {allocated_by,  Location#location.allocated_by},
-         {reserved_for,  Location#location.reserved_for}
-        }
+        case mypl_db_util:read_location(Locname) of
+            unknown_location ->
+                unknown_location;
+            Location ->
+                {{name,          Location#location.name},
+                 {height,        Location#location.height},
+                 {floorlevel,    Location#location.floorlevel},
+                 {preference,    Location#location.preference},
+                 {info,          Location#location.info},
+                 {attributes,    Location#location.attributes},
+                 {allocated_by,  Location#location.allocated_by},
+                 {reserved_for,  Location#location.reserved_for}
+                }
+        end
     end,
     {atomic, Ret} = mnesia:transaction(Fun),
     {ok, Ret}.
@@ -330,6 +334,8 @@ mypl_simple_counting_test() ->
     mypl_db:commit_movement(Movement4),
     [] = open_movements_for_product("a0004"),
     [{"a0003",10,10,0,0},{"a0004",18,18,0,0},{"a0005",94,94,0,0}] = lists:sort(count_products()),
+    
+    location_info("GIBTSNICHT"),
     ok.
 
 testrunner() ->
