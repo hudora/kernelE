@@ -107,7 +107,8 @@ get_picklists() ->
                         mnesia:write(#provpipeline_processing{id=Id, provpipelineid=PPEntry#provpipeline.id,
                                                               pickids=P#pickpipeline.pickids, retrievalids=[]}),
                         [{Id, PPEntry#provpipeline.id,
-                          "AUSLAG", PPEntry#provpipeline.attributes, 1 + length(P#pickpipeline.retrievalids),
+                          "AUSLAG", PPEntry#provpipeline.attributes,
+                           1 + lists:min([length(P#pickpipeline.retrievalids),1]),
                            lists:map(fun(PickId) ->
                                           {ok, PickInfo} = mypl_db_query:pick_info(PickId),
                                           FromLocation = mypl_db_util:get_mui_location(proplists:get_value(from_unit, PickInfo)),
@@ -141,7 +142,8 @@ get_retrievallists() ->
                         mnesia:write(#provpipeline_processing{id=Id, provpipelineid=PPEntry#provpipeline.id,
                                                               pickids=[], retrievalids=R#retrievalpipeline.retrievalids}),
                         [{Id, PPEntry#provpipeline.id,
-                          "AUSLAG", PPEntry#provpipeline.attributes, 1 + length(R#retrievalpipeline.pickids),
+                          "AUSLAG", PPEntry#provpipeline.attributes,
+                           1 + lists:min([length(R#retrievalpipeline.pickids),1]),
                            lists:map(fun(RetrievalId) -> get_retrievallists_build_proplist(RetrievalId) end,
                                      R#retrievalpipeline.retrievalids)
                         }]

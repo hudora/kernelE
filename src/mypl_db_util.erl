@@ -137,7 +137,7 @@ best_location_helper(Unit) ->
     Candidates = [X || X <- find_empty_location(Unit#unit.height), X#location.preference > 0],
     % order by heigth, so we prefer lower locations (and in addition order by preference)
     lists:sort(fun(A, B) ->
-                   {A#location.preference, A#location.height} < {B#location.preference, B#location.height}
+                   {A#location.height, A#location.preference} < {B#location.height, B#location.preference}
                end, Candidates).
 
 %% @private
@@ -148,7 +148,7 @@ best_location(Unit) ->
     Locations = best_location_helper(Unit),
     case Locations of
         [] ->
-            error_logger:warning_msg("can't dind a suitable location for ~w.", [Unit]),
+            error_logger:warning_msg("can't find a suitable location for ~w.", [Unit]),
             no_location_available;
         [H|_] ->
             H
@@ -177,7 +177,7 @@ best_locations(floorlevel, Units) ->
 read_location(Locname) when is_list(Locname)->
     case mnesia:read({location, Locname}) of
         [] ->
-            error_logger:error_msg("unknown_location ~s" [Locname]),
+            error_logger:error_msg("unknown_location ~s", [Locname]),
             unknown_location;
         [Location] ->
             Location;
