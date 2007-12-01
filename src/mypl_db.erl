@@ -58,13 +58,13 @@ run_me_once() ->
     init_location("K01",    3000, true,  0, []),
     init_location("K02",    3000, true,  0, []),
     init_location("K03",    3000, true,  0, []),
-    % init_location("K04",    3000, true,  0, []),
-    % init_location("K05",    3000, true,  0, []),
-    % init_location("K06",    3000, true,  0, []),
-    % init_location("K07",    3000, true,  0, []),
-    % init_location("K08",    3000, true,  0, []),
-    % init_location("K09",    3000, true,  0, []),
-    % init_location("K10",    3000, true,  0, []),
+    init_location("K04",    3000, true,  0, []),
+    init_location("K05",    3000, true,  0, []),
+    init_location("K06",    3000, true,  0, []),
+    init_location("K07",    3000, true,  0, []),
+    init_location("K08",    3000, true,  0, []),
+    init_location("K09",    3000, true,  0, []),
+    init_location("K10",    3000, true,  0, []),
     % init_location("K11",    3000, true,  0, []),
     % init_location("K12",    3000, true,  0, []),
     % init_location("K13",    3000, true,  0, []),
@@ -246,6 +246,21 @@ retrieve(Mui) ->
     {atomic, Ret} = mnesia:transaction(Fun),
     Ret.
 
+%% @doc Disbands (deletes) an unit.
+%%
+%% Expects to be caled within an transaction.
+%% Checks that there are no goods on the unit and no open movements/picks
+disband_unit(Unit) ->
+    case {
+          mypl_db_util:unit_movable(Unit), % this means no open picks & movements
+          Unit#unit.quantity} of
+        {yes, 0} ->
+            retrieve(Unit#unit.mui);
+        {Moving, _} ->
+            {error, inconsistent_disband, {Unit#unit.mui, Unit, Moving}}
+    end.
+
+
 %%%%
 %%%% main myPL API - movement
 %%%%
@@ -415,7 +430,7 @@ init_pick(Quantity, Mui) when is_integer(Quantity) ->
         if
             UnitPickQuantity > Unit#unit.quantity ->
                 % this really shouldn't happen
-                {error, not_enough_goods, {Quantity, Mui, UnitPickQuantity}};
+                {error, not_enough_goods, {Quantity, UnitPickQuantity, Unit#unit.quantity, Mui, Unit}};
             true ->
                 % update Unit
                 ok = mnesia:write(Unit#unit{pick_quantity=UnitPickQuantity}),
@@ -442,7 +457,6 @@ init_pick(Quantity, Mui) when is_integer(Quantity) ->
 %% Commits a pick created previously by {@link init_pick/2}. This is by doing the actual
 %% bookkeping of removing the goods from the warehouse. Returns the name of the Location
 %% where the goods where removed from.
-%% TODO: What if quantity=0 after committing
 commit_pick(PickId) ->
     Fun = fun() ->
         % get Pick for PickId
@@ -453,6 +467,8 @@ commit_pick(PickId) ->
         if
             NewUnit#unit.quantity < 0 ->
                 % this really shouldn't happen
+                error_logger:error_msg("Negative amount on unit: ~w ~s ~s",
+                                       [Pick#pick.quantity, PickId, Unit#unit.mui]),
                 {error, not_enough_goods, {Pick#pick.quantity, PickId, Unit#unit.mui}};
             true ->
                 % update Unit
@@ -464,6 +480,13 @@ commit_pick(PickId) ->
                 mypl_audit:unitaudit(Unit, "Pick von " ++ integer_to_list(Pick#pick.quantity) 
                                      ++ " committed. neuer Bestand " ++ integer_to_list(Unit#unit.quantity),
                                      PickId),
+                if
+                    NewUnit#unit.quantity =:= 0 ->
+                        % disband unit since it is empty now
+                        disband_unit(NewUnit);
+                    true -> 
+                        ok
+                end,
                 mypl_abcserver:feed(pick, Pick, Unit#unit.location),
             {Pick#pick.quantity, Pick#pick.product}
         end
@@ -640,17 +663,40 @@ mypl_simple_pick_test() ->
      
     % start picking.
     {ok, Pick2} = init_pick(25, Mui),
-    ?DEBUG("Z", []),
     % commit it.
     {ok, {25, "a0002"}} = commit_pick(Pick2),
-    %TODO: test rollback
+    
+    % try to get to much
+    {error, not_enough_goods, _} = init_pick(25, Mui),
+    
+    % try to get to much
+    {ok, Pick4} = init_pick(15, Mui),
+    {ok, {15, "a0002"}} = rollback_pick(Pick4),
     
     % check if enough is left on unit
     {ok, {15, "a0002"}} = retrieve(Mui).
     
 
+mypl_disbanding_test() ->
+    test_init(),
+    % generate a MUI for testing
+    {ok, mui1} = store_at_location("010101", mui1, 1, "a0002", 1950),
+    {ok, Pick1} = init_pick(1, mui1),
+    % since the pick empties the unit this should lead to disbanding
+    {ok, {1, "a0002"}} = commit_pick(Pick1),
+    % now mui1 should be gone
+    {error, unknown_mui, {mui1}} = mypl_db_query:unit_info(mui1),
+    
+    {ok, mui2} = store_at_location("010101", mui2, 1, "a0003", 1950),
+    {ok, Movement2} = init_movement_to_good_location(mui2),
+    Unit2 = mypl_db_util:mui_to_unit_trans(mui2),
+    {atomic, {error, inconsistent_disband, _}} = mnesia:transaction(fun() -> disband_unit(Unit2) end),
+    ok.
+    
+
 testrunner() ->
     mypl_simple_movement_test(),
-    mypl_simple_pick_test().
+    mypl_simple_pick_test(),
+    mypl_disbanding_test().
     
 -endif.

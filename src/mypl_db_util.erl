@@ -70,9 +70,9 @@ mui_to_unit(Mui) ->
         [Unit] ->
             Unit;
         [] ->
-            erlang:error({internal_error, unknown_mui, {Mui}});
+            {error, unknown_mui, {Mui}};
         Wrong ->
-            erlang:error({internal_error, unknown_mui, {Mui, Wrong}})
+            {error, unknown_mui, {Mui, Wrong}}
     end.
     
 

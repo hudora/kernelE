@@ -132,29 +132,33 @@ unit_list() ->
 %% @doc gets a tuple with information concerning a unit
 unit_info(Mui) -> 
     Fun = fun() ->
-        Unit = mypl_db_util:mui_to_unit_trans(Mui),
-        case mypl_db_util:unit_movement(Unit) of
-            false ->
-                Movements = [];
-            Movement ->
-                Movements = [Movement#movement.id]
-        end,
-        PickIds  = mypl_db_util:do(qlc:q([X#pick.id || X <- mnesia:table(pick), X#pick.from_unit =:= Mui])),
-        
-        {{mui ,           Unit#unit.mui},
-         {quantity,       Unit#unit.quantity},
-         {product,        Unit#unit.product},
-         {height,         Unit#unit.height},
-         {pick_quantity,  Unit#unit.pick_quantity},
-         {location,       Unit#unit.location},
-         {created_at,     Unit#unit.created_at},
-         {attributes,     []},
-         {movements,      Movements},
-         {picks,          PickIds}
-        }
+        case mypl_db_util:mui_to_unit_trans(Mui) of
+            {error, Reason, Info} ->
+                {error, Reason, Info};
+            Unit ->
+                case mypl_db_util:unit_movement(Unit) of
+                    false ->
+                        Movements = [];
+                    Movement ->
+                        Movements = [Movement#movement.id]
+                end,
+                PickIds  = mypl_db_util:do(qlc:q([X#pick.id || X <- mnesia:table(pick), X#pick.from_unit =:= Mui])),
+                {ok,
+                 {{mui ,           Unit#unit.mui},
+                  {quantity,       Unit#unit.quantity},
+                  {product,        Unit#unit.product},
+                  {height,         Unit#unit.height},
+                  {pick_quantity,  Unit#unit.pick_quantity},
+                  {location,       Unit#unit.location},
+                  {created_at,     Unit#unit.created_at},
+                  {attributes,     []},
+                  {movements,      Movements},
+                  {picks,          PickIds}
+                 }
+                }
+        end
     end,
-    Ret = mypl_db_util:transaction(Fun),
-    {ok, Ret}.
+    mypl_db_util:transaction(Fun).
     
 
 %% @doc Get a list of all location names
