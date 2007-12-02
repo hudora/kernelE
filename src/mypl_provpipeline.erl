@@ -87,8 +87,10 @@ insert_pipeline([CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes
 proplistlist_to_proplisttuple(L) ->
     lists:map(fun({Name, Value}) -> 
                   {Name, Value};
-                 ([Name, Value]) -> 
-                  {Name, Value} end, L).
+                 ([Name, Value]) when is_atom(Name) -> 
+                  {Name, Value};
+                 ([Name, Value]) when is_list(Name) -> 
+                  {erlang:list_to_atom(Name), Value} end, L).
     
 
 %% @doc returns the unprocessed contents of provpipeline in the approximate order in which they will be processed
@@ -341,14 +343,15 @@ refill_pipeline(Type, Candidates) ->
 % sorts by the attributes `versandtermin', `liefertermin' the priority cusotmer ID
 %% and the number of unsuccessfull tries
 sort_provpipeline(Records) ->
-    lists:sort(fun(A, B) -> sort_provpipeline_helper(A) > sort_provpipeline_helper(B) end, Records).
+    lists:sort(fun(A, B) -> sort_provpipeline_helper(A) < sort_provpipeline_helper(B) end, Records).
 
 % @private
 % creates a key for sorting
 sort_provpipeline_helper(Record) ->
+    % proplistlist_to_proplisttuple() is to fix broken legavy data
     {% concat versandtermin and liefertermin so if no versandtermin is set we sort by liefertermin
-     proplists:get_value(versandtermin, Record#provpipeline.attributes, "") ++
-     proplists:get_value(liefertermin,  Record#provpipeline.attributes, ""), 
+     proplists:get_value(versandtermin, proplistlist_to_proplisttuple(Record#provpipeline.attributes), "") ++
+     proplists:get_value(liefertermin,  proplistlist_to_proplisttuple(Record#provpipeline.attributes), ""), 
      100 - Record#provpipeline.priority, % higher priorities mean lower values mean beeing sorted first
      Record#provpipeline.tries,
      proplists:get_value(kernel_customer, Record#provpipeline.attributes, "99999")
