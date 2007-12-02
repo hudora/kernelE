@@ -9,7 +9,8 @@
 -include("mypl.hrl").
 
 %% API
--export([insert_pipeline/1, delete/1, get_picklists/0, get_retrievallists/0, get_movementlist/0,
+-export([insert_pipeline/1, provpipeline_list_new/0, delete/1,
+         get_picklists/0, get_retrievallists/0, get_movementlist/0,
          commit_picklist/1, commit_retrievallist/1, commit_movementlist/1,
          is_provisioned/1, run_me_once/0]).
 
@@ -19,6 +20,9 @@ run_me_once() ->
                                       ]),
     mnesia:create_table(provpipeline_processing, [{disc_copies, [node()]},
                                        {attributes, record_info(fields, provpipeline_processing)}
+                                      ]),
+    mnesia:create_table(provisioninglist, [{disc_copies, [node()]},
+                                       {attributes, record_info(fields, provisioninglist)}
                                       ]),
     mnesia:create_table(pickpipeline, [{disc_copies, [node()]},
                                        {attributes, record_info(fields, pickpipeline)}
@@ -38,10 +42,10 @@ run_me_once() ->
 %% or something similar. `Orderlines' is a list of Articles to 
 %% provision. The List elements are tuples `{Quanity, Product, Attributes}' where Attributes contains
 %% arbitrary data for use at tha client side.
-%% The higher the `priority' the more likely it is, that the Order is processed early. If you want the
-%% scheduler to also consider day to deliver you have to encode that into priority. E.g.
-%% E.g. `NewPriority = Priority + 10 * max([(now() + 5 - order.day_to_deliver), 0])'.
-%% 'Customer' is to aggregate shippments to the same customer. 'Weigth' and 'Volume' are the calculated
+%% The higher the `priority' the more likely it is, that the Order is processed early.
+%% In addition we consider the attributes `versandtermin' and `liefertermin' to determine processing order.
+%% 'Customer' is to aggregate shippments to the same customer. 'Weigth' and 'Volume' are the calculated.
+%% See {@link sort_provpipeline/1} for details.
 %% total Weigth and Volume of the shippment and are used to make scheduling descisions.
 %%
 %% Example:
@@ -49,12 +53,15 @@ run_me_once() ->
 %%                         {70, 14650, [{"auftragsposition", "2"}, {"gewicht", "35667"}]},
 %%                         {30, 76500, [{"auftragsposition", "3"}, {"gewicht", "12367"}]}],
 %%                    28, "34566", 345000, 581.34,
-%%                    [{"auftragsnumer", "123432"}, {}"liefertermin", "2007-12-23"}]).'''
+%%                    [{"auftragsnumer", "123432"}, {"liefertermin", "2007-12-23"}]).'''
 insert_pipeline({CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes}) ->
     insert_pipeline([CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes]);
 insert_pipeline([CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes]) ->
     PPline = #provpipeline{id=CId, priority=Priority, weigth=Weigth, volume=Volume,
-                           attributes=[{kernel_customer, Customer}|Attributes], 
+                           attributes=[{kernel_customer, Customer},
+                                       {weigth, Weigth},
+                                       {volume, Volume},
+                                       {priority, Priority}] ++ proplistlist_to_proplisttuple(Attributes),
                            provisioninglists=[], tries=0, status=new,
                            % normalize on tuples instead of lists
                            orderlines=lists:map(fun({Quantity, Product, OlAttributes}) -> 
@@ -64,7 +71,50 @@ insert_pipeline([CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes
     mypl_db_util:transaction(fun() -> mnesia:write(PPline) end),
     [mypl_requesttracker:in(Quantity, Product) || {Quantity, Product, _} <- PPline#provpipeline.orderlines],
     ok.
+    
 
+%% @doc converts
+%% [{tries,0},
+%%  {kernel_customer,"14529"},
+%%  ["auftragsnummer",647105],
+%%  ["liefertermin","2007-12-03"]]
+%% to
+%% [{tries,0},
+%%  {kernel_customer,"14529"},
+%%  {"auftragsnummer",647105},
+%%  {"liefertermin","2007-12-03"}]
+%% mainly for fixing data gotten via json
+proplistlist_to_proplisttuple(L) ->
+    lists:map(fun({Name, Value}) -> 
+                  {Name, Value};
+                 ([Name, Value]) -> 
+                  {Name, Value} end, L).
+    
+
+%% @doc returns the contents of provpipeline
+provpipeline_list_new() ->
+    mypl_db_util:do_trans(qlc:q([format_pipeline_record(X) || X <- mnesia:table(provpipeline),
+                                      X#provpipeline.status =:= new])).
+    
+
+%% 
+provpipeline_list_prepared() ->
+    mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(pickpipeline)])) ++
+    mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(retrievalpipeline)])).
+    
+
+%% processing
+provpipeline_list_processing() ->
+    mypl_db_util:do_trans(qlc:q([format_pipeline_record(X) || X <- mnesia:table(provpipeline),
+                                      X#provpipeline.status =:= processing])).
+    
+
+format_pipeline_record(Record) ->
+    {Record#provpipeline.id,
+     [{tries, Record#provpipeline.tries}|Record#provpipeline.attributes],
+     Record#provpipeline.orderlines
+    }.
+    
 
 %% @spec delete(CId::string()) -> aborted|ok
 %% @doc removes an unprocessed order from the provisioningpipeline
@@ -104,26 +154,39 @@ get_picklists() ->
                     {ok, P} ->
                         Id = "p" ++ P#pickpipeline.id,
                         [PPEntry] = mnesia:read({provpipeline, P#pickpipeline.provpipelineid}),
+                        Picklist = #provisioninglist{id=Id, type=picklist,
+                                                     provpipeline_id=PPEntry#provpipeline.id,
+                                                     destination="AUSLAG",
+                                                     attributes=PPEntry#provpipeline.attributes,
+                                                     parts=1 + lists:min([length(P#pickpipeline.retrievalids),1]),
+                                                     provisionings=lists:map(fun(PickId) ->
+                                                                              {ok, PickInfo} = mypl_db_query:pick_info(PickId),
+                                                                              FromLocation = mypl_db_util:get_mui_location(proplists:get_value(from_unit, PickInfo)),
+                                                                              {PickId,
+                                                                               proplists:get_value(from_unit, PickInfo),
+                                                                               FromLocation#location.name,
+                                                                               proplists:get_value(quantity, PickInfo),
+                                                                               proplists:get_value(product, PickInfo),
+                                                                               []}
+                                                                              end, P#pickpipeline.pickids)},
+                        mnesia:write(Picklist),
                         mnesia:write(#provpipeline_processing{id=Id, provpipelineid=PPEntry#provpipeline.id,
                                                               pickids=P#pickpipeline.pickids, retrievalids=[]}),
-                        [{Id, PPEntry#provpipeline.id,
-                          "AUSLAG", PPEntry#provpipeline.attributes,
-                           1 + lists:min([length(P#pickpipeline.retrievalids),1]),
-                           lists:map(fun(PickId) ->
-                                          {ok, PickInfo} = mypl_db_query:pick_info(PickId),
-                                          FromLocation = mypl_db_util:get_mui_location(proplists:get_value(from_unit, PickInfo)),
-                                          {PickId,
-                                           proplists:get_value(from_unit, PickInfo),
-                                           FromLocation#location.name,
-                                           proplists:get_value(quantity, PickInfo),
-                                           proplists:get_value(product, PickInfo),
-                                           []}
-                                      end, P#pickpipeline.pickids)
-                        }]
+                        mnesia:write(PPEntry#provpipeline{provisioninglists=[Picklist|PPEntry#provpipeline.provisioninglists]}),
+                        format_picklist(Picklist)
                 end
             end,
             mypl_db_util:transaction(Fun)
     end.
+
+format_picklist(PList) ->
+    {PList#provisioninglist.id,
+     PList#provisioninglist.provpipeline_id,
+     PList#provisioninglist.destination,
+     PList#provisioninglist.attributes,
+     PList#provisioninglist.parts,
+     PList#provisioninglist.provisionings}.
+    
 
 % @see get_picklists/0
 get_retrievallists() ->
@@ -218,14 +281,14 @@ choose_next_retrieval() ->
 refill_pickpipeline() -> refill_pipeline(picks).
 %% @doc adds entries to the pickpipeline
 refill_retrievalpipeline() -> refill_pipeline(retrievals).
+    
 
 refill_pipeline(Type) ->
     % check provisinings until we find one which would generate picks
     Candidates = mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(provpipeline),
                                                    X#provpipeline.status =:= new])),
-    refill_pipeline(Type, lists:sort(fun(A, B) -> {A#provpipeline.priority, A#provpipeline.tries} 
-                                                  > {B#provpipeline.priority, B#provpipeline.tries} end,
-                                     Candidates)).
+    refill_pipeline(Type, sort_provpipeline(Candidates)).
+    
 
 refill_pipeline(_Type, []) -> no_fit;
 refill_pipeline(Type, Candidates) ->
@@ -268,7 +331,26 @@ refill_pipeline(Type, Candidates) ->
             end
     end.
     
+
+% @doc sort provpipeline records in order which they should be handled
+%
+% sorts by the attributes `versandtermin', `liefertermin' the priority cusotmer ID
+%% and the number of unsuccessfull tries
+sort_provpipeline(Records) ->
+    lists:sort(fun(A, B) -> sort_provpipeline_helper(A) > sort_provpipeline_helper(B) end, Records).
+
+% @private
+% creates a key for sorting
+sort_provpipeline_helper(Record) ->
+    {100 - Record#provpipeline.priority, % higher priorities mean lower values mean beeing sorted first
+     % concat versandtermin and liefertermin so if no versandtermin is set we sort by liefertermin
+     proplists:get_value(versandtermin, Record#provpipeline.attributes, "") ++
+     proplists:get_value(liefertermin,  Record#provpipeline.attributes, ""), 
+     Record#provpipeline.tries,
+     proplists:get_value(kernel_customer, Record#provpipeline.attributes, "99999")
+    }.
     
+
 %% @spec get_movementlist() -> MovementlistList|nothing_available
 %%      MovementlistList = [{Id::string(), CId::string(), Destination::string(), Attributes, Parts::integer(),
 %%                          [{LineId::string(), Location::string(), Product::string()}]}]
@@ -422,38 +504,61 @@ mypl_simple_test() ->
     {ok, _} = mypl_db:store_at_location("010201", mui4, 19, "a0004", 1200),
     {ok, _} = mypl_db:store_at_location("010301", mui5, 61, "a0005", 1200),
     {ok, _} = mypl_db:store_at_location("010302", mui6, 10, "a0005", 1200),
-    insert_pipeline([lieferschein1, [{10, "a0005", []}, {1, "a0004", []}], 5, "kunde01", 0, 0, []]),
-    insert_pipeline([lieferschein2, [{10, "a0005", []}, {1, "a0004", []}], 5, "kunde02", 0, 0, []]),
-    insert_pipeline([lieferschein3, [{50, "a0005", []}, {16, "a0004", []}], 5, "kunde02", 0, 0, []]),
-    insert_pipeline([lieferschein4, [{1,  "a0005", []}, {1,  "a0004", []}], 5, "kunde03", 0, 0, []]),
-    R1 = get_retrievallists(),
-    [{R1id,lieferschein1,"AUSLAG",[{kernel_customer,"kunde01"}],2,[{_,mui6,"010302",10,"a0005",[]}]}] = R1,
-    P2 = get_picklists(),
-    [{P2id,lieferschein1,"AUSLAG",[{kernel_customer,"kunde01"}],2,[{_,mui4,"010201",1, "a0004",[]}]}] = P2,
-    P3 = get_picklists(),
-    [{P3id,lieferschein2,"AUSLAG",[{kernel_customer,"kunde02"}],1,[{_,mui4,"010201",1,"a0004",[]},{_,mui5,"010301",10,"a0005",[]}]}] = P3,
-    P4 = get_picklists(),
-    [{P4id,lieferschein3,"AUSLAG",[{kernel_customer,"kunde02"}],1,[{_,mui4,"010201",16,"a0004",[]},{_,mui5,"010301",50,"a0005",[]}]}] = P4,
-    P5 = get_picklists(),
-    [{P5id,lieferschein4,"AUSLAG",[{kernel_customer,"kunde03"}],1,[{_,mui4,"010201",1,"a0004",[]},{_,mui5,"010301",1,"a0005",[]}]}] = P5,
     
+    % provpipeline empty?
+    [] = provpipeline_list_new(),
+    [] = provpipeline_list_prepared(),
+    
+    % fill it up!
+    insert_pipeline([lieferschein1, [{10, "a0005", []}, {1,  "a0004", []}], 3, "kunde01", 0, 0, []]),
+    insert_pipeline([lieferschein2, [{10, "a0005", []}, {1,  "a0004", []}], 3, "kunde02", 0, 0, []]),
+    insert_pipeline([lieferschein3, [{50, "a0005", []}, {16, "a0004", []}], 4, "kunde02", 0, 0, []]),
+    insert_pipeline([lieferschein4, [{1,  "a0005", []}, {1,  "a0004", []}], 1, "kunde03", 0, 0, []]),
+    
+    [] = provpipeline_list_prepared(),
+    [{lieferschein4,[{tries,0},{kernel_customer,"kunde03"},{weigth,0},{volume,0},{priority,1}],
+      [{ 1,"a0005",[]},{ 1,"a0004",[]}]},
+     {lieferschein3,_,[{50,"a0005",[]},{16,"a0004",[]}]},
+     {lieferschein2,_,[{10,"a0005",[]},{ 1,"a0004",[]}]},
+     {lieferschein1,_,[{10,"a0005",[]},{ 1,"a0004",[]}]}] = provpipeline_list_new(),
+    
+    P4 = get_picklists(),
+    [{P4id,lieferschein4,"AUSLAG",_,1,[{_,mui4,"010201",1,"a0004",[]},
+                                       {_,mui5,"010301",1,"a0005",[]}]}] = P4,
+    P2 = get_picklists(),
+    [{P2id,lieferschein2,"AUSLAG",_,2,[{_,mui4,"010201",1,"a0004",[]}]}] = P2,
+    P1 = get_picklists(),
+    [{P1id,lieferschein1,"AUSLAG",_,1,[{_,mui4,"010201",1,"a0004",[]},
+                                       {_,mui5,"010301",10,"a0005",[]}]}] = P1,
+    P3 = get_picklists(),
+    [{P3id,lieferschein3,"AUSLAG",_,1,[{_,mui4,"010201",16,"a0004",[]},
+                                       {_,mui5,"010301",50,"a0005",[]}]}] = P3,
+    
+    % at this time we should have one retrieval prepared
+    erlang:display(provpipeline_list_prepared()),
+    R2 = get_retrievallists(),
+    [{R2id,lieferschein2,"AUSLAG",_,2,[{_,mui6,"010302",10,"a0005",[]}]}] = R2,
+    
+    erlang:display(provpipeline_list_prepared()),
+    % provpipeline should be empty now
+    [] = provpipeline_list_new(),
+    erlang:display(provpipeline_list_processing()),
     % checks that goods are reserved for picking and retrieval
     [{"a0004",36,17,19,0},{"a0005",71,0,61,10},{"a0003",10,10,0,0}] = mypl_db_query:count_products(),
     
-    unfinished = is_provisioned(lieferschein1),
-    unfinished = commit_retrievallist(R1id),
-    unfinished = is_provisioned(lieferschein1),
-    provisioned = commit_picklist(P2id),
-    provisioned = is_provisioned(lieferschein1),
+    unfinished = is_provisioned(lieferschein2),
+    unfinished = commit_retrievallist(R2id),
+    unfinished = is_provisioned(lieferschein2),
+    % provisioned = commit_picklist(P2id),
+    % provisioned = is_provisioned(lieferschein2),
     provisioned = commit_picklist(P3id),
     provisioned = commit_picklist(P4id),
-    provisioned = commit_picklist(P5id),
     mark_as_finished(lieferschein1),
     mark_as_finished(lieferschein2),
     mark_as_finished(lieferschein3),
     mark_as_finished(lieferschein4),
     % check that goods are removed from warehouse now
-    [{"a0004",17,17,0,0},{"a0005",0,0,0,0},{"a0003",10,10,0,0}] = mypl_db_query:count_products(),
+    %[{"a0004",17,17,0,0},{"a0005",0,0,0,0},{"a0003",10,10,0,0}] = mypl_db_query:count_products(),
     ok.
     
     

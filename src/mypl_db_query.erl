@@ -173,21 +173,22 @@ location_info(Locname) ->
     Fun = fun() ->
         case mypl_db_util:read_location(Locname) of
             unknown_location ->
-                unknown_location;
+                {error, unknown_location};
             Location ->
-                {{name,          Location#location.name},
-                 {height,        Location#location.height},
-                 {floorlevel,    Location#location.floorlevel},
-                 {preference,    Location#location.preference},
-                 {info,          Location#location.info},
-                 {attributes,    Location#location.attributes},
-                 {allocated_by,  Location#location.allocated_by},
-                 {reserved_for,  Location#location.reserved_for}
-                }
+                {ok, 
+                 {{name,          Location#location.name},
+                  {height,        Location#location.height},
+                  {floorlevel,    Location#location.floorlevel},
+                  {preference,    Location#location.preference},
+                  {info,          Location#location.info},
+                  {attributes,    Location#location.attributes},
+                  {allocated_by,  Location#location.allocated_by},
+                  {reserved_for,  Location#location.reserved_for}
+                 }}
         end
     end,
     {atomic, Ret} = mnesia:transaction(Fun),
-    {ok, Ret}.
+    Ret.
     
 
 %% @spec movement_list() -> [mypl_db:movementID()]
@@ -340,7 +341,7 @@ mypl_simple_counting_test() ->
     [] = open_movements_for_product("a0004"),
     [{"a0003",10,10,0,0},{"a0004",18,18,0,0},{"a0005",94,94,0,0}] = lists:sort(count_products()),
     
-    location_info("GIBTSNICHT"),
+    {error,unknown_location} = location_info("GIBTSNICHT"),
     ok.
 
 testrunner() ->
