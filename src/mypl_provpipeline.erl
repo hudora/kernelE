@@ -94,8 +94,8 @@ proplistlist_to_proplisttuple(L) ->
 %% @doc returns the unprocessed contents of provpipeline in the approximate order in which they will be processed
 provpipeline_list_new() ->
     [format_pipeline_record(X) || X <- sort_provpipeline(mypl_db_util:do_trans(
-                                       qlc:q([X || X <- mnesia:table(provpipeline),
-                                                   X#provpipeline.status =:= new])))].
+                                           qlc:q([X || X <- mnesia:table(provpipeline),
+                                                       X#provpipeline.status =:= new])))].
     
 
 %% 
@@ -107,12 +107,15 @@ provpipeline_list_prepared() ->
 %% processing
 provpipeline_list_processing() ->
     mypl_db_util:do_trans(qlc:q([format_pipeline_record(X) || X <- mnesia:table(provpipeline),
-                                      X#provpipeline.status =:= processing])).
+                                                              X#provpipeline.status =:= processing])).
     
 
 format_pipeline_record(Record) ->
     {Record#provpipeline.id,
-     [{tries, Record#provpipeline.tries}|Record#provpipeline.attributes],
+     [{tries, Record#provpipeline.tries},
+      {weigth, Record#provpipeline.weigth},
+      {volume, Record#provpipeline.volume},
+      {priority, Record#provpipeline.priority}] ++ Record#provpipeline.attributes,
      Record#provpipeline.orderlines
     }.
     
@@ -343,10 +346,10 @@ sort_provpipeline(Records) ->
 % @private
 % creates a key for sorting
 sort_provpipeline_helper(Record) ->
-    {100 - Record#provpipeline.priority, % higher priorities mean lower values mean beeing sorted first
-     % concat versandtermin and liefertermin so if no versandtermin is set we sort by liefertermin
+    {% concat versandtermin and liefertermin so if no versandtermin is set we sort by liefertermin
      proplists:get_value(versandtermin, Record#provpipeline.attributes, "") ++
      proplists:get_value(liefertermin,  Record#provpipeline.attributes, ""), 
+     100 - Record#provpipeline.priority, % higher priorities mean lower values mean beeing sorted first
      Record#provpipeline.tries,
      proplists:get_value(kernel_customer, Record#provpipeline.attributes, "99999")
     }.
@@ -511,19 +514,19 @@ mypl_simple_test() ->
     [] = provpipeline_list_prepared(),
     
     % fill it up!
-    insert_pipeline([lieferschein1, [{10, "a0005", []}, {1,  "a0004", []}], 3, "kunde01", 0, 0, []]),
+    insert_pipeline([lieferschein1, [{10, "a0005", []}, {1,  "a0004", []}], 3, "kunde01", 0, 0, [{liefertermin, "2007-12-13"}, {versandtermin, "2007-12-13"}]]),
     insert_pipeline([lieferschein2, [{10, "a0005", []}, {1,  "a0004", []}], 3, "kunde02", 0, 0, []]),
     insert_pipeline([lieferschein3, [{50, "a0005", []}, {16, "a0004", []}], 4, "kunde02", 0, 0, []]),
     insert_pipeline([lieferschein4, [{1,  "a0005", []}, {1,  "a0004", []}], 1, "kunde03", 0, 0, []]),
     
     [] = provpipeline_list_prepared(),
-    [{lieferschein4,[{tries,0},{kernel_customer,"kunde03"},{weigth,0},{volume,0},{priority,1}],
-      [{ 1,"a0005",[]},{ 1,"a0004",[]}]},
-     {lieferschein3,_,[{50,"a0005",[]},{16,"a0004",[]}]},
+    [{lieferschein4,_,[{ 1,"a0005",[]},{ 1,"a0004",[]}]},
      {lieferschein2,_,[{10,"a0005",[]},{ 1,"a0004",[]}]},
-     {lieferschein1,_,[{10,"a0005",[]},{ 1,"a0004",[]}]}] = provpipeline_list_new(),
+     {lieferschein1,_,[{10,"a0005",[]},{ 1,"a0004",[]}]},
+     {lieferschein3,_,[{50,"a0005",[]},{16,"a0004",[]}]}] = provpipeline_list_new(),
     
     P4 = get_picklists(),
+    erlang:display(P4),
     [{P4id,lieferschein4,"AUSLAG",_,1,[{_,mui4,"010201",1,"a0004",[]},
                                        {_,mui5,"010301",1,"a0005",[]}]}] = P4,
     P2 = get_picklists(),
