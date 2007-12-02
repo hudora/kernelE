@@ -250,7 +250,8 @@ class Kerneladapter:
     
     @nice_exception
     def movement_info(self, name):
-        """
+        """Liefert Informationen zu einem Movement.
+        
         >>> import kernelE
         >>> k = kernelE.Kerneladapter_mock()
         >>> k.movement_info('m1195651098.535517')
@@ -280,6 +281,22 @@ class Kerneladapter:
         return [e2string(x) for x in self._read_json(220)]
     
     
+    @nice_exception
+    def pick_info(self, name):
+        """Liefert Informationen zu einem Pick.
+        
+        >>> import kernelE
+        >>> k = kernelE.Kerneladapter_mock()
+        >>> k.pick_info('p1195651098.535517')
+        {u'to_location': '212402', u'from_location': '012801', u'created_at': datetime.datetime(2007, 11, 21, 13, 18, 18, 538711), u'attributes': [], u'mui': '012801|30.0|10106|340059981000000463', u'id': 'm1195651098.535517'}
+        """
+        self._send("pick_info %s" % name)
+        ok, d = self._read_json(220)
+        d = attributelist2dict_str(d)
+        d['created_at'] = e2datetime(d['created_at'])
+        return d
+        
+
     @nice_exception
     def pick_list(self):
         """Liefert eine Liste aller (offenen) Picks.
