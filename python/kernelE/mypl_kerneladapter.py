@@ -234,6 +234,12 @@ class Kerneladapter:
         return data
     
     @nice_exception
+    def unit_list(self):
+        """Returns a list of all MUIs"""
+        self._send("unit_list")
+        return [e2string(x) for x in self._read_json(220)]
+
+    @nice_exception
     def unit_info(self, name):
         """
         >>> import kernelE
