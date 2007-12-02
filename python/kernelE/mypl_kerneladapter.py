@@ -481,7 +481,17 @@ class Kerneladapter:
         parameters = (str(cid), newOrderlines, int(priority), unicode(customer).encode('utf-8'),
                            int(weigth), float(volume), attributes.items())
         self._send("insert_pipeline %s" % (simplejson.dumps(parameters)))
+        
     
+    @nice_exception
+    def provpipeline_list_new(new):
+        """Returns the unprocessed contents of provpipeline.
+        
+        Entries are in the approximate order in which they will be processed."""
+        self._send("get_picklists")
+        ret = self._read_json(220)
+        return ret
+        
     
     @nice_exception
     def get_picklists(self):

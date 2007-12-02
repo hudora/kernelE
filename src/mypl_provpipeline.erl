@@ -91,10 +91,11 @@ proplistlist_to_proplisttuple(L) ->
                   {Name, Value} end, L).
     
 
-%% @doc returns the contents of provpipeline
+%% @doc returns the unprocessed contents of provpipeline in the approximate order in which they will be processed
 provpipeline_list_new() ->
-    mypl_db_util:do_trans(qlc:q([format_pipeline_record(X) || X <- mnesia:table(provpipeline),
-                                      X#provpipeline.status =:= new])).
+    [format_pipeline_record(X) || X <- sort_provpipeline(mypl_db_util:do_trans(
+                                       qlc:q([X || X <- mnesia:table(provpipeline),
+                                                   X#provpipeline.status =:= new])))].
     
 
 %% 

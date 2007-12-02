@@ -1,11 +1,7 @@
 %% @version 0.2
-%%%-------------------------------------------------------------------
 %%% File    : mypl_util
 %%% Author  : Maximillian Dornseif
-%%% Description : 
-%%%
 %%% Created :  Created by Maximillian Dornseif on 2007-10-03.
-%%%-------------------------------------------------------------------
 -module(mypl_util).
 
 %% API

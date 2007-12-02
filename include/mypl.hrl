@@ -68,6 +68,7 @@
             }).
 
 
+% list of the already given out provisioninglist entries
 -record(provisioninglist,
             {id,
              type,

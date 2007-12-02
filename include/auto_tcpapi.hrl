@@ -179,6 +179,9 @@ handle_command("is_provisioned", _Parameters, State) ->
     [CId] = Tokens,
     NewCId = convertString(CId),
     {noreply, reply(220, rfc4627:encode(mypl_server:is_provisioned(NewCId)), reset_buffers(State))};
+handle_command("provpipeline_list_new", _Parameters, State) ->
+    % implementation for provpipeline_list_new,
+    {noreply, reply(220, rfc4627:encode(mypl_server:provpipeline_list_new()), reset_buffers(State))};
 handle_command("get_articleaudit", _Parameters, State) ->
     % implementation for get_articleaudit,
     Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
@@ -229,6 +232,7 @@ commit_picklist CId
 commit_retrievallist CId
 commit_movementlist CId
 is_provisioned CId
+provpipeline_list_new 
 get_articleaudit Product
 get_abc 
 make_oid 
