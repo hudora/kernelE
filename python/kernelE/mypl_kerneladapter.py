@@ -350,7 +350,10 @@ class Kerneladapter:
         """Get ABC Klassification."""
         self._send("get_abc")
         ret = self._read_json(220)
-        return ret
+        out = []
+        for klass in ret:
+            out.append([(x[0], e2string(x[1])) for x in klass])
+        return out
         
     
     @nice_exception
