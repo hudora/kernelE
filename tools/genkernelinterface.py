@@ -30,33 +30,31 @@ funcdefs = [
 
 ('mypl_db_query', 'count_product', 'Product', []),
 ('mypl_db_query', 'count_products', '', ['async']),
-('mypl_db_query', 'unit_list', '', []),
+('mypl_db_query', 'unit_list', '', ['async']),
 ('mypl_db_query', 'unit_info', 'Mui', []),
-('mypl_db_query', 'location_list', '', []),
+('mypl_db_query', 'location_list', '', ['async']),
 ('mypl_db_query', 'location_info', 'Locname', []),
-('mypl_db_query', 'movement_list', '', []),
+('mypl_db_query', 'movement_list', '', ['async']),
 ('mypl_db_query', 'movement_info', 'MovementId', []),
-('mypl_db_query', 'pick_list', '', []),
+('mypl_db_query', 'pick_list', '', ['async']),
 ('mypl_db_query', 'pick_info', 'PickId', []),
-
-('mypl_audit', 'get_articleaudit', 'Product', []),
 
 ('mypl_provisioning', 'find_provisioning_candidates', 'Quantity, Product', ['async']),
 ('mypl_provisioning', 'find_provisioning_candidates_multi', 'JsonList', ['async']),
 ('mypl_provisioning', 'init_provisionings_multi', 'JsonList', ['async']),
 
 ('mypl_provpipeline', 'insert_pipeline', 'JsonList', []),
-('mypl_provpipeline', 'get_picklists', '', []),
-('mypl_provpipeline', 'get_retrievallists', '', []),
+('mypl_provpipeline', 'get_picklists', '', ['async']),
+('mypl_provpipeline', 'get_retrievallists', '', ['async']),
+('mypl_provpipeline', 'get_movementlist', '', ['async']),
 ('mypl_provpipeline', 'commit_picklist', 'CId', []),
 ('mypl_provpipeline', 'commit_retrievallist', 'CId', []),
-('mypl_provpipeline', 'get_movementlist', '', []),
 ('mypl_provpipeline', 'commit_movementlist', 'CId', []),
 ('mypl_provpipeline', 'is_provisioned', 'CId', []),
 
-('mypl_movements', 'create_automatic_movements', '', ['async']),
+('mypl_audit', 'get_articleaudit', 'Product', ['async']),
 
-('mypl_oracle', 'init_dayforcast', 'JsonList', []),
+('mypl_abcserver', 'get_abc', '', ['async']),
 
 ('mypl_nveserver', 'make_oid', '', []),
 ('mypl_nveserver', 'make_nve', '', []),

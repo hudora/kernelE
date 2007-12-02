@@ -127,12 +127,6 @@ handle_command("pick_info", _Parameters, State) ->
     [PickId] = Tokens,
     NewPickId = convertString(PickId),
     {noreply, reply(220, rfc4627:encode(mypl_server:pick_info(NewPickId)), reset_buffers(State))};
-handle_command("get_articleaudit", _Parameters, State) ->
-    % implementation for get_articleaudit,
-    Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
-    [Product] = Tokens,
-    NewProduct = convertString(Product),
-    {noreply, reply(220, rfc4627:encode(mypl_server:get_articleaudit(NewProduct)), reset_buffers(State))};
 handle_command("find_provisioning_candidates", _Parameters, State) ->
     % implementation for find_provisioning_candidates,
     Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
@@ -158,6 +152,9 @@ handle_command("get_picklists", _Parameters, State) ->
 handle_command("get_retrievallists", _Parameters, State) ->
     % implementation for get_retrievallists,
     {noreply, reply(220, rfc4627:encode(mypl_server:get_retrievallists()), reset_buffers(State))};
+handle_command("get_movementlist", _Parameters, State) ->
+    % implementation for get_movementlist,
+    {noreply, reply(220, rfc4627:encode(mypl_server:get_movementlist()), reset_buffers(State))};
 handle_command("commit_picklist", _Parameters, State) ->
     % implementation for commit_picklist,
     Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
@@ -170,9 +167,6 @@ handle_command("commit_retrievallist", _Parameters, State) ->
     [CId] = Tokens,
     NewCId = convertString(CId),
     {noreply, reply(220, rfc4627:encode(mypl_server:commit_retrievallist(NewCId)), reset_buffers(State))};
-handle_command("get_movementlist", _Parameters, State) ->
-    % implementation for get_movementlist,
-    {noreply, reply(220, rfc4627:encode(mypl_server:get_movementlist()), reset_buffers(State))};
 handle_command("commit_movementlist", _Parameters, State) ->
     % implementation for commit_movementlist,
     Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
@@ -185,13 +179,15 @@ handle_command("is_provisioned", _Parameters, State) ->
     [CId] = Tokens,
     NewCId = convertString(CId),
     {noreply, reply(220, rfc4627:encode(mypl_server:is_provisioned(NewCId)), reset_buffers(State))};
-handle_command("create_automatic_movements", _Parameters, State) ->
-    % implementation for create_automatic_movements,
-    {noreply, reply(220, rfc4627:encode(mypl_server:create_automatic_movements()), reset_buffers(State))};
-handle_command("init_dayforcast", _Parameters, State) ->
-    % implementation for init_dayforcast,
-    {ok, NewJsonList, _} = rfc4627:decode(_Parameters),
-    {noreply, reply(220, rfc4627:encode(mypl_server:init_dayforcast(NewJsonList)), reset_buffers(State))};
+handle_command("get_articleaudit", _Parameters, State) ->
+    % implementation for get_articleaudit,
+    Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
+    [Product] = Tokens,
+    NewProduct = convertString(Product),
+    {noreply, reply(220, rfc4627:encode(mypl_server:get_articleaudit(NewProduct)), reset_buffers(State))};
+handle_command("get_abc", _Parameters, State) ->
+    % implementation for get_abc,
+    {noreply, reply(220, rfc4627:encode(mypl_server:get_abc()), reset_buffers(State))};
 handle_command("make_oid", _Parameters, State) ->
     % implementation for make_oid,
     {noreply, reply(220, rfc4627:encode(mypl_server:make_oid()), reset_buffers(State))};
@@ -222,20 +218,19 @@ movement_list
 movement_info MovementId
 pick_list 
 pick_info PickId
-get_articleaudit Product
 find_provisioning_candidates Quantity,Product
 find_provisioning_candidates_multi JsonList
 init_provisionings_multi JsonList
 insert_pipeline JsonList
 get_picklists 
 get_retrievallists 
+get_movementlist 
 commit_picklist CId
 commit_retrievallist CId
-get_movementlist 
 commit_movementlist CId
 is_provisioned CId
-create_automatic_movements 
-init_dayforcast JsonList
+get_articleaudit Product
+get_abc 
 make_oid 
 make_nve ", reset_buffers(State))};
 handle_command("quit", _ClientDomain, State) -> {stop, normal, reply(201, "Goodbye", reset_buffers(State))};

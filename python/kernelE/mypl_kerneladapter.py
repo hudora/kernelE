@@ -8,14 +8,14 @@ Copyright (c) 2007 HUDORA GmbH. All rights reserved.
 """
 
 
-import unittest
-import socket, uuid, simplejson, pickle, datetime, time, types, sys
+import socket, simplejson, datetime, time, types, sys
 
 DEBUG = True
 
 def e2string(data):
+    """Turn an Erlang String into a Python string."""
     # if we got a list of numbers turn it into a string
-    if data and data[0] and type(data[0]) == types.IntType: # type(17) == Integer
+    if data and data[0] and type(data[0]) == types.IntType:
         return ''.join([chr(x) for x in data])
     if data == []:
         return ''
@@ -23,9 +23,10 @@ def e2string(data):
 
 
 def e2datetime(data):
-    date, time = data[:2]
-    year, month, day = date
-    hour, minute, second = time
+    """Convert a Erlang Tmestamp into a Python datetime object."""
+    mydate, mytime = data[:2]
+    year, month, day = mydate
+    hour, minute, second = mytime
     if len(data) == 2:
         return datetime.datetime(year, month, day, hour, minute, second)
     if len(data) == 3:
@@ -104,11 +105,13 @@ def nice_exception(func):
 
 
 class Kerneladapter:
+    """Interacting thit kernelE Erlang Node."""
     def __init__(self):
         self.host = 'airvent.local.hudora.biz'
         self.port = 1919
         self.connected = False
         self.debug = False
+        self.sock = False
     
     def __del__(self):
         if self.connected:
@@ -125,12 +128,14 @@ class Kerneladapter:
                 raise RuntimeError, "Error reading header: %r" % header
     
     def _read(self):
+        """Read Date from the Server stripping of newlines.s"""
         data = self.sock.makefile().readline().strip()
         if self.debug:
             print "<<<", data
         return data
     
     def _read_json(self, code):
+        """Read data from the server and decode it as JSON entry."""
         data = self._read()
         codestr = "%d " % code
         if not data.startswith(codestr):
@@ -139,6 +144,7 @@ class Kerneladapter:
         return simplejson.loads(data)
     
     def _read_code(self, code):
+        """Read data from the server and check the return code."""
         data = self._read()
         codestr = "%d " % code
         if not data.startswith(codestr):
@@ -146,6 +152,7 @@ class Kerneladapter:
         return data[4:]
     
     def _send(self, line):
+        """Dend data to the server."""
         self._init_connection()
         if self.debug:
             print ">>>", line
@@ -178,7 +185,8 @@ class Kerneladapter:
         
         self._send("count_products")
         ret = self._read_json(220)
-        return [(e2string(product), fmenge, amenge, rmenge, pmenge) for (product, fmenge, amenge, rmenge, pmenge) in ret]
+        return [(e2string(product), fmenge, amenge, rmenge, pmenge) for (product, fmenge, amenge,
+                                                                         rmenge, pmenge) in ret]
         
     
     @nice_exception
@@ -188,8 +196,8 @@ class Kerneladapter:
         self._send("get_articleaudit %s" % (product,))
         ret = self._read_json(220)
         out = []
-        for d in ret:
-            out.append(attributelist2dict_str(d))
+        for data in ret:
+            out.append(attributelist2dict_str(data))
         return out
         
     
@@ -216,12 +224,12 @@ class Kerneladapter:
         """
         
         self._send("location_info %s" % name)
-        ok, d = self._read_json(220)
-        d = attributelist2dict(d, ['name'])
-        d['allocated_by'] = [e2string(x) for x in d['allocated_by']]
-        d['reserved_for'] = [e2string(x) for x in d['reserved_for']]
-        d['info'] = e2string(d['info'])
-        return d
+        ok, data = self._read_json(220)
+        data = attributelist2dict(data, ['name'])
+        data['allocated_by'] = [e2string(x) for x in data['allocated_by']]
+        data['reserved_for'] = [e2string(x) for x in data['reserved_for']]
+        data['info'] = e2string(data['info'])
+        return data
     
     @nice_exception
     def unit_info(self, name):
@@ -233,12 +241,12 @@ class Kerneladapter:
         """
         
         self._send("unit_info %s" % name)
-        ok, d = self._read_json(220)
-        d = attributelist2dict(d, ['mui', 'product', 'location'])
-        d['movements'] = [e2string(x) for x in d['movements']]
-        d['picks'] = [e2string(x) for x in d['picks']]
-        d['created_at'] = e2datetime(d['created_at'])
-        return d
+        ok, data = self._read_json(220)
+        data = attributelist2dict(data, ['mui', 'product', 'location'])
+        data['movements'] = [e2string(x) for x in data['movements']]
+        data['picks'] = [e2string(x) for x in data['picks']]
+        data['created_at'] = e2datetime(data['created_at'])
+        return data
     
     @nice_exception
     def movement_info(self, name):
@@ -249,10 +257,10 @@ class Kerneladapter:
         {u'to_location': '212402', u'from_location': '012801', u'created_at': datetime.datetime(2007, 11, 21, 13, 18, 18, 538711), u'attributes': [], u'mui': '012801|30.0|10106|340059981000000463', u'id': 'm1195651098.535517'}
         """
         self._send("movement_info %s" % name)
-        ok, d = self._read_json(220)
-        d = attributelist2dict_str(d)
-        d['created_at'] = e2datetime(d['created_at'])
-        return d
+        ok, data = self._read_json(220)
+        data = attributelist2dict_str(data)
+        data['created_at'] = e2datetime(data['created_at'])
+        return data
         
     
     @nice_exception
@@ -288,9 +296,12 @@ class Kerneladapter:
     
     @nice_exception
     def init_location(self, name, height=1950, floorlevel=False, preference=5, info='', attributes=[]):
+        """Init a location by creating it or by updating it."""
         name = name.replace(',','').replace('\n','').replace('\r','')
         info = info.replace(',',' ').replace('\n','').replace('\r','')
-        if not info: info = ' ' # the tokenizer used in kernelE can't handle 'foo,,bar', only 'foo, ,bar'
+        if not info:
+            # the tokenizer used in kernelE can't handle 'foo,,bar', only 'foo, ,bar'
+            info = ' '
         # attributes are not implemented so far
         self._send("init_location %s,%d,%r,%d,%s,[]" % (name, height, floorlevel, preference, info))
         return self._read_code(220)
@@ -309,12 +320,23 @@ class Kerneladapter:
     
     @nice_exception
     def make_nve(self):
+        """Generate a NVE/SSCC."""
         self._send("make_nve")
         ret = self._read_json(220)
         return e2string(ret)
+        
+    
+    @nice_exception
+    def get_abc(self):
+        """Get ABC Klassification."""
+        self._send("get_abc")
+        ret = self._read_json(220)
+        return ret
+        
     
     @nice_exception
     def store_at_location(self, name, quantity, artnr, mui=None, height=1950):
+        """Store Procucts at a certain Location."""
         if mui == None:
             mui = "%s" % (self.make_nve())
         name = name.replace(',','').replace('\n','').replace('\r','')
@@ -326,6 +348,7 @@ class Kerneladapter:
     
     @nice_exception
     def retrieve(self, mui):
+        """Retrieve a Unit from the Warehouse making in vanish."""
         mui = mui.replace(',','').replace('\n','').replace('\r','')
         self._send("retrieve %s" % (mui,))
         ok, ret = self._read_json(220)
@@ -335,6 +358,7 @@ class Kerneladapter:
     
     @nice_exception
     def find_provisioning_candidates(self, quantity, artnr):
+        """Find Units from which a provisioning could be done."""
         artnr = artnr.replace(',','').replace('\n','').replace('\r','')
         self._send("find_provisioning_candidates %d,%s" % (quantity, artnr))
         ret = self._read_json(220)
@@ -344,9 +368,11 @@ class Kerneladapter:
             picks = [(x[0], e2string(x[1])) for x in picks]
             ret = (ok, retrievals, picks)
         return ret
+        
     
     @nice_exception
     def find_provisioning_candidates_multi(self, poslist):
+        """Find Units from which a provisioning for several products could be done."""
         self._send("find_provisioning_candidates_multi %s" % (simplejson.dumps(poslist)))
         ret = self._read_json(220)
         if ret[0] == 'ok':
@@ -355,58 +381,49 @@ class Kerneladapter:
             picks = [(x[0], e2string(x[1])) for x in picks]
             ret = (ok, retrievals, picks)
         return ret
-    
-    @nice_exception
-    def init_provisionings_multi(self, poslist):
-        self._send("init_provisionings_multi %s" % (simplejson.dumps(poslist)))
-        ret = self._read_json(220)
-        if ret[0] == 'ok':
-            ok, retrievals, picks = ret
-            retrievals = [e2string(x) for x in retrievals]
-            picks = [e2string(x) for x in picks]
-            ret = (ok, retrievals, picks)
-        return ret
+        
     
     @nice_exception
     def commit_movement(self, movementid):
+        """Commit a single Movement."""
         self._send("commit_movement %s" % (movementid))
         return self._read_json(220)
+        
     
     @nice_exception
     def rollback_movement(self, movementid):
+        """Rollback a single Movement."""
         self._send("rollback_movement %s" % (movementid))
         return self._read_json(220)
+        
     
     @nice_exception
     def commit_retrieval(self, movementid):
+        """Commit a single Retrieval."""
         self._send("commit_retrieval %s" % (movementid))
         return self._read_json(220)
+        
     
     @nice_exception
     def rollback_retrieval(self, movementid):
+        """Rollback a single Retrieval."""
         self._send("rollback_retrieval %s" % (movementid))
         return self._read_json(220)
+        
     
     @nice_exception
     def commit_pick(self, pickid):
+        """Commit a single Pick."""
         self._send("commit_pick %s" % (pickid))
         return self._read_json(220)
+        
     
     @nice_exception
     def rollback_pick(self, pickid):
+        """Rollback a single pick."""
         self._send("rollback_pick %s" % (pickid))
         return self._read_json(220)
-    
-    @nice_exception
-    def create_automatic_movements(self):
-        self._send("create_automatic_movements")
-        ret = self._read_json(220)
-        ok, movements = ret
-        ret = []
-        for movement in movements:
-            ok, movementid = movement
-            ret.append(e2string(movementid))
-        return ret
+        
     
     @nice_exception
     def insert_pipeline(self, cid, orderlines, priority, customer, weigth, volume, attributes):
@@ -498,12 +515,14 @@ class Kerneladapter:
                 source = e2string(source)
                 product = e2string(product)
                 poslist.append((posId, nve, source, quantity, product, attributelist2dict_str(posattributes)))
-            out.append((retrievalListId, cId, destination, parts, attributelist2dict_str(attributes), poslist))
+            out.append((retrievalListId, cId, destination, parts,
+                        attributelist2dict_str(attributes), poslist))
         return out
         
     
     @nice_exception
     def get_movementlist(self):
+        """Get one or more Movements from the Server."""
         self._send("get_movementlist")
         ret = self._read_json(220)
         if ret == 'nothing_available':
@@ -516,12 +535,14 @@ class Kerneladapter:
     
     @nice_exception
     def commit_picklist(self, cId):
+        """Commits a Picklist thus marking int as done."""
         self._send("commit_picklist %s" % (cId,))
         ret = self._read_json(220)
         return ret
     
     @nice_exception
     def commit_retrievallist(self, cId):
+        """Commits a Retrievallist thus marking int as done."""
         self._send("commit_retrievallist %s" % (cId,))
         ret = self._read_json(220)
         return ret

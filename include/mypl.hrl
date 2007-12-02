@@ -57,14 +57,25 @@
 % orders to be provisioned
 -record(provpipeline,
             {id,
-             priority,
+             priority,          % the higher the number the higher the priority
              orderlines,
              weigth,
              volume,
-             status,          % new, processing, provisioned
-             tries,           % how often we tried to find a match for that pick
-             provisioninglists,
-             attributes
+             status,            % new, processing, provisioned
+             tries,             % how often we tried to find a match for that pick
+             provisioninglists, % retrievallists and picklists
+             attributes         % propertylist
+            }).
+
+
+-record(provisioninglist,
+            {id,
+             type,
+             provpipeline_id,
+             destination,
+             attributes,
+             parts,
+             provisionings
             }).
 
 -record(pickpipeline,

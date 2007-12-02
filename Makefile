@@ -109,6 +109,15 @@ test_build: BUILDOPT = +debug_info -DEUNIT -DLOG_DEBUG -Wall
 
 
 # Compiling
+include/auto_genserverapi.hrl: tools/genkernelinterface.py
+	python tools/genkernelinterface.py
+
+ebin/mypl_server.beam: src/mypl_server.erl include/auto_genserverapi.hrl
+	${CMD_ERLC} ${BUILDOPT} -o ebin $<
+
+ebin/mypl_tcp_session.beam: src/mypl_tcp_session.erl include/auto_tcpapi.hrl
+	${CMD_ERLC} ${BUILDOPT} -o ebin $<
+
 ebin/%.beam : src/%.erl
 	${CMD_ERLC} ${BUILDOPT} -o ebin $<
 
