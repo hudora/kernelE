@@ -197,7 +197,9 @@ class Kerneladapter:
         ret = self._read_json(220)
         out = []
         for data in ret:
-            out.append(attributelist2dict_str(data))
+            ddict = attributelist2dict_str(data)
+            ddict['created_at'] = e2datetime(ddict['created_at'])
+            out.append(ddict)
         return out
         
     
