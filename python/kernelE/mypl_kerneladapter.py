@@ -484,13 +484,44 @@ class Kerneladapter:
         
     
     @nice_exception
-    def provpipeline_list_new(new):
+    def provpipeline_list_new(self):
         """Returns the unprocessed contents of provpipeline.
         
         Entries are in the approximate order in which they will be processed."""
-        self._send("get_picklists")
+        self._send("provpipeline_list_new")
         ret = self._read_json(220)
-        return ret
+        #{'auftragsnummer': 636142,
+        # 'id': '930539',
+        # 'kernel_customer': '16527',
+        # 'liefertermin': '2007-12-05',
+        # 'orderlines': [{'auftragsposition': 1,
+        #                 'gewicht': 0,
+        #                 'product': '24500',
+        #                 'quantity': 30},
+        #                {'auftragsposition': 2,
+        #                 'gewicht': 0,
+        #                 'product': '30950/EK',
+        #                 'quantity': 62},
+        #                {'auftragsposition': 15,
+        #                 'gewicht': 0,
+        #                 'product': '65325',
+        #                 'quantity': 15}],
+        # 'tries': 27}
+        orders = []
+        for order in ret:
+            cid, attributes, orderlines = order
+            data = attributelist2dict_str(attributes)
+            data['id'] = e2string(cid)
+            data['orderlines_count'] = len(orderlines)
+            data['orderlines'] = []
+            for orderline in orderlines:
+                quantity, product, attributes = orderline
+                odata = attributelist2dict_str(attributes)
+                odata['quantity'] = int(quantity)
+                odata['product'] = e2string(product)
+                data['orderlines'].append(odata)
+            orders.append(data)
+        return orders
         
     
     @nice_exception
