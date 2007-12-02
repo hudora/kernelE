@@ -446,8 +446,7 @@ init_pick(Quantity, Mui) when is_integer(Quantity) ->
                 {ok, Pick#pick.id}
         end
     end,
-    {atomic, Ret} = mnesia:transaction(Fun),
-    Ret.
+    mypl_db_util:transaction(Fun).
     
 
 %% @spec commit_pick(pickID()) -> {ok, {Quantity::integer(), Product::string()}}

@@ -244,12 +244,13 @@ pick_info(PickId) ->
             [Pick] -> 
                 Unit = mypl_db_util:mui_to_unit(Pick#pick.from_unit),
                 {ok, 
-                 [{id ,        Pick#pick.id},
-                  {from_unit,  Pick#pick.from_unit},
-                  {quantity,   Pick#pick.quantity},
-                  {product,    Unit#unit.product},
-                  {attributes, []},
-                  {created_at, Pick#pick.created_at}
+                 [{id ,           Pick#pick.id},
+                  {from_unit,     Pick#pick.from_unit},
+                  {from_location, Unit#unit.location},
+                  {quantity,      Pick#pick.quantity},
+                  {product,       Unit#unit.product},
+                  {attributes,    []},
+                  {created_at,    Pick#pick.created_at}
                  ]}
         end
     end,
