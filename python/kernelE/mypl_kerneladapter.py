@@ -483,6 +483,24 @@ class Kerneladapter:
         self._send("insert_pipeline %s" % (simplejson.dumps(parameters)))
         
     
+    def _format_provpipeline(self, ret):
+        orders = []
+        for order in ret:
+            cid, attributes, orderlines = order
+            data = attributelist2dict_str(attributes)
+            data['id'] = e2string(cid)
+            data['orderlines_count'] = len(orderlines)
+            data['orderlines'] = []
+            for orderline in orderlines:
+                quantity, product, attributes = orderline
+                odata = attributelist2dict_str(attributes)
+                odata['quantity'] = int(quantity)
+                odata['product'] = e2string(product)
+                data['orderlines'].append(odata)
+            orders.append(data)
+        return orders
+        
+    
     @nice_exception
     def provpipeline_list_new(self):
         """Returns the unprocessed contents of provpipeline.
@@ -507,20 +525,18 @@ class Kerneladapter:
         #                 'product': '65325',
         #                 'quantity': 15}],
         # 'tries': 27}
-        orders = []
-        for order in ret:
-            cid, attributes, orderlines = order
-            data = attributelist2dict_str(attributes)
-            data['id'] = e2string(cid)
-            data['orderlines_count'] = len(orderlines)
-            data['orderlines'] = []
-            for orderline in orderlines:
-                quantity, product, attributes = orderline
-                odata = attributelist2dict_str(attributes)
-                odata['quantity'] = int(quantity)
-                odata['product'] = e2string(product)
-                data['orderlines'].append(odata)
-            orders.append(data)
+        orders = self._format_provpipeline(ret)
+        return orders
+        
+    
+    @nice_exception
+    def provpipeline_list_processing(self):
+        """Returns the contents of provpipeline currently being processed.
+        
+        Entries are in the approximate order in which they will be processed."""
+        self._send("provpipeline_list_processing")
+        ret = self._read_json(220)
+        orders = self._format_provpipeline(ret)
         return orders
         
     

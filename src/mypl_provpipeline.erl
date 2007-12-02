@@ -9,7 +9,7 @@
 -include("mypl.hrl").
 
 %% API
--export([insert_pipeline/1, provpipeline_list_new/0, delete/1,
+-export([insert_pipeline/1, provpipeline_list_new/0, provpipeline_list_processing/0, delete/1,
          get_picklists/0, get_retrievallists/0, get_movementlist/0,
          commit_picklist/1, commit_retrievallist/1, commit_movementlist/1,
          is_provisioned/1, run_me_once/0]).
@@ -68,6 +68,7 @@ insert_pipeline([CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes
                                                         {Quantity, Product, OlAttributes};
                                                     ([Quantity, Product, OlAttributes]) -> 
                                                         {Quantity, Product, OlAttributes} end, Orderlines)},
+    % TODO: ensure only 'new' entries are overwritten
     mypl_db_util:transaction(fun() -> mnesia:write(PPline) end),
     [mypl_requesttracker:in(Quantity, Product) || {Quantity, Product, _} <- PPline#provpipeline.orderlines],
     ok.
@@ -108,8 +109,9 @@ provpipeline_list_prepared() ->
 
 %% processing
 provpipeline_list_processing() ->
-    mypl_db_util:do_trans(qlc:q([format_pipeline_record(X) || X <- mnesia:table(provpipeline),
-                                                              X#provpipeline.status =:= processing])).
+    [format_pipeline_record(X) || X <- sort_provpipeline(mypl_db_util:do_trans(
+                                           qlc:q([X || X <- mnesia:table(provpipeline),
+                                                       X#provpipeline.status =:= processing])))].
     
 
 format_pipeline_record(Record) ->
@@ -517,10 +519,10 @@ mypl_simple_test() ->
     [] = provpipeline_list_prepared(),
     
     % fill it up!
-    insert_pipeline([lieferschein1, [{10, "a0005", []}, {1,  "a0004", []}], 3, "kunde01", 0, 0, [{liefertermin, "2007-12-13"}, {versandtermin, "2007-12-13"}]]),
-    insert_pipeline([lieferschein2, [{10, "a0005", []}, {1,  "a0004", []}], 3, "kunde02", 0, 0, []]),
-    insert_pipeline([lieferschein3, [{50, "a0005", []}, {16, "a0004", []}], 4, "kunde02", 0, 0, []]),
-    insert_pipeline([lieferschein4, [{1,  "a0005", []}, {1,  "a0004", []}], 1, "kunde03", 0, 0, []]),
+    insert_pipeline([lieferschein1, [{10, "a0005", []}, {1,  "a0004", []}], 3, "kunde01", 0, 0, [{liefertermin, "2007-12-15"}, {versandtermin, "2007-12-14"}]]),
+    insert_pipeline([lieferschein2, [{10, "a0005", []}, {1,  "a0004", []}], 3, "kunde02", 0, 0, [{liefertermin, "2007-12-13"}, {versandtermin, "2007-12-16"}]]),
+    insert_pipeline([lieferschein3, [{50, "a0005", []}, {16, "a0004", []}], 4, "kunde02", 0, 0, [{liefertermin, "2007-12-17"}, {versandtermin, "2007-12-18"}]]),
+    insert_pipeline([lieferschein4, [{1,  "a0005", []}, {1,  "a0004", []}], 1, "kunde03", 0, 0, [{liefertermin, "2007-12-10"}, {versandtermin, "2007-12-18"}]]),
     
     [] = provpipeline_list_prepared(),
     [{lieferschein4,_,[{ 1,"a0005",[]},{ 1,"a0004",[]}]},
