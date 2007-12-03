@@ -58,10 +58,7 @@ insert_pipeline({CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes
     insert_pipeline([CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes]);
 insert_pipeline([CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes]) ->
     PPline = #provpipeline{id=CId, priority=Priority, weigth=Weigth, volume=Volume,
-                           attributes=[{kernel_customer, Customer},
-                                       {weigth, Weigth},
-                                       {volume, Volume},
-                                       {priority, Priority}] ++ proplistlist_to_proplisttuple(Attributes),
+                           attributes=[{kernel_customer, Customer}] ++ proplistlist_to_proplisttuple(Attributes),
                            provisioninglists=[], tries=0, status=new,
                            % normalize on tuples instead of lists
                            orderlines=lists:map(fun({Quantity, Product, OlAttributes}) -> 
@@ -181,7 +178,7 @@ get_picklists() ->
                         mnesia:write(#provpipeline_processing{id=Id, provpipelineid=PPEntry#provpipeline.id,
                                                               pickids=P#pickpipeline.pickids, retrievalids=[]}),
                         mnesia:write(PPEntry#provpipeline{provisioninglists=[Picklist|PPEntry#provpipeline.provisioninglists]}),
-                        format_picklist(Picklist)
+                        [format_picklist(Picklist)]
                 end
             end,
             mypl_db_util:transaction(Fun)
@@ -502,77 +499,112 @@ test_init() ->
     mypl_db:init_location("010301", 2000, true,  7, []),
     mypl_db:init_location("010302", 2000, false,  7, []),
     mypl_db:init_location("010303", 2000, false,  7, []),
-    ok.
-
-%%% @hidden
-mypl_simple_test() ->
-    test_init(),
+    
     {ok, _} = mypl_db:store_at_location("EINLAG", mui1,  5, "a0003", 1200),
     {ok, _} = mypl_db:store_at_location("010101", mui2,  5, "a0003", 1200),
     {ok, _} = mypl_db:store_at_location("EINLAG", mui3, 17, "a0004", 1200),
     {ok, _} = mypl_db:store_at_location("010201", mui4, 19, "a0004", 1200),
     {ok, _} = mypl_db:store_at_location("010301", mui5, 61, "a0005", 1200),
     {ok, _} = mypl_db:store_at_location("010302", mui6, 10, "a0005", 1200),
-    
+    [{"a0004",36,36,0,0},{"a0005",71,71,0,0},{"a0003",10,10,0,0}] = mypl_db_query:count_products(),
     % provpipeline empty?
     [] = provpipeline_list_new(),
     [] = provpipeline_list_prepared(),
     
     % fill it up!
-    insert_pipeline([lieferschein1, [{10, "a0005", []}, {1,  "a0004", []}], 3, "kunde01", 0, 0, [{liefertermin, "2007-12-15"}, {versandtermin, "2007-12-14"}]]),
-    insert_pipeline([lieferschein2, [{10, "a0005", []}, {1,  "a0004", []}], 3, "kunde02", 0, 0, [{liefertermin, "2007-12-13"}, {versandtermin, "2007-12-16"}]]),
-    insert_pipeline([lieferschein3, [{50, "a0005", []}, {16, "a0004", []}], 4, "kunde02", 0, 0, [{liefertermin, "2007-12-17"}, {versandtermin, "2007-12-18"}]]),
-    insert_pipeline([lieferschein4, [{1,  "a0005", []}, {1,  "a0004", []}], 1, "kunde03", 0, 0, [{liefertermin, "2007-12-10"}, {versandtermin, "2007-12-18"}]]),
+    insert_pipeline([lieferschein1, [{10, "a0005", []}, {1,  "a0004", []}], 3, "kunde01", 0, 0,
+        [{liefertermin, "2007-12-15"}, {versandtermin, "2007-12-14"}]]),
     
+    insert_pipeline([lieferschein2, [{10, "a0005", []}, {1,  "a0004", []}], 3, "kunde02", 0, 0,
+        [{liefertermin, "2007-12-13"}, {versandtermin, "2007-12-16"}]]),
+    
+    insert_pipeline([lieferschein3, [{50, "a0005", []}, {16, "a0004", []}], 4, "kunde02", 0, 0,
+        [{liefertermin, "2007-12-13"}, {versandtermin, "2007-12-16"}]]),
+    
+    insert_pipeline([lieferschein4, [{1,  "a0005", []}, {1,  "a0004", []}], 1, "kunde03", 0, 0,
+        [{liefertermin, "2007-12-10"}]]),
+    
+    ok.
+    
+
+%%% @hidden
+provpipeline_list_test() ->
+    test_init(),
     [] = provpipeline_list_prepared(),
-    [{lieferschein4,_,[{ 1,"a0005",[]},{ 1,"a0004",[]}]},
-     {lieferschein2,_,[{10,"a0005",[]},{ 1,"a0004",[]}]},
+    % lieferschein4 is first because it is the oldest
+    [{lieferschein4,[{tries,0},{weigth,0},{volume,0},{priority,1},
+                     {kernel_customer,"kunde03"},{liefertermin,"2007-12-10"}],
+                    [{1,"a0005",[]},{1,"a0004",[]}]},
+     % lieferschein1 is second because it is the second oldest
      {lieferschein1,_,[{10,"a0005",[]},{ 1,"a0004",[]}]},
-     {lieferschein3,_,[{50,"a0005",[]},{16,"a0004",[]}]}] = provpipeline_list_new(),
+     % lieferschein3 is as old as lieferschein2 but has a higher priority
+     {lieferschein3,_,[{50,"a0005",[]},{16,"a0004",[]}]},
+     % lieferschein2 is the youngest with the owest priority
+     {lieferschein2,_,[{10,"a0005",[]},{ 1,"a0004",[]}]}] = provpipeline_list_new(),
+    ok.
     
+mypl_simple_test() ->
+    test_init(),
     P4 = get_picklists(),
-    erlang:display(P4),
     [{P4id,lieferschein4,"AUSLAG",_,1,[{_,mui4,"010201",1,"a0004",[]},
                                        {_,mui5,"010301",1,"a0005",[]}]}] = P4,
-    P2 = get_picklists(),
-    [{P2id,lieferschein2,"AUSLAG",_,2,[{_,mui4,"010201",1,"a0004",[]}]}] = P2,
     P1 = get_picklists(),
-    [{P1id,lieferschein1,"AUSLAG",_,1,[{_,mui4,"010201",1,"a0004",[]},
-                                       {_,mui5,"010301",10,"a0005",[]}]}] = P1,
+    [{P1id,lieferschein1,"AUSLAG",[{kernel_customer,"kunde01"},
+                                   {liefertermin,"2007-12-15"},
+                                   {versandtermin,"2007-12-14"}],
+     2, [{"P00000249",mui4,"010201",1,"a0004",[]}]}] = P1,
     P3 = get_picklists(),
     [{P3id,lieferschein3,"AUSLAG",_,1,[{_,mui4,"010201",16,"a0004",[]},
                                        {_,mui5,"010301",50,"a0005",[]}]}] = P3,
+    P2 = get_picklists(),
+    [{P2id,lieferschein2,"AUSLAG",_,1,[{_,mui4,"010201",1,"a0004",[]},
+                                       {_,mui5,"010301",10,"a0005",[]}]}] = P2,
     
     % at this time we should have one retrieval prepared
-    erlang:display(provpipeline_list_prepared()),
-    R2 = get_retrievallists(),
-    [{R2id,lieferschein2,"AUSLAG",_,2,[{_,mui6,"010302",10,"a0005",[]}]}] = R2,
+    [{retrievalpipeline,_,lieferschein1,_,_}] = provpipeline_list_prepared(),
     
-    erlang:display(provpipeline_list_prepared()),
+    R1 = get_retrievallists(),
+    [{R1id,lieferschein1,"AUSLAG",_,2,[{_,mui6,"010302",10,"a0005",[]}]}] = R1,
+    
+    
+    
     % provpipeline should be empty now
+    [] = provpipeline_list_prepared(),
     [] = provpipeline_list_new(),
-    erlang:display(provpipeline_list_processing()),
+    [{lieferschein4,[{tries,0},
+                     {weigth,0},
+                     {volume,0},
+                     {priority,1},
+                     {kernel_customer,"kunde03"},
+                     {liefertermin,"2007-12-10"}],
+                    [{1,"a0005",[]},{1,"a0004",[]}]},
+     {lieferschein1,_,[{10,"a0005",[]},{1,"a0004",[]}]},
+     {lieferschein3,_,[{50,"a0005",[]},{16,"a0004",[]}]},
+     {lieferschein2,_,[{10,"a0005",[]},{1,"a0004",[]}]}] = provpipeline_list_processing(),
     % checks that goods are reserved for picking and retrieval
     [{"a0004",36,17,19,0},{"a0005",71,0,61,10},{"a0003",10,10,0,0}] = mypl_db_query:count_products(),
     
-    unfinished = is_provisioned(lieferschein2),
-    unfinished = commit_retrievallist(R2id),
-    unfinished = is_provisioned(lieferschein2),
-    % provisioned = commit_picklist(P2id),
-    % provisioned = is_provisioned(lieferschein2),
+    unfinished = is_provisioned(lieferschein1),
+    unfinished = commit_retrievallist(R1id),
+    unfinished = is_provisioned(lieferschein1),
+    provisioned = commit_picklist(P1id),
+    provisioned = is_provisioned(lieferschein1),
+    provisioned = commit_picklist(P2id),
     provisioned = commit_picklist(P3id),
     provisioned = commit_picklist(P4id),
     mark_as_finished(lieferschein1),
     mark_as_finished(lieferschein2),
     mark_as_finished(lieferschein3),
     mark_as_finished(lieferschein4),
+    
     % check that goods are removed from warehouse now
-    %[{"a0004",17,17,0,0},{"a0005",0,0,0,0},{"a0003",10,10,0,0}] = mypl_db_query:count_products(),
+    [{"a0004",17,17,0,0},{"a0003",10,10,0,0}] = mypl_db_query:count_products(),
     ok.
     
     
 %%% @hidden
 testrunner() ->
+    provpipeline_list_test(),
     mypl_simple_test(),
     ok.
     
