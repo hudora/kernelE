@@ -15,7 +15,8 @@
 -include_lib("stdlib/include/qlc.hrl").
 -include("include/mypl.hrl").
 
--export([find_provisioning_candidates/2,find_provisioning_candidates_multi/1, init_provisionings_multi/1]).
+-export([find_provisioning_candidates/2,find_provisioning_candidates_multi/1,
+         init_provisionings_multi/1, init_provisionings_multi/2]).
 
 
 %%%%
@@ -311,15 +312,16 @@ find_provisioning_candidates_multi(L1) ->
                  lists:flatten([element(3, X) || X <- CandList])}
     end.
     
-%% @spec init_provisionings_multi([{Quantiy::integer(), Product::string()}]) -> 
+%% @spec init_provisionings_multi([{Quantiy::integer(), Product::string()}], Attributes) -> 
 %%       {ok, [mypl_db:movementID()], [mypl_db:pickID()]}
+%%      Attributes = [{name, value}]
 %% @see find_provisioning_candidates/2
 %% @doc calls {@link find_provisioning_candidates/2} for more than a single product.
 %% Takes advantage of multi-processor system.
 %%
 %% Example:
 %% {ok, [MovementID1, MovementID2], [PickId3]} = init_provisionings_multi([{9, "a0009"}, {6, "a0010"}])
-init_provisionings_multi(L) ->
+init_provisionings_multi(L, Attributes) ->
     case find_provisioning_candidates_multi(L) of
         {error, no_fit} ->
             {error, no_fit};
@@ -327,7 +329,8 @@ init_provisionings_multi(L) ->
             % generate provisionings and picks - we use a transaction to ensure either all succedd or all fail
             Fun = fun() ->
                 {ok, lists:map(fun(Mui) -> 
-                                   {ok, MovementId} = mypl_db:init_movement(Mui, "AUSLAG"),
+                                   {ok, MovementId} = mypl_db:init_movement(Mui, "AUSLAG", 
+                                                                            [{type, retrieval}] ++ Attributes),
                                    MovementId
                                end, Retrievals),
                      lists:map(fun({Quantity, Mui}) -> 
@@ -339,6 +342,10 @@ init_provisionings_multi(L) ->
             Ret
     end.
     
+
+%% @see init_provisionings_multi/2
+init_provisionings_multi(L) ->
+    init_provisionings_multi(L, []).
 
 % ~~ Unit tests
 -ifdef(EUNIT).

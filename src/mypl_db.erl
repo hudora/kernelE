@@ -19,7 +19,8 @@
 -export([init_table_info/2, run_me_once/0, init_location/6, init_location/5,store_at_location/5, retrieve/1,
  init_movement/2, init_movement/3, init_movement_to_good_location/1, commit_movement/1, rollback_movement/1,
  commit_retrieval/1, rollback_retrieval/1,
- init_pick/2, commit_pick/1, rollback_pick/1]).
+ init_pick/2, commit_pick/1, rollback_pick/1,
+ backup/0]).
 
 
 init_table_info(Status, TableName) ->
@@ -65,20 +66,33 @@ run_me_once() ->
     init_location("K08",    3000, true,  0, []),
     init_location("K09",    3000, true,  0, []),
     init_location("K10",    3000, true,  0, []),
-    % init_location("K11",    3000, true,  0, []),
-    % init_location("K12",    3000, true,  0, []),
-    % init_location("K13",    3000, true,  0, []),
-    % init_location("K14",    3000, true,  0, []),
-    % init_location("K15",    3000, true,  0, []),
-    % init_location("K16",    3000, true,  0, []),
-    % init_location("K17",    3000, true,  0, []),
-    % init_location("K18",    3000, true,  0, []),
-    % init_location("K19",    3000, true,  0, []),
-    % init_location("K20",    3000, true,  0, []),
+    init_location("K11",    3000, true,  0, []),
+    init_location("K12",    3000, true,  0, []),
+    init_location("K13",    3000, true,  0, []),
+    init_location("K14",    3000, true,  0, []),
+    init_location("K15",    3000, true,  0, []),
+    init_location("K16",    3000, true,  0, []),
+    init_location("K17",    3000, true,  0, []),
+    init_location("K18",    3000, true,  0, []),
+    init_location("K19",    3000, true,  0, []),
+    init_location("K20",    3000, true,  0, []),
     ok.
     
 
-
+backup() ->
+    Tables = [location, unit, movement, pick, reservation],
+    Day = calendar:day_of_the_week(date()),
+    BkName = "Backup-" ++ integer_to_list(Day),
+    CPargs = [{name, BkName},
+              {min, Tables},
+              {allow_remote, false},
+              {ram_overrides_dump, true}],
+    Dir = mnesia:system_info(directory),
+    File = filename:absname_join(Dir, BkName),
+    mnesia:activate_checkpoint(CPargs),
+    mnesia:backup_checkpoint(BkName,File),
+    mnesia:deactivate_checkpoint(BkName).
+    
 
 %%% @type locationName() = string().
 %%%     Unique, human readable name of an location.
