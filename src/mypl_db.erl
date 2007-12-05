@@ -80,9 +80,11 @@ run_me_once() ->
     
 
 backup() ->
-    Tables = [location, unit, movement, pick, reservation],
+    Tables = [location, unit, movement, pick, reservation, abc_pick_detail, archive, articleaudit,
+              auditbuffer, pickpipeline, provisioninglist, provpipeline, provpipeline_processing,
+              retrievalpipeline, unitaudit],
     Day = calendar:day_of_the_week(date()),
-    BkName = "Backup-" ++ integer_to_list(Day),
+    BkName = "Backup-tag-" ++ integer_to_list(Day),
     CPargs = [{name, BkName},
               {min, Tables},
               {allow_remote, false},

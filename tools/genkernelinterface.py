@@ -15,6 +15,7 @@ TIMEOUT = 9999 # timeout parameter in ms fuer gen_server:call/3
 
 # Dies definiert der öffentliche API. Aus dem Code werden die diversen Schnittstellen erstellt
 funcdefs = [
+('mypl_db', 'backup', '', []),
 ('mypl_db', 'init_location', 'Locname, Height, Floorlevel, Preference, Info, Attributes', []),
 ('mypl_db', 'store_at_location', 'Locname, Mui, Quantity, Product, Height', []),
 ('mypl_db', 'retrieve', 'Mui', []),
