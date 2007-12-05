@@ -192,8 +192,21 @@ class Kerneladapter:
     @nice_exception
     def get_articleaudit(self, product):
         """Liefert das Auditlog fuer einen artikel zurueck."""
-        mui = product.replace(',','').replace('\n','').replace('\r','')
+        product = product.replace(',','').replace('\n','').replace('\r','')
         self._send("get_articleaudit %s" % (product,))
+        ret = self._read_json(220)
+        out = []
+        for data in ret:
+            ddict = attributelist2dict_str(data)
+            ddict['created_at'] = e2datetime(ddict['created_at'])
+            out.append(ddict)
+        return out
+
+    @nice_exception
+    def get_unitaudit(self, mui):
+        """Liefert das Auditlog fuer eine Unit/NVE."""
+        mui = mui.replace(',','').replace('\n','').replace('\r','')
+        self._send("get_unitaudit %s" % (mui,))
         ret = self._read_json(220)
         out = []
         for data in ret:
