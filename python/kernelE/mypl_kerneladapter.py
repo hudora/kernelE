@@ -633,4 +633,20 @@ class Kerneladapter:
         ret = self._read_json(220)
         return ret
     
-    
+
+    @nice_exception
+    def provpipeline_processing_list_all(self):
+        # XXX Removeme
+        self._send("provpipeline_processing_list_all")
+        ret = self._read_json(220)
+        out = []
+        for row in ret:
+            data = {}
+            name, mypl_id, kommibelegnr, retrievalids, pickids = row
+            data['mypl_id'] = e2string(mypl_id)
+            data['kommibelegnr'] = e2string(kommibelegnr)
+            data['retrievalids'] = [e2string(x) for x in retrievalids]
+            data['pickids'] = [e2string(x) for x in pickids]
+            out.append(data)
+        return out
+
