@@ -287,7 +287,7 @@ deduper_dictbuilder([H|T], Dict) ->
             deduper_dictbuilder(T, Dict)
     end.
     
-% @doc converts [{4,"10195"}, {0,"14695"}, {24,"66702"}, {180,"66702"}] to [{"66702",204},{"10195",4}]
+% @doc converts [{4,"10195"}, {0,"14695"}, {24,"66702"}, {180,"66702"}] to [{204,"66702"},{4,"10195"}]
 deduper(L) ->
     lists:map(fun({A, B}) -> {B, A} end,
               dict:to_list(deduper_dictbuilder(L, dict:new()))).

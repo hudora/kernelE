@@ -39,7 +39,7 @@ run_me_once() ->
     % ?WARNING("run_me_once() called", []),
     mnesia:create_schema([node()]),
     mnesia:start(),
-    % the main tables are koept in RAM with a disk copy for fallback
+    % the main tables are kept in RAM with a disk copy for fallback
     init_table_info(mnesia:create_table(location,         [{disc_copies, [node()]}, {attributes, record_info(fields, location)}]), location),
     init_table_info(mnesia:create_table(unit,             [{disc_copies, [node()]}, {attributes, record_info(fields, unit)}]), unit),
     mnesia:add_table_index(unit, #unit.product),
@@ -53,6 +53,21 @@ run_me_once() ->
     mypl_provpipeline:run_me_once(),
     
     ok = mnesia:wait_for_tables([location, unit, movement, pick, articleaudit, unitaudit], 30000),
+    
+    % upgrade tables where needed
+        Fields = record_info(fields, pick),
+    case mnesia:table_info(pick, attributes) of
+        Fields ->
+            ok;
+        [id,product,quantity,from_unit,created_at] ->
+            ?WARNING("upgrading table picks with attributes field", []),
+            mnesia:transform_table(pick,
+                                   fun({_, I, P, Q, F, C}) -> 
+                                       {pick, I, P, Q, F, C, []}
+                                    end, [id, product, quantity, from_unit, created_at, attributes])
+    end,
+
+
     init_location("EINLAG", 3000, true,  0, [{no_picks}]),
     init_location("AUSLAG", 3000, true,  0, [{no_picks}]),
     init_location("FEHLER", 3000, true,  0, [{no_picks}]),

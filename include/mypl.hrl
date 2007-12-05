@@ -41,7 +41,8 @@
                product,         % product das gepickt werden soll
                quantity,        % menge, die gepickt werden soll
                from_unit,       % unit von der gepickt werden soll
-               created_at
+               created_at,
+               attributes
                %% attributes - please add
                }).
 

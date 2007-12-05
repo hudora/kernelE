@@ -67,7 +67,7 @@
                       body
                      }).
 
--export([run_me_once/0, get_articleaudit/1,
+-export([run_me_once/0, get_articleaudit/1, get_unitaudit/1,
          articleaudit/6, articleaudit/5, articleaudit/4,
          unitaudit_mui/2, unitaudit/4, unitaudit/3, unitaudit/2,
          archive/2, spawn_audit_transfer/0, compress_audit/0, compress_audit/1]).
@@ -107,6 +107,27 @@ get_articleaudit_helper(Aaudit) ->
      {references,  Aaudit#articleaudit.references},
      {created_at,  Aaudit#articleaudit.created_at}
     ].
+    
+
+%% @doc returns all audit recodes related to an Mui
+get_unitaudit(Mui) ->
+    Records = mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(unitaudit),
+                                                X#unitaudit.mui =:= Mui])),
+    lists:map(fun(X) -> get_unitaudit_helper(X) end, Records).
+    
+
+%% @private
+get_unitaudit_helper(Uaudit) ->
+    [
+     {quantity,    Uaudit#unitaudit.quantity},
+     {product,     Uaudit#unitaudit.product},
+     {text,        Uaudit#unitaudit.text},
+     {mui,         Uaudit#unitaudit.mui},
+     {transaction, Uaudit#unitaudit.transaction},
+     {references,  Uaudit#unitaudit.references},
+     {created_at,  Uaudit#unitaudit.created_at}
+    ].
+
 
 %% @private
 %% @spec articleaudit(integer(), product(), string(), muiID(), string(), externalReferences()) -> {ok, atomic}

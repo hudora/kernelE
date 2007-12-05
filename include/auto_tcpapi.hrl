@@ -188,12 +188,21 @@ handle_command("provpipeline_list_new", _Parameters, State) ->
 handle_command("provpipeline_list_processing", _Parameters, State) ->
     % implementation for provpipeline_list_processing,
     {noreply, reply(220, rfc4627:encode(mypl_server:provpipeline_list_processing()), reset_buffers(State))};
+handle_command("provpipeline_processing_list_all", _Parameters, State) ->
+    % implementation for provpipeline_processing_list_all,
+    {noreply, reply(220, rfc4627:encode(mypl_server:provpipeline_processing_list_all()), reset_buffers(State))};
 handle_command("get_articleaudit", _Parameters, State) ->
     % implementation for get_articleaudit,
     Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
     [Product] = Tokens,
     NewProduct = convertString(Product),
     {noreply, reply(220, rfc4627:encode(mypl_server:get_articleaudit(NewProduct)), reset_buffers(State))};
+handle_command("get_unitaudit", _Parameters, State) ->
+    % implementation for get_unitaudit,
+    Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
+    [Mui] = Tokens,
+    NewMui = convertString(Mui),
+    {noreply, reply(220, rfc4627:encode(mypl_server:get_unitaudit(NewMui)), reset_buffers(State))};
 handle_command("get_abc", _Parameters, State) ->
     % implementation for get_abc,
     {noreply, reply(220, rfc4627:encode(mypl_server:get_abc()), reset_buffers(State))};
@@ -241,7 +250,9 @@ commit_movementlist CId
 is_provisioned CId
 provpipeline_list_new 
 provpipeline_list_processing 
+provpipeline_processing_list_all 
 get_articleaudit Product
+get_unitaudit Mui
 get_abc 
 make_oid 
 make_nve ", reset_buffers(State))};

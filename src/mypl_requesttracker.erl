@@ -8,6 +8,7 @@
 -behaviour(gen_server).
 
 -include_lib("stdlib/include/qlc.hrl").
+-include("include/mypl.hrl").
 
 -define(SERVER, mypl_requesttracker).
 
@@ -94,7 +95,11 @@ handle_call({out}, _From, State) ->
 handle_cast({in, {Quantity, Product}}, State) ->
     
     %% check if we have an open movement before adding
-    case mypl_db_query:open_movements_for_product(Product) of
+    %% ignore movements to AUSLAG
+    %% TODO: actually we have to ignore all retrieval movements
+    Movements = [X || X <- mypl_db_query:open_movements_for_product(Product),
+                          X#movement.to_location /= "AUSLAG" ],
+    case Movements of
         [] ->
             % no open movement, so we can add
             case ets:lookup(State#state.table, Product) of

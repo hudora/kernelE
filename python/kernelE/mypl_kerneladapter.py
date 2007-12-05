@@ -556,6 +556,7 @@ class Kerneladapter:
         if ret == 'nothing_available':
             return []
         out = []
+        ret = [ret]
         for data in ret:
             pickListId, cId, destination, attributes, parts, positions = data
             pickListId = e2string(pickListId)

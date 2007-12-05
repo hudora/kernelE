@@ -11,6 +11,7 @@
 
 %% API
 -export([insert_pipeline/1, provpipeline_list_new/0, provpipeline_list_processing/0, delete/1,
+         update_pipeline/1,
          get_picklists/0, get_retrievallists/0, get_movementlist/0,
          commit_picklist/1, commit_retrievallist/1, commit_movementlist/1,
          is_provisioned/1, run_me_once/0]).
@@ -74,6 +75,25 @@ insert_pipeline([CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes
     ok.
     
 
+update_pipeline({priority, CId, Priority}) ->
+    Fun = fun() ->
+        [PPEntry] = mnesia:read({provpipeline, CId}),
+        mnesia:write(PPEntry#provpipeline{priority=Priority})
+    end,
+    mypl_db_util:transaction(Fun),
+    ok;
+update_pipeline({versandtermin, CId, Versandtermin}) ->
+    Fun = fun() ->
+        [PPEntry] = mnesia:read({provpipeline, CId}),
+        NewAttributes =  proplists:delete(versandtermin, PPEntry#provpipeline.attributes),
+        mnesia:write(PPEntry#provpipeline{attributes=[{versandtermin, Versandtermin}|NewAttributes]}),
+        erlang:display({CId, mnesia:read({provpipeline, CId})})
+
+    end,
+    mypl_db_util:transaction(Fun),
+    ok.
+    
+
 %% @doc converts
 %% [{tries,0},
 %%  {kernel_customer,"14529"},
@@ -122,6 +142,12 @@ format_pipeline_record(Record) ->
      Record#provpipeline.orderlines
     }.
     
+
+%% @TODO: removeme 
+provpipeline_processing_list_all() ->
+    mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(provpipeline_processing)])).
+    
+
 
 %% @spec delete(CId::string()) -> aborted|ok
 %% @doc removes an unprocessed order from the provisioningpipeline
@@ -555,7 +581,7 @@ provpipeline_list_test() ->
      % lieferschein2 is the youngest with the owest priority
      {lieferschein2,_,[{10,"a0005",[]},{ 1,"a0004",[]}]}] = provpipeline_list_new(),
     ok.
-    
+        
 
 mypl_simple_test() ->
     test_init(),
@@ -578,6 +604,9 @@ mypl_simple_test() ->
     [{R1id,lieferschein1,"AUSLAG",_,2,[{_,mui6,"010302",10,"a0005",[]}]}] = R1,
     
     
+    
+    % TODO: test
+    % update_pipeline({versandtermin, lieferschein1, "2007-10-01"}),
     
     % provpipeline should be empty now
     [] = provpipeline_list_prepared(),
