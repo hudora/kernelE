@@ -23,7 +23,7 @@ def e2string(data):
 
 
 def e2datetime(data):
-    """Convert a Erlang Tmestamp into a Python datetime object."""
+    """Convert a Erlang Timestamp into a Python datetime object."""
     mydate, mytime = data[:2]
     year, month, day = mydate
     hour, minute, second = mytime
@@ -552,6 +552,12 @@ class Kerneladapter:
         orders = self._format_provpipeline(ret)
         return orders
         
+    @nice_exception
+    def delete_pipeline(self, cId):
+        """Delete a provpipeline."""
+        self._send("delete_pipeline %s" % (cId,))
+        ret = self._read_json(220)
+        return ret
     
     @nice_exception
     def get_picklists(self):
