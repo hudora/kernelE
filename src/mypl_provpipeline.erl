@@ -10,10 +10,10 @@
 -include("mypl.hrl").
 
 %% API
--export([insert_pipeline/1, provpipeline_list_new/0, provpipeline_list_processing/0, delete/1,
+-export([insert_pipeline/1, provpipeline_list_new/0, provpipeline_list_processing/0, delete_pipeline/1,
          update_pipeline/1,
          get_picklists/0, get_retrievallists/0, get_movementlist/0,
-         commit_picklist/1, commit_retrievallist/1, commit_movementlist/1,
+         commit_picklist/1, commit_retrievallist/1, % commit_movementlist/1,
          is_provisioned/1, run_me_once/0]).
 
 run_me_once() ->
@@ -59,9 +59,29 @@ run_me_once() ->
 insert_pipeline({CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes}) ->
     insert_pipeline([CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes]);
 insert_pipeline([CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes]) ->
+    Fun = fun() ->
+        case mnesia:read({provpipeline, CId}) of
+            % ensure we don't update an entry which already wxists and is NOT new
+            [ExistingEntry] ->
+                if 
+                    ExistingEntry#provpipeline.status /= new ->
+                        % we can't reinsert something which is not new
+                        {error, cant_reinsert_already_open, {CId, ExistingEntry}};
+                    true ->
+                        insert_pipeline_helper(CId, Orderlines, Priority, Customer, Weigth, Volume,
+                                               [{kernel_updated_at, calendar:universal_time()}|Attributes])
+                end;
+            [] ->
+                insert_pipeline_helper(CId, Orderlines, Priority, Customer, Weigth, Volume,
+                                       [{kernel_enqueued_at, calendar:universal_time()}|Attributes])
+        end
+    end,
+    mypl_db_util:transaction(Fun).
+    
+%% @pricate
+insert_pipeline_helper(CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes) ->
     PPline = #provpipeline{id=CId, priority=Priority, weigth=Weigth, volume=Volume,
-                           attributes=[{kernel_customer, Customer},
-                                       {kernel_enqueued_at, calendar:universal_time()}
+                           attributes=[{kernel_customer, Customer}
                                       ] ++ proplistlist_to_proplisttuple(Attributes),
                            provisioninglists=[], tries=0, status=new,
                            % normalize on tuples instead of lists
@@ -69,26 +89,28 @@ insert_pipeline([CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes
                                                         {Quantity, Product, OlAttributes};
                                                     ([Quantity, Product, OlAttributes]) -> 
                                                         {Quantity, Product, OlAttributes} end, Orderlines)},
-    % TODO: ensure only 'new' entries are overwritten
-    mypl_db_util:transaction(fun() -> mnesia:write(PPline) end),
+    mnesia:write(PPline),
     [mypl_requesttracker:in(Quantity, Product) || {Quantity, Product, _} <- PPline#provpipeline.orderlines],
     ok.
     
 
+%% @doc change values on an existing pipeline entry
 update_pipeline({priority, CId, Priority}) ->
     Fun = fun() ->
         [PPEntry] = mnesia:read({provpipeline, CId}),
-        mnesia:write(PPEntry#provpipeline{priority=Priority})
+        NewAttributes = [{kernel_updated_at, calendar:universal_time()}|
+                         proplists:delete(versandtermin, PPEntry#provpipeline.attributes)],
+        mnesia:write(PPEntry#provpipeline{priority=Priority, attributes=NewAttributes})
     end,
     mypl_db_util:transaction(Fun),
     ok;
 update_pipeline({versandtermin, CId, Versandtermin}) ->
     Fun = fun() ->
         [PPEntry] = mnesia:read({provpipeline, CId}),
-        NewAttributes =  proplists:delete(versandtermin, PPEntry#provpipeline.attributes),
+        NewAttributes = [{kernel_updated_at, calendar:universal_time()}|
+                         proplists:delete(versandtermin, PPEntry#provpipeline.attributes)],
         mnesia:write(PPEntry#provpipeline{attributes=[{versandtermin, Versandtermin}|NewAttributes]}),
         erlang:display({CId, mnesia:read({provpipeline, CId})})
-
     end,
     mypl_db_util:transaction(Fun),
     ok.
@@ -149,14 +171,27 @@ provpipeline_processing_list_all() ->
     
 
 
-%% @spec delete(CId::string()) -> aborted|ok
+%% @spec delete(CId::string()) -> ok|error
 %% @doc removes an unprocessed order from the provisioningpipeline
 %%
 %% Returns `aborted' if the order can't be removed because it is currently processed.
 %% Returns `ok' if the order has been successfully removed
 %% @TODO: fixme
-delete(CId) -> ok.
-
+delete_pipeline(CId) ->
+    Fun = fun() ->
+        [Entry] = mnesia:read({provpipeline, CId}),
+        if 
+            Entry#provpipeline.status /= new ->
+                % we can't reinsert something which is not new
+                {error, cant_delete_already_open, {CId, Entry}};
+            true ->
+                mypl_audit:archive(Entry, delete),
+                mnesia:delete({provpipeline, CId}),
+                ok
+        end
+    end,
+    mypl_db_util:transaction(Fun).
+    
 
 %% @spec get_picklists() -> PicklistList|nothing_available
 %%      PicklistList = [{Id::string(), CId::string(), Destination::string(), Attributes, Parts::integer(),
@@ -413,7 +448,7 @@ get_movementlist() ->
     
 %% @spec commit_movements(Id::string()) -> ok
 %% @TODO: fixme
-commit_movementlist(Id) -> ok.
+%commit_movementlist(Id) -> ok.
 
 
 commit_picklist(Id) ->
@@ -439,7 +474,7 @@ commit_retrievallist(Id) -> commit_retrievallist(Id, [], []).
 commit_retrievallist(Id, Attributes, Lines) ->
     commit_anything(Id, Attributes, Lines).
 
-commit_anything(Id, Attributes, Lines) ->
+commit_anything(Id, _Attributes, _Lines) ->
     Fun = fun() ->
         [Processing] = mnesia:read({provpipeline_processing, Id}),
         lists:map(fun(PId) ->
@@ -456,7 +491,7 @@ commit_anything(Id, Attributes, Lines) ->
         case mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(provpipeline_processing),
                                                X#provpipeline_processing.provpipelineid 
                                                =:= Processing#provpipeline_processing.provpipelineid])) of
-            [Foo] ->
+            [_Foo] ->
                 Ret = unfinished;
             [] ->
                 Ret = provisioned,
@@ -527,6 +562,7 @@ test_init() ->
     mnesia:clear_table(provpipeline),
     mnesia:clear_table(pickpipeline),
     mnesia:clear_table(provpipeline_processing),
+    mnesia:clear_table(provisioninglist),
     mnesia:clear_table(retrievalpipeline),
     % regenerate locations
     % init_location(Name, Height, Floorlevel, Preference, Attributes)
@@ -635,11 +671,39 @@ mypl_simple_test() ->
     [{"a0004",17,17,0,0},{"a0003",10,10,0,0}] = mypl_db_query:count_products(),
     ok.
     
+
+reinsert_test() ->
+    test_init(),
+    ok = insert_pipeline([lieferschein4, [{1,  "a0005", []}, {1,  "a0004", []}], 1, "kunde03", 0, 0, []]),
+    P1 = get_picklists(),
+    P2 = get_picklists(),
+    P3 = get_picklists(),
+    P4 = get_picklists(),
+    % now we shouldn't be able to insert again because the state isn't "new" anymore
+    {error, _, _} = insert_pipeline([lieferschein4, [{1,  "a0005", []}, {1,  "a0004", []}], 1, "kunde03", 0, 0, []]),
+    ok.
     
+
+delete_test() ->
+    test_init(),
+    ok = delete_pipeline(lieferschein1),
+    [{lieferschein4,_,[{1,"a0005",[]},{1,"a0004",[]}]},
+     {lieferschein3,_,[{50,"a0005",[]},{16,"a0004",[]}]},
+     {lieferschein2,_,[{10,"a0005",[]},{1,"a0004",[]}]}] = provpipeline_list_new(),
+    % can't delete because picks are all already open.
+    P1 = get_picklists(),
+    P2 = get_picklists(),
+    P3 = get_picklists(),
+    {error, _, _} = delete_pipeline(lieferschein4),
+    ok.
+    
+
 %%% @hidden
 testrunner() ->
-    provpipeline_list_test(),
     mypl_simple_test(),
+    mypl_simple_test(),
+    reinsert_test(),
+    delete_test(),
     ok.
     
 

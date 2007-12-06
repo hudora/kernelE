@@ -93,7 +93,7 @@ run_me_once() ->
 get_articleaudit(Product) ->
     Records = mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(articleaudit),
                                                 X#articleaudit.product =:= Product])),
-    lists:map(fun(X) -> get_articleaudit_helper(X) end, Records).
+    lists:map(fun(X) -> get_articleaudit_helper(X) end, lists:sort(Records)).
     
 
 %% @private
@@ -113,7 +113,7 @@ get_articleaudit_helper(Aaudit) ->
 get_unitaudit(Mui) ->
     Records = mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(unitaudit),
                                                 X#unitaudit.mui =:= Mui])),
-    lists:map(fun(X) -> get_unitaudit_helper(X) end, Records).
+    lists:map(fun(X) -> get_unitaudit_helper(X) end, lists:sort(Records)).
     
 
 %% @private
@@ -127,7 +127,7 @@ get_unitaudit_helper(Uaudit) ->
      {references,  Uaudit#unitaudit.references},
      {created_at,  Uaudit#unitaudit.created_at}
     ].
-
+    
 
 %% @private
 %% @spec articleaudit(integer(), product(), string(), muiID(), string(), externalReferences()) -> {ok, atomic}
