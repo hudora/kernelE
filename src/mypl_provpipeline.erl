@@ -507,7 +507,8 @@ commit_anything(Id, _Attributes, _Lines) ->
     end,
     mypl_db_util:transaction(Fun).
 
-
+rollback_anything(CId) ->
+    
 
 %% @spec is_provisioned(CId) -> provisioned|unfinished
 %% @doc check if a Order is fully procesed and can be marked as "Delivered" in the ERP.

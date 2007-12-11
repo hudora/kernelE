@@ -109,6 +109,10 @@ orphaned_retrievalpipeline(Entry) ->
                   {ok, _} = mypl_db_query:movement_info(RetrievalId)
               end, Entry#retrievalpipeline.retrievalids).
 
+% find entries in provpipeline_processing that
+% a) have no corrospondendin entry in provpipeline
+% b) have non existing movements or picks
+
 
 run_a_test(Testname) ->
     {TimeMicro , Res} =  timer:tc(?MODULE, Testname, []),

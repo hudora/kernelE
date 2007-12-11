@@ -670,3 +670,45 @@ class Kerneladapter:
             out.append(data)
         return out
 
+def tester():
+    from pprint import pprint
+    data = {u'provisioninglists': [[u'provisioninglist', [112, 48, 48, 48, 53, 53, 49, 54, 51], u'picklist', [57, 51, 48, 53, 53, 55], [65, 85, 83, 76, 65, 71], [[u'kernel_customer', [49, 56, 48, 52, 48]], [[97, 117, 102, 116, 114, 97, 103, 115, 110, 117, 109, 109, 101, 114], 644338], [[108, 105, 101, 102, 101, 114, 116, 101, 114, 109, 105, 110], [50, 48, 48, 55, 45, 49, 48, 45, 49, 53]]], 1, [[[80, 48, 48, 48, 53, 53, 49, 53, 57], [51, 52, 48, 48, 53, 57, 57, 56, 49, 48, 48, 48, 48, 50, 48, 57, 55, 51], [49, 57, 51, 53, 48, 49], 4, [56, 52, 48, 48, 51], []]]]], 
+            'orderlines_count': 1, 
+            'orderlines': [
+            {'auftragsposition': 1, 
+            'product': '84003', 
+            'gewicht': 0, 
+            'quantity': 4}], 
+            u'kernel_customer': '18040', 
+            'liefertermin': '2007-10-15', 
+            'retrieval': None, 
+            u'priority': 5, 
+            u'tries': 0, 
+            'pick': '<Provisioning: Provisioning object>',
+            'lieferschein': '<Lieferschein: Lieferschein object>',
+            'auftragsnummer': 644338,
+            'id': '930557'}
+    for provraw in data['provisioninglists']:
+        provnr, a2, a3, kommibelegnr, a5, attributes, parts, a8 = provraw
+        provpipeline = attributelist2dict_str(attributes)
+        provpipeline['recordtype'] = e2string(provnr)
+        provpipeline['id'] = e2string(a2)
+        provpipeline['type'] = e2string(a3)
+        provpipeline['kommibelegnr'] = e2string(kommibelegnr)
+        provpipeline['destination_location'] = e2string(a5)
+        provpipeline['parts'] = parts
+        provpipeline['provisionings'] = []
+        provisionings = a8
+        for provisioning in provisionings:
+            provisioningid, mui, location, quantity, product, pattributes = provisioning
+            position = attributelist2dict_str(pattributes)
+            position['id'] = e2string(provisioningid)
+            position['mui'] = e2string(mui)
+            position['location'] = e2string(location)
+            position['quantity'] = quantity
+            position['product'] = e2string(product)
+            provpipeline['provisionings'].append(position)
+        pprint(provpipeline)
+
+if __name__ == '__main__':
+    tester()
