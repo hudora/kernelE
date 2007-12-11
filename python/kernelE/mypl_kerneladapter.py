@@ -384,7 +384,9 @@ class Kerneladapter:
         artnr = artnr.replace(',','').replace('\n','').replace('\r','')
         mui = mui.replace(',','').replace('\n','').replace('\r','')
         self._send("store_at_location %s,%s,%d,%s,%d" % (name, mui, quantity, artnr, height))
-        ok, mui = self._read_json(220)
+        ret = self._read_json(220)
+        print ret
+        ok, mui = ret
         return e2string(mui)
     
     @nice_exception
@@ -575,7 +577,6 @@ class Kerneladapter:
         if ret == 'nothing_available':
             return []
         out = []
-        ret = [ret]
         for data in ret:
             pickListId, cId, destination, attributes, parts, positions = data
             pickListId = e2string(pickListId)
