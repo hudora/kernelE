@@ -46,7 +46,9 @@ run_me_once() ->
     init_table_info(mnesia:create_table(movement,         [{disc_copies, [node()]}, {attributes, record_info(fields, movement)}]), movement),
     init_table_info(mnesia:create_table(pick,             [{disc_copies, [node()]}, {attributes, record_info(fields, pick)}]), pick),
     init_table_info(mnesia:create_table(reservation,      [{disc_copies, [node()]}, {attributes, record_info(fields, reservation)}]), reservation),
-    
+    init_table_info(mnesia:create_table(reservation,      [{disc_copies, [node()]}, {attributes, record_info(fields, reservation)}]), reservation),
+    init_table_info(mnesia:create_table(multistorage,     [{disc_copies, [node()]}, {attributes, record_info(fields, multistorage)}]), multistorage),
+
     % give other modules to initialize database tables
     mypl_abcserver:run_me_once(),
     mypl_audit:run_me_once(),
@@ -234,8 +236,46 @@ store_at_location(Locname, Mui, Quantity, Product, Height) when Quantity > 0 ->
         mypl_audit:unitaudit(Unit, "Erzeugt auf " ++ Location#location.name),
         store_at_location(Location, Unit)
     end,
-    {atomic, Ret} = mnesia:transaction(Fun),
-    Ret.
+    mypl_db_util:transaction(Fun).
+    
+
+%% @spec store_at_location_multi(Id, locationName(), Elements) -> {ok, [muID()]}|duplicate_id
+%%          Elements = [{Quantity::integer(), Product::string(), heightMM()}]
+%% @doc creates several units within a single transaction.
+%%
+%% `Id' must be unique. If you call store_at_location_multi/3 more than once with the same Id,
+%% successive calls return duplicate_id instead a list of NVEs.
+%% returns {ok, [Mui]}.
+store_at_location_multi(Id, Locname, Elements) ->
+    Fun = fun() ->
+        % check for dupes
+        case mnesia:read({multistorage, Id}) of
+            [_Entry] ->
+                duplicate_id;
+            [] ->
+                % insert the data
+                Muis = lists:map(fun({Quantity, Product, Height}) ->
+                                    Mui = mypl_nveserver:make_nve(),
+                                    {ok, _} = store_at_location(Locname, Mui, Quantity, Product, Height),
+                                    Mui;
+                                % we have to catch lists instead of tuples for json compatibility
+                                ([Quantity, Product, Height]) ->
+                                    Mui = mypl_nveserver:make_nve(),
+                                    {ok, _} = store_at_location(Locname, Mui, Quantity, Product, Height),
+                                    Mui
+                                 end, Elements),
+                mnesia:write(#multistorage{id=Id, muis=Muis, attributes=[], 
+                                            created_at=calendar:universal_time()}),
+                {ok, Muis}
+        end
+    end,
+    mypl_db_util:transaction(Fun).
+    
+
+store_at_location_multi({Id, Locname, Elements}) ->
+    store_at_location_multi(Id, Locname, Elements);
+store_at_location_multi([Id, Locname, Elements]) ->
+    store_at_location_multi(Id, Locname, Elements).
     
 
 %% @spec retrieve(muID()) -> {ok, {Quantity::integer(), Product::string()}}
@@ -591,11 +631,12 @@ test_init() ->
     % flush database
     mnesia:start(),
     mnesia:clear_table(unit),
-    mnesia:clear_table(location),   
-    mnesia:clear_table(movement),   
-    mnesia:clear_table(pick),       
+    mnesia:clear_table(location), 
+    mnesia:clear_table(movement),
+    mnesia:clear_table(pick),
     mnesia:clear_table(articleaudit),
-    mnesia:clear_table(unitaudit),  
+    mnesia:clear_table(unitaudit),
+    mnesia:clear_table(multistorage),
     % regenerate locations
     % init_location(Name, Height, Floorlevel, Preference, Attributes)
     init_location("EINLAG", 3000, true,  0, [{no_picks}]),
@@ -718,9 +759,23 @@ mypl_disbanding_test() ->
     {error, unknown_mui, {mui1}} = mypl_db_query:unit_info(mui1),
     
     {ok, mui2} = store_at_location("010101", mui2, 1, "a0003", 1950),
-    {ok, Movement2} = init_movement_to_good_location(mui2),
+    {ok, _Movement2} = init_movement_to_good_location(mui2),
     Unit2 = mypl_db_util:mui_to_unit_trans(mui2),
     {atomic, {error, inconsistent_disband, _}} = mnesia:transaction(fun() -> disband_unit(Unit2) end),
+    ok.
+    
+
+store_at_location_multi_test() ->
+    Elements1 = [{7, "a0006", 1200}, {11, "a0007", 1000}],
+    {ok, [_Mui1, _Mui2]} = store_at_location_multi(id1, "EINLAG", Elements1),
+    % if called again with the same id, no new units should be insered
+    duplicate_id = store_at_location_multi(id1, "EINLAG", Elements1),
+    
+    % check if this also works with lists instead of tuple - to help with Json
+    Elements2 = [[7, "a0006", 1200], [11, "a0007", 1000]],
+    {ok, [_Mui3, _Mui4]} = store_at_location_multi([id2, "EINLAG", Elements2]),
+    % if called again with the same id, no new units should be insered
+    duplicate_id = store_at_location_multi({id2, "EINLAG", Elements2}),
     ok.
     
 

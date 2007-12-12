@@ -583,7 +583,7 @@ test_init() ->
     {ok, _} = mypl_db:store_at_location("010201", mui4, 19, "a0004", 1200),
     {ok, _} = mypl_db:store_at_location("010301", mui5, 61, "a0005", 1200),
     {ok, _} = mypl_db:store_at_location("010302", mui6, 10, "a0005", 1200),
-    [{"a0004",36,36,0,0},{"a0005",71,71,0,0},{"a0003",10,10,0,0}] = mypl_db_query:count_products(),
+    [{"a0003",10,10,0,0},{"a0004",36,36,0,0},{"a0005",71,71,0,0}] = mypl_db_query:count_products(),
     % provpipeline empty?
     [] = provpipeline_list_new(),
     [] = provpipeline_list_prepared(),
@@ -651,7 +651,7 @@ mypl_simple_test() ->
      {lieferschein3,_,[{50,"a0005",[]},{16,"a0004",[]}]},
      {lieferschein2,_,[{10,"a0005",[]},{1,"a0004",[]}]}] = provpipeline_list_processing(),
     % checks that goods are reserved for picking and retrieval
-    [{"a0004",36,17,19,0},{"a0005",71,0,61,10},{"a0003",10,10,0,0}] = mypl_db_query:count_products(),
+    [{"a0003",10,10,0,0},{"a0004",36,17,19,0},{"a0005",71,0,61,10}] = mypl_db_query:count_products(),
     
     unfinished = is_provisioned(lieferschein1),
     unfinished = commit_retrievallist(R1id),
@@ -667,17 +667,17 @@ mypl_simple_test() ->
     mark_as_finished(lieferschein4),
     
     % check that goods are removed from warehouse now
-    [{"a0004",17,17,0,0},{"a0003",10,10,0,0}] = mypl_db_query:count_products(),
+    [{"a0003",10,10,0,0},{"a0004",17,17,0,0}] = mypl_db_query:count_products(),
     ok.
     
 
 reinsert_test() ->
     test_init(),
     ok = insert_pipeline([lieferschein4, [{1,  "a0005", []}, {1,  "a0004", []}], 1, "kunde03", 0, 0, []]),
-    P1 = get_picklists(),
-    P2 = get_picklists(),
-    P3 = get_picklists(),
-    P4 = get_picklists(),
+    _P1 = get_picklists(),
+    _P2 = get_picklists(),
+    _P3 = get_picklists(),
+    _P4 = get_picklists(),
     % now we shouldn't be able to insert again because the state isn't "new" anymore
     {error, _, _} = insert_pipeline([lieferschein4, [{1,  "a0005", []}, {1,  "a0004", []}], 1, "kunde03", 0, 0, []]),
     ok.
@@ -690,16 +690,15 @@ delete_test() ->
      {lieferschein3,_,[{50,"a0005",[]},{16,"a0004",[]}]},
      {lieferschein2,_,[{10,"a0005",[]},{1,"a0004",[]}]}] = provpipeline_list_new(),
     % can't delete because picks are all already open.
-    P1 = get_picklists(),
-    P2 = get_picklists(),
-    P3 = get_picklists(),
+    _P1 = get_picklists(),
+    _P2 = get_picklists(),
+    _P3 = get_picklists(),
     {error, _, _} = delete_pipeline(lieferschein4),
     ok.
     
 
 %%% @hidden
 testrunner() ->
-    mypl_simple_test(),
     mypl_simple_test(),
     reinsert_test(),
     delete_test(),

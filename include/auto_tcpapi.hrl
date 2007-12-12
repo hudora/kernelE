@@ -23,6 +23,10 @@ handle_command("store_at_location", _Parameters, State) ->
     NewProduct = convertString(Product),
     NewHeight = convertPositiveInteger(Height),
     {noreply, reply(220, rfc4627:encode(mypl_server:store_at_location(NewLocname,NewMui,NewQuantity,NewProduct,NewHeight)), reset_buffers(State))};
+handle_command("store_at_location_multi", _Parameters, State) ->
+    % implementation for store_at_location_multi,
+    {ok, NewJsonList, _} = rfc4627:decode(_Parameters),
+    {noreply, reply(220, rfc4627:encode(mypl_server:store_at_location_multi(NewJsonList)), reset_buffers(State))};
 handle_command("retrieve", _Parameters, State) ->
     % implementation for retrieve,
     Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
@@ -223,6 +227,7 @@ handle_command("help", _Parameters, State) -> {noreply, reply(220, "Help follows
 backup 
 init_location Locname,Height,Floorlevel,Preference,Info,Attributes
 store_at_location Locname,Mui,Quantity,Product,Height
+store_at_location_multi JsonList
 retrieve Mui
 init_movement Mui,Locname
 init_movement_to_good_location Mui

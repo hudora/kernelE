@@ -132,6 +132,8 @@ encode_nolist(Num, Acc) when is_number(Num) ->
     encode_number(Num, Acc);
 encode_nolist({obj, Fields}, Acc) ->
     "}" ++ encode_object(Fields, "{" ++ Acc);
+encode_nolist(Arr, Acc) when is_tuple(Arr) ->
+    "]" ++ encode_array(tuple_to_list(Arr), "[" ++ Acc);
 encode_nolist(Str, Acc) when is_list(Str) ->
      quote_and_encode_string(Str, Acc).
 

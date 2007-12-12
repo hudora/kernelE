@@ -18,6 +18,8 @@ funcdefs = [
 ('mypl_db', 'backup', '', []),
 ('mypl_db', 'init_location', 'Locname, Height, Floorlevel, Preference, Info, Attributes', []),
 ('mypl_db', 'store_at_location', 'Locname, Mui, Quantity, Product, Height', []),
+('mypl_db', 'store_at_location_multi', 'JsonList', []),
+
 ('mypl_db', 'retrieve', 'Mui', []),
 ('mypl_db', 'init_movement', 'Mui, Locname', []),
 ('mypl_db', 'init_movement_to_good_location', 'Mui', []),

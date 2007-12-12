@@ -96,7 +96,7 @@ count_products() ->
         Units = mypl_db_util:do(qlc:q([X || X <- mnesia:table(unit)])),
         count_products_helper(Units, dict:new(), dict:new(), dict:new())
     end,
-    mypl_db_util:transaction(Fun).
+    lists:sort(mypl_db_util:transaction(Fun)).
     
 
 %% @spec open_movements_for_product(string()) -> [mypl_db:movementID()]
@@ -194,8 +194,7 @@ location_info(Locname) ->
 %% @spec movement_list() -> [mypl_db:movementID()]
 %% @doc gets a List with all movement IDs
 movement_list() ->
-    {atomic, Ret} = mnesia:transaction(fun() -> mnesia:all_keys(movement) end),
-    Ret.
+    lists:sort(mypl_db_util:transaction(fun() -> mnesia:all_keys(movement) end)).
     
 
 %% @spec movement_info(movementId()) -> {ok, [Attribute]}
@@ -314,32 +313,35 @@ mypl_simple_counting_test() ->
     {{ 36, 36,  0, 0}, _} = count_product("a0004"),
     {{ 94, 94,  0, 0}, _} = count_product("a0005"),
     {{  0,  0,  0, 0}, _} = count_product("a0006"),
-    [{"a0003",10,10,0,0},{"a0004",36,36,0,0},{"a0005",94,94,0,0}] = lists:sort(count_products()),
+    [{"a0003",10,10,0,0},{"a0004",36,36,0,0},{"a0005",94,94,0,0}] = count_products(),
     
     % now test while stuff is moving
     {ok, Pick1} = mypl_db:init_pick(29, Mui6),
     {{ 94, 65, 29, 0}, _} = count_product("a0005"),
-    [{"a0003",10,10,0,0},{"a0004",36,36,0,0},{"a0005",94,65,29,0}] = lists:sort(count_products()),
+    [{"a0003",10,10,0,0},{"a0004",36,36,0,0},{"a0005",94,65,29,0}] = count_products(),
     mypl_db:rollback_pick(Pick1),
     {{ 94, 94,  0, 0}, _} = count_product("a0005"),
-    [{"a0003",10,10,0,0},{"a0004",36,36,0,0},{"a0005",94,94,0,0}] = lists:sort(count_products()),
+    [{"a0003",10,10,0,0},{"a0004",36,36,0,0},{"a0005",94,94,0,0}] = count_products(),
     
     {{ 36, 36, 0,  0}, _} = count_product("a0004"),
     {ok, Movement3} = mypl_db:init_movement(Mui3, "010102"),
+    [Movement3] = movement_list(),
     {{ 36, 19, 0, 17}, _} = count_product("a0004"),
-    [{"a0003",10,10,0,0},{"a0004",36,19,0,17},{"a0005",94,94,0,0}] = lists:sort(count_products()),
+    [{"a0003",10,10,0,0},{"a0004",36,19,0,17},{"a0005",94,94,0,0}] = count_products(),
     {ok, Pick2} = mypl_db:init_pick(18, Mui4),
     {{ 36, 1, 18, 17}, _} = count_product("a0004"),
-    [{"a0003",10,10,0,0},{"a0004",36,1,18,17},{"a0005",94,94,0,0}] = lists:sort(count_products()),
+    [{"a0003",10,10,0,0},{"a0004",36,1,18,17},{"a0005",94,94,0,0}] = count_products(),
     mypl_db:commit_pick(Pick2),
     mypl_db:rollback_movement(Movement3),
-    [{"a0003",10,10,0,0},{"a0004",18,18,0,0},{"a0005",94,94,0,0}] = lists:sort(count_products()),
+    [] = movement_list(),
+    
+    [{"a0003",10,10,0,0},{"a0004",18,18,0,0},{"a0005",94,94,0,0}] = count_products(),
     {ok, Movement4} = mypl_db:init_movement(Mui3, "010102"),
     [Movement4] = open_movements_for_product("a0004"),
-    [{"a0003",10,10,0,0},{"a0004",18,1,0,17},{"a0005",94,94,0,0}] = lists:sort(count_products()),
+    [{"a0003",10,10,0,0},{"a0004",18,1,0,17},{"a0005",94,94,0,0}] = count_products(),
     mypl_db:commit_movement(Movement4),
     [] = open_movements_for_product("a0004"),
-    [{"a0003",10,10,0,0},{"a0004",18,18,0,0},{"a0005",94,94,0,0}] = lists:sort(count_products()),
+    [{"a0003",10,10,0,0},{"a0004",18,18,0,0},{"a0005",94,94,0,0}] = count_products(),
     
     {error,unknown_location} = location_info("GIBTSNICHT"),
     ok.

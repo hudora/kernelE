@@ -46,6 +46,13 @@
                %% attributes - please add
                }).
 
+% keeps IDs to detect dupes in store_at_location_multi
+-record(multistorage, 
+    {id,
+    muis,
+    attributes,
+    created_at}).
+    
 
 % reservation of a location - usually for a movement
 -record(reservation, {id,
