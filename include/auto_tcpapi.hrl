@@ -215,6 +215,9 @@ handle_command("make_oid", _Parameters, State) ->
 handle_command("make_nve", _Parameters, State) ->
     % implementation for make_nve,
     {noreply, reply(220, rfc4627:encode(mypl_server:make_nve()), reset_buffers(State))};
+handle_command("dump_requests", _Parameters, State) ->
+    % implementation for dump_requests,
+    {noreply, reply(220, rfc4627:encode(mypl_server:dump_requests()), reset_buffers(State))};
 
 handle_command("help", _Parameters, State) -> {noreply, reply(220, "Help follows:
 backup 
@@ -259,7 +262,8 @@ get_articleaudit Product
 get_unitaudit Mui
 get_abc 
 make_oid 
-make_nve ", reset_buffers(State))};
+make_nve 
+dump_requests ", reset_buffers(State))};
 handle_command("quit", _ClientDomain, State) -> {stop, normal, reply(201, "Goodbye", reset_buffers(State))};
 handle_command(Command, _Parameters, State) -> {noreply, reply(500, "Unsupported command " ++ Command, State)}.
 

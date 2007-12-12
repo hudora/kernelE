@@ -13,7 +13,7 @@
 -define(SERVER, mypl_requesttracker).
 
 %% API
--export([start_link/0, start/0, stop/0, in/2, out/0, movement_done/2]).
+-export([start_link/0, start/0, stop/0, in/2, out/0, movement_done/2, dump_requests/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -42,6 +42,9 @@ out() ->
 
 movement_done(Quantity, Product) ->
     gen_server:cast(?SERVER, {movement_done, {Quantity, Product}}). 
+
+dump_requests() ->
+    gen_server:call(?SERVER, {dump_requests}). 
 
 stop() -> 
     gen_server:cast(?SERVER, stop). 
@@ -82,7 +85,10 @@ handle_call({out}, _From, State) ->
             {Product, Quantity, _} = H,
             ets:delete(State#state.table, Product),
             {reply, {ok, {Quantity, Product}}, State}
-    end.
+    end;
+handle_call({dump_requests}, _From, State) ->
+   Ret = ets:tab2list(movement),
+   {reply, Ret, State}.
 
 %%--------------------------------------------------------------------
 %% Function: handle_cast(Msg, State) -> {noreply, State} |
@@ -116,7 +122,7 @@ handle_cast({in, {Quantity, Product}}, State) ->
     {noreply, State};
 
 handle_cast({movement_done, {_, Product}}, State) ->
-    ets:delete(State#state.table, Product),
+   ets:delete(State#state.table, Product),
     {noreply, State};
 
 handle_cast({stop}, State) ->

@@ -64,6 +64,8 @@ funcdefs = [
 
 ('mypl_nveserver', 'make_oid', '', []),
 ('mypl_nveserver', 'make_nve', '', []),
+
+('mypl_requesttracker', 'dump_requests', '', []),
 ]
 
 
