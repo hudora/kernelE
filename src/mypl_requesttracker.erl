@@ -34,15 +34,20 @@ start_link() ->
 start() -> 
     gen_server:start({local, ?SERVER}, ?MODULE, [], []). 
 
+%% @doc inform the requesttracker than an specific quantity of a product is needed for picking
 in(Quantity, Product) -> 
     gen_server:cast(?SERVER, {in, {Quantity, Product}}).
 
+%% @spec out() -> {ok, {Quantity, Product}}|{empty}
+%% @doc get the next product which should be moved to floorlevel for picking
 out() -> 
     gen_server:call(?SERVER, {out}). 
 
+%% @doc inform the requesttracker that a unit of a specific floorlevel has been moved to floorlevel
 movement_done(Quantity, Product) ->
     gen_server:cast(?SERVER, {movement_done, {Quantity, Product}}). 
 
+%% @doc get a list of all data inside the requesttracker
 dump_requests() ->
     gen_server:call(?SERVER, {dump_requests}). 
 

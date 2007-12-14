@@ -317,7 +317,7 @@ class Kerneladapter:
         d['created_at'] = e2datetime(d['created_at'])
         return d
         
-
+    
     @nice_exception
     def pick_list(self):
         """Liefert eine Liste aller (offenen) Picks.
@@ -331,6 +331,13 @@ class Kerneladapter:
         self._send("pick_list")
         return [e2string(x) for x in self._read_json(220)]
             
+    
+    @nice_exception
+    def dump_requests(self):
+        """Liefert den Inhalt des Requestrackers."""
+        self._send("dump_requests")
+        return self._read_json(220)
+        
     
     @nice_exception
     def init_location(self, name, height=1950, floorlevel=False, preference=5, info='', attributes=[]):
@@ -423,6 +430,14 @@ class Kerneladapter:
             retrievals = [e2string(x) for x in retrievals]
             picks = [(x[0], e2string(x[1])) for x in picks]
             ret = (ok, retrievals, picks)
+        return ret
+        
+    
+    @nice_exception
+    """See http://static.23.nu/md/Files/myPL/doc/mypl_db.html#correction-6"""
+    def correction(uid, mui, old_quantity, product, change_quantity, attributes):
+        self._send("correction %s" % (simplejson.dumps(poslist)))
+        ret = self._read_json(220)
         return ret
         
     
