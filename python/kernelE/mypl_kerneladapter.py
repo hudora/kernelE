@@ -455,6 +455,13 @@ class Kerneladapter:
         
     
     @nice_exception
+    def init_pick(self, quantity, mui):
+        """Start a single Pick."""
+        self._send("init_pick %s %s" % (quantity, mui))
+        return self._read_json(220)
+        
+    
+    @nice_exception
     def commit_pick(self, pickid):
         """Commit a single Pick."""
         self._send("commit_pick %s" % (pickid))
