@@ -89,6 +89,10 @@ handle_command("rollback_pick", _Parameters, State) ->
     [PickId] = Tokens,
     NewPickId = convertString(PickId),
     {noreply, reply(220, rfc4627:encode(mypl_server:rollback_pick(NewPickId)), reset_buffers(State))};
+handle_command("correction", _Parameters, State) ->
+    % implementation for correction,
+    {ok, NewJsonList, _} = rfc4627:decode(_Parameters),
+    {noreply, reply(220, rfc4627:encode(mypl_server:correction(NewJsonList)), reset_buffers(State))};
 handle_command("count_product", _Parameters, State) ->
     % implementation for count_product,
     Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
@@ -210,6 +214,12 @@ handle_command("get_unitaudit", _Parameters, State) ->
     [Mui] = Tokens,
     NewMui = convertString(Mui),
     {noreply, reply(220, rfc4627:encode(mypl_server:get_unitaudit(NewMui)), reset_buffers(State))};
+handle_command("get_articlecorrection", _Parameters, State) ->
+    % implementation for get_articlecorrection,
+    Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
+    [Product] = Tokens,
+    NewProduct = convertString(Product),
+    {noreply, reply(220, rfc4627:encode(mypl_server:get_articlecorrection(NewProduct)), reset_buffers(State))};
 handle_command("get_abc", _Parameters, State) ->
     % implementation for get_abc,
     {noreply, reply(220, rfc4627:encode(mypl_server:get_abc()), reset_buffers(State))};
@@ -238,6 +248,7 @@ rollback_retrieval MovementId
 init_pick Quantity,Mui
 commit_pick PickId
 rollback_pick PickId
+correction JsonList
 count_product Product
 count_products 
 unit_list 
@@ -265,6 +276,7 @@ provpipeline_processing_list_all
 delete_pipeline 
 get_articleaudit Product
 get_unitaudit Mui
+get_articlecorrection Product
 get_abc 
 make_oid 
 make_nve 

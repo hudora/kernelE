@@ -78,7 +78,7 @@ insert_pipeline([CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes
     end,
     mypl_db_util:transaction(Fun).
     
-%% @pricate
+%% @private
 insert_pipeline_helper(CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes) ->
     PPline = #provpipeline{id=CId, priority=Priority, weigth=Weigth, volume=Volume,
                            attributes=[{kernel_customer, Customer}
@@ -171,7 +171,7 @@ provpipeline_processing_list_all() ->
     
 
 
-%% @spec delete(CId::string()) -> ok|error
+%% @spec delete_pipeline(CId::string()) -> ok|error
 %% @doc removes an unprocessed order from the provisioningpipeline
 %%
 %% Returns `aborted' if the order can't be removed because it is currently processed.
@@ -261,8 +261,8 @@ format_provisioninglist(PList) ->
      PList#provisioninglist.provisionings}.
     
 
+%% @doc this returns the same as get_picklist but uses retrievals, not picks.
 %% @see get_picklists/0
-%% this returns the same as get_picklist but uses retrievals, not picks.
 get_retrievallists() ->
     % check if we have picks available
     case mypl_db_util:transaction(fun() -> mnesia:first(provpipeline) end) of
@@ -446,8 +446,8 @@ sort_provpipeline_helper(Record) ->
 get_movementlist() ->
     mypl_movements:create_automatic_movements().
     
-%% @spec commit_movements(Id::string()) -> ok
-%% @TODO: fixme
+%% spec commit_movements(Id::string()) -> ok
+%% TODO: fixme
 %commit_movementlist(Id) -> ok.
 
 

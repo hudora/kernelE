@@ -30,6 +30,7 @@ funcdefs = [
 ('mypl_db', 'init_pick', 'Quantity, Mui', []),
 ('mypl_db', 'commit_pick', 'PickId', []),
 ('mypl_db', 'rollback_pick', 'PickId', []),
+('mypl_db', 'correction', 'JsonList', []),
 
 ('mypl_db_query', 'count_product', 'Product', []),
 ('mypl_db_query', 'count_products', '', ['async']),
@@ -61,6 +62,7 @@ funcdefs = [
 
 ('mypl_audit', 'get_articleaudit', 'Product', ['async']),
 ('mypl_audit', 'get_unitaudit', 'Mui', ['async']),
+('mypl_audit', 'get_articlecorrection', 'Product', ['async']),
 
 ('mypl_abcserver', 'get_abc', '', ['async']),
 

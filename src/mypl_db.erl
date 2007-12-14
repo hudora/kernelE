@@ -20,7 +20,8 @@
  init_movement/2, init_movement/3, init_movement_to_good_location/1, commit_movement/1, rollback_movement/1,
  commit_retrieval/1, rollback_retrieval/1,
  init_pick/2, commit_pick/1, rollback_pick/1,
- backup/0]).
+ backup/0,
+ correction/6, correction/1]).
 
 
 init_table_info(Status, TableName) ->
@@ -46,15 +47,18 @@ run_me_once() ->
     init_table_info(mnesia:create_table(movement,         [{disc_copies, [node()]}, {attributes, record_info(fields, movement)}]), movement),
     init_table_info(mnesia:create_table(pick,             [{disc_copies, [node()]}, {attributes, record_info(fields, pick)}]), pick),
     init_table_info(mnesia:create_table(reservation,      [{disc_copies, [node()]}, {attributes, record_info(fields, reservation)}]), reservation),
-    init_table_info(mnesia:create_table(reservation,      [{disc_copies, [node()]}, {attributes, record_info(fields, reservation)}]), reservation),
     init_table_info(mnesia:create_table(multistorage,     [{disc_copies, [node()]}, {attributes, record_info(fields, multistorage)}]), multistorage),
-
+    init_table_info(mnesia:create_table(correction,       [{disc_copies, [node()]}, {attributes, record_info(fields, correction)}]), correction),
+    mnesia:add_table_index(correction, #correction.product),
+    mnesia:add_table_index(correction, #correction.mui),
+    
     % give other modules to initialize database tables
     mypl_abcserver:run_me_once(),
     mypl_audit:run_me_once(),
     mypl_provpipeline:run_me_once(),
     
-    ok = mnesia:wait_for_tables([location, unit, movement, pick, articleaudit, unitaudit], 30000),
+    ok = mnesia:wait_for_tables([location, unit, movement, pick, reservation, multistorage, correction,
+                                 articleaudit, unitaudit], 30000),
     
     % upgrade tables where needed
         Fields = record_info(fields, pick),
@@ -142,7 +146,8 @@ backup() ->
 %%%% main myPL API - location data
 %%%%
 
-%% @spec init_location(locationName(), heigthMM(), boolean(), integer(), string(), list())  -> term()
+%% @spec init_location(locationName(), heigthMM(), boolean(), integer(), string(), Attributes)  -> term()
+%%           Attributes = [{name, value}]
 %% @doc creates a new Location or updates an existing one.
 %% 
 %% Locations can be created at any time - even when the myPL bristles with activity..
@@ -548,7 +553,7 @@ commit_pick(PickId) ->
                 mypl_audit:articleaudit(-1 * Pick#pick.quantity, Pick#pick.product,
                                         "Pick auf " ++ Unit#unit.mui, Unit#unit.mui, PickId),
                 mypl_audit:unitaudit(Unit, "Pick von " ++ integer_to_list(Pick#pick.quantity) 
-                                     ++ " committed. neuer Bestand " ++ integer_to_list(Unit#unit.quantity),
+                                     ++ " committed. neuer Bestand " ++ integer_to_list(NewUnit#unit.quantity),
                                      PickId),
                 if
                     NewUnit#unit.quantity =:= 0 ->
@@ -621,6 +626,74 @@ teleport(Unit, Source, Destination) ->
     end.
     
 
+correction([Uid, Mui, OldQuantity, Product, ChangeQuantity, Attributes]) ->
+    correction(Uid, Mui, OldQuantity, Product, ChangeQuantity, Attributes).
+%% @spec correction(Uid::sting(), Mui::muID(), OldQuantity::integer, Product::product(),
+%%                  ChangeQuantity::integer(), Attributes) -> 
+%%                      {ok, integer(), muID()}|{error, reason, term()}
+%%           Attributes = [{name, value}]
+%% @doc changes the quantity on an unit after stocktaking
+correction(Uid, Mui, OldQuantity, Product, ChangeQuantity, Attributes) when is_list(Attributes)->
+    Fun = fun() ->
+        case mnesia:read({correction, Uid}) of
+            [] ->
+                % Id does not exist, we can go ahead
+                Unit = mypl_db_util:mui_to_unit(Mui),
+                case {Unit#unit.quantity, Unit#unit.product} of
+                    {OldQuantity, Product} ->
+                        % the quantity is as expected, and the Product matcheswe can go ahead
+                        NewUnit = Unit#unit{quantity=Unit#unit.quantity + ChangeQuantity},
+                        if
+                            NewUnit#unit.quantity < 0 ->
+                                % this really shouldn't happen
+                                error_logger:error_msg("Negative amount on unit during correction: ~w ~w ~w ~s",
+                                                       [ChangeQuantity, Uid, Unit#unit.mui]),
+                                {error, not_enough_goods, {NewUnit#unit.quantity, Product, Uid, Mui}};
+                            true ->
+                                % update Unit
+                                ok = mnesia:write(NewUnit),
+                                mypl_audit:articleaudit(ChangeQuantity, Product,
+                                                        "Korrekturbuchung auf " ++ Unit#unit.mui,
+                                                        Unit#unit.mui, Uid),
+                                mypl_audit:unitaudit(Unit, "Korrekturbuchung von " 
+                                                     ++ integer_to_list(ChangeQuantity) 
+                                                     ++ " Neuer Bestand " ++ integer_to_list(NewUnit#unit.quantity),
+                                                     Uid),
+                                if
+                                    NewUnit#unit.quantity =:= 0 ->
+                                        % disband unit since it is empty now
+                                        disband_unit(NewUnit);
+                                    true ->
+                                        ok
+                                end,
+                                % all fixed now - log correction
+                                ok = mnesia:write(#correction{id=Uid, old_quantity=OldQuantity, product=Product,
+                                                              change_quantity=ChangeQuantity, mui=Mui,
+                                                              location=Unit#unit.location, attributes=Attributes,
+                                                              text="Korrekturbuchung",
+                                                              created_at=calendar:universal_time()}),
+                                mypl_audit:articleaudit(ChangeQuantity, Product,
+                                                        "Korrektur auf " ++ Unit#unit.mui, Unit#unit.mui, Uid),
+                                mypl_audit:unitaudit(Unit, "Korrektur von " ++ integer_to_list(ChangeQuantity) 
+                                                     ++ " Neuer Bestand " ++ integer_to_list(NewUnit#unit.quantity),
+                                                     Uid),
+                                {ok, {NewUnit#unit.quantity, NewUnit#unit.mui}}
+                        end;
+                    _ ->
+                        error_logger:error_msg("Product or Quantity mismatch during correction ~w ~s, ~w ~s ~s",
+                                                       [OldQuantity, Product, Unit#unit.quantity, Unit#unit.product, Mui]),
+                        {error, missmatch, {OldQuantity, Product, Unit#unit.quantity, Unit#unit.product, Mui}}
+                end;
+            Corrections ->
+                error_logger:error_msg("Duplicate correction ~w ~s ~w, ~w",
+                                               [OldQuantity, Product, Uid, Corrections]),
+                {error, duplicate_id, {OldQuantity, Product, Uid, Corrections}}
+        end
+    end,
+    mypl_db_util:transaction(Fun).
+    
+
+
 % ~~ Unit tests
 -ifdef(EUNIT).
 -compile(export_all).
@@ -637,6 +710,7 @@ test_init() ->
     mnesia:clear_table(articleaudit),
     mnesia:clear_table(unitaudit),
     mnesia:clear_table(multistorage),
+    mnesia:clear_table(correction),
     % regenerate locations
     % init_location(Name, Height, Floorlevel, Preference, Attributes)
     init_location("EINLAG", 3000, true,  0, [{no_picks}]),
@@ -779,9 +853,29 @@ store_at_location_multi_test() ->
     ok.
     
 
+mypl_correction_test() ->
+    % generate and Store Unit of 5*14601 (1200mm high) on "EINLAG"
+    {ok, mui1} = store_at_location("EINLAG", mui1, 15, "a0001", 1200),
+    {ok, {14, mui1}} = correction(id1, mui1, 15, "a0001", -1, []),
+    {ok, {13, mui1}} = correction(id2, mui1, 14, "a0001", -1, []),
+    
+    % duplicate id
+    {error, duplicate_id, _} = correction(id2, mui1, 13, "a0001", -1, []),
+    % wrong mui
+    {error, missmatch, {13, "a2222", 1, "a0003", mui2}} = correction(id3, mui2, 13, "a2222", -2, []),
+    % wrong quantity
+    {error, missmatch, {15, "a0001", 13, "a0001", mui1}} = correction(id4, mui1, 15, "a0001", -2, []),
+    % wrong product
+    {error, missmatch, _} = correction(id5, mui1, 13, "a2222", -2, []),
+    ok.
+    
+
 testrunner() ->
+    test_init(),
     mypl_simple_movement_test(),
     mypl_simple_pick_test(),
-    mypl_disbanding_test().
+    mypl_disbanding_test(),
+    store_at_location_multi_test(),
+    mypl_correction_test().
     
 -endif.

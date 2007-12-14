@@ -62,6 +62,18 @@
                      attributes
                 }).
 
+% keep information about changes in stock ("Korrekturbuchungen")
+-record(correction, 
+    {id,
+    old_quantity,
+    product,
+    mui,
+    location,
+    change_quantity,
+    text,
+    attributes,
+    created_at}).
+    
 
 % orders to be provisioned
 -record(provpipeline,

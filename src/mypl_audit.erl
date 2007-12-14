@@ -58,7 +58,7 @@
 % archiviert units, movements und picks
 -record(archive, {id,           % eindeutiger Bezeichner
                   created_at,
-                  archived_by,  % wodurch wurde der datensatz archiviert
+                  archived_by,  % wodurch wurde der Datensatz archiviert
                   body
                   }).
 
@@ -67,7 +67,7 @@
                       body
                      }).
 
--export([run_me_once/0, get_articleaudit/1, get_unitaudit/1,
+-export([run_me_once/0, get_articleaudit/1, get_unitaudit/1, get_articlecorrection/1,
          articleaudit/6, articleaudit/5, articleaudit/4,
          unitaudit_mui/2, unitaudit/4, unitaudit/3, unitaudit/2,
          archive/2, spawn_audit_transfer/0, compress_audit/0, compress_audit/1]).
@@ -86,10 +86,11 @@ run_me_once() ->
     mypl_db:init_table_info(mnesia:create_table(archive,          [{disc_only_copies, [node()]}, {attributes, record_info(fields, archive)}]), archive),
     mypl_db:init_table_info(mnesia:create_table(articleaudit,     [{disc_only_copies, [node()]}, {attributes, record_info(fields, articleaudit)}]), articleaudit),
     mnesia:add_table_index(articleaudit, #articleaudit.product),
-    mypl_db:init_table_info(mnesia:create_table(unitaudit,        [{disc_only_copies, [node()]}, {attributes, record_info(fields, unitaudit)}]), unitaudit).
+    mypl_db:init_table_info(mnesia:create_table(unitaudit,        [{disc_only_copies, [node()]}, {attributes, record_info(fields, unitaudit)}]), unitaudit),
+    mnesia:add_table_index(unitaudit, #unitaudit.mui),
+    ok.
 
-
-%% @doc returns al audit recodes related to an article
+%% @doc returns all audit recodes related to an article
 get_articleaudit(Product) ->
     Records = mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(articleaudit),
                                                 X#articleaudit.product =:= Product])),
@@ -107,6 +108,26 @@ get_articleaudit_helper(Aaudit) ->
      {references,  Aaudit#articleaudit.references},
      {created_at,  Aaudit#articleaudit.created_at}
     ].
+    
+%% @doc returns a list of corrections for an article
+get_articlecorrection(Product) ->
+    Records = mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(correction),
+                                                X#correction.product =:= Product])),
+    lists:map(fun(X) -> get_articlecorrection_helper(X) end, lists:sort(Records)).
+    
+
+%% @private
+get_articlecorrection_helper(Correction) ->
+    [
+     {id,               Correction#correction.id},
+     {old_quantity,     Correction#correction.old_quantity},
+     {change_quantity,  Correction#correction.change_quantity},
+     {product,          Correction#correction.product},
+     {mui,              Correction#correction.mui},
+     {location,         Correction#correction.location},
+     {text,             Correction#correction.text},
+     {created_at,       Correction#correction.created_at}
+    ] ++ Correction#correction.attributes.
     
 
 %% @doc returns all audit recodes related to an Mui
