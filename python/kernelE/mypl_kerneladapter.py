@@ -434,7 +434,7 @@ class Kerneladapter:
         
     
     @nice_exception
-    def correction(uid, mui, old_quantity, product, change_quantity, attributes):
+    def correction(uid, mui, old_quantity, product, change_quantity, attributes={}):
         """See http://static.23.nu/md/Files/myPL/doc/mypl_db.html#correction-6"""
         self._send("correction %s" % (simplejson.dumps(uid, mui, old_quantity, product, change_quantity, attributes.items())))
         ret = self._read_json(220)

@@ -163,8 +163,7 @@ unit_info(Mui) ->
 
 %% @doc Get a list of all location names
 location_list() ->
-    {atomic, Ret} = mnesia:transaction(fun() -> mnesia:all_keys(location) end),
-    Ret.
+    lists:sort(mypl_db_util:transaction(fun() -> mnesia:all_keys(location) end)).
     
 
 %% @spec location_info(locationName()) -> tuple()

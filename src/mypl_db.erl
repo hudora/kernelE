@@ -308,7 +308,8 @@ retrieve(Mui) ->
                 % log
                 mypl_audit:unitaudit(Unit, "Aufgeloeesst auf " ++ Location#location.name),
                 mypl_audit:articleaudit(-1 * Unit#unit.quantity, Unit#unit.product,
-                                 "Warenabgang auf " ++ Location#location.name, Unit#unit.mui),
+                                 "Warenabgang von " ++  Unit#unit.mui
+                                 ++ " auf " ++ Location#location.name, Unit#unit.mui),
                 mypl_audit:archive(Unit, retieve),
                 {ok, {Unit#unit.quantity, Unit#unit.product}};
             {_, no, _} ->

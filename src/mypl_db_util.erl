@@ -134,13 +134,28 @@ unit_movable(Unit) ->
     end.
     
 
+%% @doc returns a list of location ordered bo "goodness"
 best_location_helper(Unit) ->
     % locations with preference == 0 are never considered
     Candidates = [X || X <- find_empty_location(Unit#unit.height), X#location.preference > 0],
     % order by heigth, so we prefer lower locations (and in addition order by preference)
     lists:sort(fun(A, B) ->
-                   {A#location.height, A#location.preference} < {B#location.height, B#location.preference}
+                   if 
+                       "EINLAG" =:= Unit#unit.location ->
+                            % for Units on EINLAG we do no distance calculations
+                            Adistance = 0,
+                            Bdistance = 0;
+                            % TODO: calculate based on ABC classification
+                        true ->
+                            % divide by 10 to get groups/bins of distances
+                            Adistance = mypl_distance:distance(Unit#unit.location, A#location.name) div 10,
+                            Bdistance = mypl_distance:distance(Unit#unit.location, B#location.name) div 10
+                    end,
+                    % order by as near as possible, as low as possible, preference as high as possible
+                    {Adistance, A#location.height, B#location.preference} 
+                        < {Bdistance, B#location.height, A#location.preference}
                end, Candidates).
+    
 
 %% @private
 %% @spec best_location(unitRecord()) -> locationRecord()
@@ -161,8 +176,8 @@ best_location(floorlevel, Unit, Ignore) ->
     % order by heigth, so we prefer lower locations
     [H|_] = [X || X <- best_location_helper(Unit), X#location.floorlevel =:= true] -- Ignore,
     H.
-%best_location(floorlevel, Unit) -> best_location(floor, Unit, []).
 
+%% @doc suggest for each unit in units where it could be moved
 best_locations(floorlevel, [], _) -> [];
 best_locations(floorlevel, Units, Ignore) -> 
     [H|T] = Units,
@@ -215,3 +230,79 @@ find_empty_location(Height) ->
 
 %find_empty_floor_location(Height) ->
 %    lists:filter(fun(X) -> X#location.floorlevel =:= true end, find_empty_location(Height)).
+
+
+% ~~ Unit tests
+-ifdef(EUNIT).
+-compile(export_all).
+
+%%% @hidden
+test_init() ->
+    mypl_db:run_me_once(),
+    % flush database
+    mnesia:start(),
+    mnesia:clear_table(unit),
+    mnesia:clear_table(location),   
+    mnesia:clear_table(movement),   
+    mnesia:clear_table(pick),       
+    mnesia:clear_table(picklist),   
+    % regenerate locations
+    % init_location(Name, Height, Floorlevel, Preference, Attributes)
+    mypl_db:init_location("EINLAG", 6000, true,  0, [{no_picks}]),
+    mypl_db:init_location("AUSLAG", 6000, true,  0, [{no_picks}]),
+    mypl_db:init_location("010102", 1950, false, 6, []),
+    
+    mypl_db:init_location("011001", 2000, true,  1, []),
+    mypl_db:init_location("011002", 2000, false, 7, []),
+    mypl_db:init_location("011003", 2000, false, 6, []),
+    
+    mypl_db:init_location("012002", 2000, false, 7, []),
+    
+    mypl_db:init_location("013001", 1500, true,  1, []),
+    mypl_db:init_location("013002", 1500, false, 7, []),
+    mypl_db:init_location("013003", 1500, false, 6, []),
+    
+    mypl_db:init_location("200101", 2000, true,  9, []),
+    mypl_db:init_location("200102", 1900, false, 9, []),
+    mypl_db:init_location("200103", 1200, false, 9, []),
+    mypl_db:init_location("200104", 3000, false, 9, []),
+    ok.
+
+%%% @hidden
+%%% test if counting works as expected
+choose_location_test() ->
+    test_init(),
+    {ok, mui1} = mypl_db:store_at_location("012002", mui1, 5, "a0001", 1200),
+    #location{name="013002"} = transaction(fun() -> best_location(mui_to_unit(mui1)) end),
+    
+    {ok, mui2} = mypl_db:store_at_location("012002", mui2, 5, "a0001", 1999),
+    #location{name="011002"} = transaction(fun() -> best_location(mui_to_unit(mui2)) end),
+    
+    {ok, mui3} = mypl_db:store_at_location("012002", mui3, 5, "a0001", 1900),
+    #location{name="010102"} = transaction(fun() -> best_location(mui_to_unit(mui3)) end),
+    
+    % very high, so it is moved to the back
+    {ok, mui4} = mypl_db:store_at_location("012002", mui4, 5, "a0001", 2100),
+    #location{name="200104"} = transaction(fun() -> best_location(mui_to_unit(mui4)) end),
+    ok.
+    
+
+choose_locations_test() ->
+    test_init(),
+    {ok, mui1} = mypl_db:store_at_location("012002", mui1, 5, "a0001", 1200),
+    [#location{name="013001"}] = transaction(fun() -> best_locations(floorlevel, [mui_to_unit(mui1)]) end),
+    
+    {ok, mui2} = mypl_db:store_at_location("012002", mui2, 5, "a0001", 1999),
+    [#location{name="011001"}] = transaction(fun() -> best_locations(floorlevel, [mui_to_unit(mui2)]) end),
+    
+    {ok, mui3} = mypl_db:store_at_location("012002", mui3, 5, "a0001", 1900),
+    [#location{name="011001"}] = transaction(fun() -> best_locations(floorlevel, [mui_to_unit(mui3)]) end),
+    ok.
+    
+
+testrunner() ->
+    choose_location_test(),
+    choose_locations_test(),
+    ok.
+    
+-endif.
