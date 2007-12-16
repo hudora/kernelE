@@ -4,7 +4,7 @@
 %% @doc ABC-analysis
 %%
 %% This module is for keeping track of how frequent different products are picked. Possibly later we
-%% start also to check for retrievals bt so far this module only is concerned about picks.
+%% start also to check for retrievals but so far this module only is concerned about picks.
 %% The public API only consists of {@link feed/3} and {@link get_abc/0}.
 
 -module(mypl_abcserver).
@@ -38,7 +38,7 @@
 
 
 %% API
--export([run_me_once/0, start_link/0, feed/3, get_abc/0]).
+-export([run_me_once/0, start_link/0, feed/3, get_abc/0, get_class/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -75,8 +75,12 @@ feed(pick, Pick, Locationname) ->
 
 get_abc() ->
     gen_server:call(?SERVER, {get_abc}).
+    
 
-
+%% @doc retuns the class for a specific product
+get_class(Product) ->
+    gen_server:call(?SERVER, {get_class, Product}).
+    
 
 %%====================================================================
 %% gen_server callbacks
@@ -103,6 +107,9 @@ init([]) ->
 %%--------------------------------------------------------------------
 handle_call({get_abc}, _From, State) ->
     Reply = abc(),
+    {reply, Reply, State};
+handle_call({get_class, Product}, _From, State) ->
+    Reply = get_class_helper(Product),
     {reply, Reply, State}.
 
 
@@ -166,7 +173,22 @@ run_me_once() ->
     % the audit tables are kept ONLY on disk (slow!)
     mypl_db:init_table_info(mnesia:create_table(abc_pick_summary, [{disc_only_copies, [node()]}, {attributes, record_info(fields, abc_pick_summary)}]), abc_pick_summary),
     mnesia:add_table_index(abc_pick_summary, #abc_pick_summary.date).
+    
 
+get_class_helper(Product) ->
+    {A, B, C} = abc_spit(aggregate_without_update()),
+    case lists:filter(fun({_, X}) -> X =:= Product end, A) of
+        [_] -> a;
+        _ -> case lists:filter(fun({_, X}) -> X =:= Product end, B) of
+            [_] -> b;
+            _ -> case lists:filter(fun({_, X}) -> X =:= Product end, C) of
+                [_] -> c;
+                _ -> penner
+            end
+        end
+    end,
+    ok.
+    
 
 aggregate_helper([], Dict) -> Dict;
 aggregate_helper([H|T], Dict) ->
@@ -174,17 +196,28 @@ aggregate_helper([H|T], Dict) ->
     
 
 aggregate(Start, End) ->
-    update_summary(),
     Records = mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(abc_pick_summary),
                                                 X#abc_pick_summary.date > Start,
                                                 X#abc_pick_summary.date =< End])),
     lists:reverse(lists:sort(lists:map(fun({Product, NumPicks}) -> 
                              {NumPicks, Product} end, 
-                         dict:to_list(aggregate_helper(Records, dict:new()))))).
+                        dict:to_list(aggregate_helper(Records, dict:new()))))).
     
-    
+
 aggregate(Start) ->
     aggregate(Start, {9999,1,1}).
+    
+
+aggregate_without_update() ->
+    {Date, _} = calendar:now_to_datetime(erlang:now()),
+    Start = calendar:gregorian_days_to_date(calendar:date_to_gregorian_days(Date) - 45),
+    aggregate(Start).
+    
+
+%% @doc Give a ordering of the products most often picked in the last 45 days.
+aggregate() ->
+    update_summary(),
+    aggregate_without_update().
     
 
 abc() ->
@@ -208,13 +241,6 @@ abc_spit(L) ->
     {B, C} = abc_split_helper(Splitpos, Rest),
     {A, B, C}.
     
-
-%% @doc Give a Orderring of the products most often picked in the last 45 days.
-aggregate() ->
-  {Date, _} = calendar:now_to_datetime(erlang:now()),
-  Start = calendar:gregorian_days_to_date(calendar:date_to_gregorian_days(Date) - 45),
-  aggregate(Start).
-  
 
 update_summary(Record) ->
     Date = element(1, Record#abc_pick_detail.created_at),

@@ -577,12 +577,12 @@ test_init() ->
     mypl_db:init_location("010302", 2000, false,  7, []),
     mypl_db:init_location("010303", 2000, false,  7, []),
     
-    {ok, _} = mypl_db:store_at_location("EINLAG", mui1,  5, "a0003", 1200),
-    {ok, _} = mypl_db:store_at_location("010101", mui2,  5, "a0003", 1200),
-    {ok, _} = mypl_db:store_at_location("EINLAG", mui3, 17, "a0004", 1200),
-    {ok, _} = mypl_db:store_at_location("010201", mui4, 19, "a0004", 1200),
-    {ok, _} = mypl_db:store_at_location("010301", mui5, 61, "a0005", 1200),
-    {ok, _} = mypl_db:store_at_location("010302", mui6, 10, "a0005", 1200),
+    {ok, _} = mypl_db:store_at_location("EINLAG", "mui1",  5, "a0003", 1200),
+    {ok, _} = mypl_db:store_at_location("010101", "mui2",  5, "a0003", 1200),
+    {ok, _} = mypl_db:store_at_location("EINLAG", "mui3", 17, "a0004", 1200),
+    {ok, _} = mypl_db:store_at_location("010201", "mui4", 19, "a0004", 1200),
+    {ok, _} = mypl_db:store_at_location("010301", "mui5", 61, "a0005", 1200),
+    {ok, _} = mypl_db:store_at_location("010302", "mui6", 10, "a0005", 1200),
     [{"a0003",10,10,0,0},{"a0004",36,36,0,0},{"a0005",71,71,0,0}] = mypl_db_query:count_products(),
     % provpipeline empty?
     [] = provpipeline_list_new(),
@@ -621,22 +621,22 @@ provpipeline_list_test() ->
 mypl_simple_test() ->
     test_init(),
     P4 = get_picklists(),
-    [{P4id,lieferschein4,"AUSLAG",_,1,[{_,mui4,"010201",1,"a0004",[]},
-                                       {_,mui5,"010301",1,"a0005",[]}]}] = P4,
+    [{P4id,lieferschein4,"AUSLAG",_,1,[{_,"mui4","010201",1,"a0004",[]},
+                                       {_,"mui5","010301",1,"a0005",[]}]}] = P4,
     P1 = get_picklists(),
-    [{P1id,lieferschein1,"AUSLAG",_,2,[{"P00000249",mui4,"010201",1,"a0004",[]}]}] = P1,
+    [{P1id,lieferschein1,"AUSLAG",_,2,[{"P00000249","mui4","010201",1,"a0004",[]}]}] = P1,
     P3 = get_picklists(),
-    [{P3id,lieferschein3,"AUSLAG",_,1,[{_,mui4,"010201",16,"a0004",[]},
-                                       {_,mui5,"010301",50,"a0005",[]}]}] = P3,
+    [{P3id,lieferschein3,"AUSLAG",_,1,[{_,"mui4","010201",16,"a0004",[]},
+                                       {_,"mui5","010301",50,"a0005",[]}]}] = P3,
     P2 = get_picklists(),
-    [{P2id,lieferschein2,"AUSLAG",_,1,[{_,mui4,"010201",1,"a0004",[]},
-                                       {_,mui5,"010301",10,"a0005",[]}]}] = P2,
+    [{P2id,lieferschein2,"AUSLAG",_,1,[{_,"mui4","010201",1,"a0004",[]},
+                                       {_,"mui5","010301",10,"a0005",[]}]}] = P2,
     
     % at this time we should have one retrieval prepared
     [{retrievalpipeline,_,lieferschein1,_,_}] = provpipeline_list_prepared(),
     
     R1 = get_retrievallists(),
-    [{R1id,lieferschein1,"AUSLAG",_,2,[{_,mui6,"010302",10,"a0005",[]}]}] = R1,
+    [{R1id,lieferschein1,"AUSLAG",_,2,[{_,"mui6","010302",10,"a0005",[]}]}] = R1,
     
     
     

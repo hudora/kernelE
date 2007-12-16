@@ -75,6 +75,7 @@ test: regression
 regression: devbuild
 	@erl \
 		-noshell \
+		-s mypl_abcserver start_link \
 		-kernel error_logger      "{file, \"log/utest-kernel.log\"}" \
 		-sasl   sasl_error_logger "{file, \"log/utest-sasl.log\"}" \
 		${ERLPATH} \

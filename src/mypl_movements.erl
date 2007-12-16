@@ -200,22 +200,22 @@ test_init() ->
 get_movementsuggestion_test() ->
     mypl_requesttracker:start(),
     test_init(),
-    {ok, _} = mypl_db:store_at_location("010102", mui1,  5, "a0003", 1200),
-    {ok, _} = mypl_db:store_at_location("010103", mui2,  5, "a0003", 1200),
-    {ok, _} = mypl_db:store_at_location("010202", mui3, 17, "a0004", 1200),
-    {ok, _} = mypl_db:store_at_location("010203", mui4, 19, "a0004", 1200),
-    {ok, _} = mypl_db:store_at_location("010302", mui5, 23, "a0005", 1200),
-    {ok, _} = mypl_db:store_at_location("010303", mui6, 71, "a0005", 1200),
+    {ok, _} = mypl_db:store_at_location("010102", "mui1",  5, "a0003", 1200),
+    {ok, _} = mypl_db:store_at_location("010103", "mui2",  5, "a0003", 1200),
+    {ok, _} = mypl_db:store_at_location("010202", "mui3", 17, "a0004", 1200),
+    {ok, _} = mypl_db:store_at_location("010203", "mui4", 19, "a0004", 1200),
+    {ok, _} = mypl_db:store_at_location("010302", "mui5", 23, "a0005", 1200),
+    {ok, _} = mypl_db:store_at_location("010303", "mui6", 71, "a0005", 1200),
     mypl_requesttracker:in(20, "a0005"),
-    [{mui5,"010301"}] = get_movementsuggestion_from_requesstracker(),
+    ?assertMatch([{"mui5","010301"}], get_movementsuggestion_from_requesstracker()),
     mypl_requesttracker:in(30, "a0005"),
-    [{mui5,"010301"},{mui6,"010201"}] = get_movementsuggestion_from_requesstracker(),
+    ?assertMatch([{"mui5","010301"},{"mui6","010201"}], get_movementsuggestion_from_requesstracker()),
     mypl_requesttracker:in(999, "a0005"),
     mypl_requesttracker:in(30, "a0004"),
     % why is mui6 this time leading the list ???
-    [{mui6,"010301"}, {mui5,"010201"}] = get_movementsuggestion_from_requesstracker(),
+    ?assertMatch([{"mui6","010301"}, {"mui5","010201"}], get_movementsuggestion_from_requesstracker()),
     % the second call to mypl_requesttracker will address Product a0004
-    [{mui3,"010301"},{mui4,"010201"}] = get_movementsuggestion_from_requesstracker(),
+    ?assertMatch([{"mui3","010301"},{"mui4","010201"}], get_movementsuggestion_from_requesstracker()),
     ok.
     
 

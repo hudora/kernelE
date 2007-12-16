@@ -161,3 +161,24 @@
 	    end
 	  end)())).
 -endif.
+
+% from eunit.hrl
+%% This is mostly a convenience which gives more detailed reports.
+%% Note: Guard is a guarded pattern, and can not be used for value.
+-ifdef(NOTEST).
+-define(assertMatch(Guard,Expr),ok).
+-else.
+-define(assertMatch(Guard, Expr),
+	((fun () ->
+	    case (Expr) of
+		Guard -> ok;
+		__V -> erlang:error({assertMatch_failed,
+				     [{module, ?MODULE},
+				      {line, ?LINE},
+				      {expression, (??Expr)},
+				      {expected, (??Guard)},
+				      {value, __V}]})
+	    end
+	  end)())).
+-endif.
+-define(_assertMatch(Guard, Expr), ?_test(?assertMatch(Guard, Expr))).

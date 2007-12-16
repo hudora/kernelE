@@ -232,7 +232,7 @@ store_at_location(Location, Unit) when Unit#unit.quantity > 0 ->
 %% @doc create a new Unit and insert it into the warehouse
 %%
 %% On errors it might also return {error, unknown_location} or {error, duplicate_mui}.
-store_at_location(Locname, Mui, Quantity, Product, Height) when Quantity > 0 ->
+store_at_location(Locname, Mui, Quantity, Product, Height) when Quantity > 0 andalso is_list(Mui)->
     Fun = fun() ->
         % check that location exists
         Location = mypl_db_util:read_location(Locname),
@@ -826,17 +826,17 @@ mypl_simple_pick_test() ->
 mypl_disbanding_test() ->
     test_init(),
     % generate a MUI for testing
-    {ok, mui1} = store_at_location("010101", mui1, 1, "a0002", 1950),
-    {ok, Pick1} = init_pick(1, mui1),
+    ?assertMatch({ok, "mui1"}, store_at_location("010101", "mui1", 1, "a0002", 1950)),
+    {ok, Pick1} = init_pick(1, "mui1"),
     % since the pick empties the unit this should lead to disbanding
-    {ok, {1, "a0002"}} = commit_pick(Pick1),
+    ?assertMatch({ok, {1, "a0002"}}, commit_pick(Pick1)),
     % now mui1 should be gone
-    {error, unknown_mui, {mui1}} = mypl_db_query:unit_info(mui1),
+    ?assertMatch({error, unknown_mui, {"mui1"}}, mypl_db_query:unit_info("mui1")),
     
-    {ok, mui2} = store_at_location("010101", mui2, 1, "a0003", 1950),
-    {ok, _Movement2} = init_movement_to_good_location(mui2),
-    Unit2 = mypl_db_util:mui_to_unit_trans(mui2),
-    {atomic, {error, inconsistent_disband, _}} = mnesia:transaction(fun() -> disband_unit(Unit2) end),
+    ?assertMatch({ok, "mui2"}, store_at_location("010101", "mui2", 1, "a0003", 1950)),
+    ?assertMatch({ok, _Movement2}, init_movement_to_good_location("mui2")),
+    Unit2 = mypl_db_util:mui_to_unit_trans("mui2"),
+    ?assertMatch({atomic, {error, inconsistent_disband, _}}, mnesia:transaction(fun() -> disband_unit(Unit2) end)),
     ok.
     
 
@@ -855,19 +855,21 @@ store_at_location_multi_test() ->
     
 
 mypl_correction_test() ->
+    test_init(),
     % generate and Store Unit of 5*14601 (1200mm high) on "EINLAG"
-    {ok, mui1} = store_at_location("EINLAG", mui1, 15, "a0001", 1200),
-    {ok, {14, mui1}} = correction(id1, mui1, 15, "a0001", -1, []),
-    {ok, {13, mui1}} = correction(id2, mui1, 14, "a0001", -1, []),
+    ?assertMatch({ok, "mui1"}, store_at_location("EINLAG", "mui1", 15, "a0001", 1200)),
+    ?assertMatch({ok, "mui2"}, store_at_location("EINLAG", "mui2", 99, "a0002", 1200)),
+    ?assertMatch({ok, {14, "mui1"}}, correction(id1, "mui1", 15, "a0001", -1, [])),
+    ?assertMatch({ok, {13, "mui1"}}, correction(id2, "mui1", 14, "a0001", -1, [])),
     
     % duplicate id
-    {error, duplicate_id, _} = correction(id2, mui1, 13, "a0001", -1, []),
+    ?assertMatch({error, duplicate_id, _}, correction(id2, "mui1", 13, "a0001", -1, [])),
     % wrong mui
-    {error, missmatch, {13, "a2222", 1, "a0003", mui2}} = correction(id3, mui2, 13, "a2222", -2, []),
+    ?assertMatch({error, missmatch, {13, _, _, _, "mui2"}}, correction(id3, "mui2", 13, "a2222", -2, [])),
     % wrong quantity
-    {error, missmatch, {15, "a0001", 13, "a0001", mui1}} = correction(id4, mui1, 15, "a0001", -2, []),
+    ?assertMatch({error, missmatch, {15, "a0001", 13, "a0001", "mui1"}}, correction(id4, "mui1", 15, "a0001", -2, [])),
     % wrong product
-    {error, missmatch, _} = correction(id5, mui1, 13, "a2222", -2, []),
+    ?assertMatch({error, missmatch, _}, correction(id5, "mui1", 13, "a2222", -2, [])),
     ok.
     
 
