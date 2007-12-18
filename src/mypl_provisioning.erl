@@ -330,11 +330,11 @@ init_provisionings_multi(L, Attributes) ->
             Fun = fun() ->
                 {ok, lists:map(fun(Mui) -> 
                                    {ok, MovementId} = mypl_db:init_movement(Mui, "AUSLAG", 
-                                                                            [{type, retrieval}] ++ Attributes),
+                                                          [{type, retrieval}] ++ Attributes),
                                    MovementId
                                end, Retrievals),
                      lists:map(fun({Quantity, Mui}) -> 
-                                  {ok, PickId} = mypl_db:init_pick(Quantity, Mui),
+                                  {ok, PickId} = mypl_db:init_pick(Quantity, Mui, Attributes),
                                   PickId
                                end, Picks)}
             end,

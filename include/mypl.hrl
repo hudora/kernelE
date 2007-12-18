@@ -98,6 +98,10 @@
              attributes,
              parts,
              provisionings
+             % TODO:
+             % find a better way to store provisionings
+             % add created_at
+             % add status
             }).
 
 -record(pickpipeline,

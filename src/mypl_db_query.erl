@@ -248,7 +248,7 @@ pick_info(PickId) ->
                   {from_location, Unit#unit.location},
                   {quantity,      Pick#pick.quantity},
                   {product,       Unit#unit.product},
-                  {attributes,    []},
+                  {attributes,    Pick#pick.attributes},
                   {created_at,    Pick#pick.created_at}
                  ]}
         end

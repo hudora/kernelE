@@ -92,7 +92,7 @@ handle_call({out}, _From, State) ->
             {reply, {ok, {Quantity, Product}}, State}
     end;
 handle_call({dump_requests}, _From, State) ->
-   Ret = ets:tab2list(movement),
+   Ret = ets:tab2list(State#state.table),
    {reply, Ret, State}.
 
 %%--------------------------------------------------------------------

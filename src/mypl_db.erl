@@ -19,7 +19,7 @@
 -export([init_table_info/2, run_me_once/0, init_location/6, init_location/5,store_at_location/5, retrieve/1,
  init_movement/2, init_movement/3, init_movement_to_good_location/1, commit_movement/1, rollback_movement/1,
  commit_retrieval/1, rollback_retrieval/1,
- init_pick/2, commit_pick/1, rollback_pick/1,
+ init_pick/2, init_pick/3, commit_pick/1, rollback_pick/1,
  backup/0,
  correction/6, correction/1]).
 
@@ -496,10 +496,14 @@ commit_retrieval(MovementId) ->
 rollback_retrieval(MovementId) ->
     rollback_movement(MovementId).
 
+init_pick(Quantity, Mui) ->
+    init_pick(Quantity, Mui, []).
+
+
 %% @spec init_pick(integer(), muID()) -> {ok, pickID()}
 %% @see commit_pick/1
 %% @doc start a new pick removing Quantity Products from Mui
-init_pick(Quantity, Mui) when is_integer(Quantity) ->
+init_pick(Quantity, Mui, Attributes) when is_integer(Quantity) ->
     Fun = fun() ->
         % get unit for Mui & get current location of mui
         Unit = mypl_db_util:mui_to_unit(Mui),

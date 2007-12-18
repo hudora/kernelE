@@ -17,18 +17,22 @@
          is_provisioned/1, run_me_once/0]).
 
 run_me_once() ->
+    % komissionierbelege, so wie sie aus SoftM kommen
     mnesia:create_table(provpipeline, [{disc_copies, [node()]},
                                        {attributes, record_info(fields, provpipeline)}
                                       ]),
     mnesia:create_table(provpipeline_processing, [{disc_copies, [node()]},
                                        {attributes, record_info(fields, provpipeline_processing)}
                                       ]),
+    % retrievallists und picklists, wie sie an nach aussen gegeben wurden
     mnesia:create_table(provisioninglist, [{disc_copies, [node()]},
                                        {attributes, record_info(fields, provisioninglist)}
                                       ]),
+    % puffer, fuer picks, die noch ausgegeben werden muessen
     mnesia:create_table(pickpipeline, [{disc_copies, [node()]},
                                        {attributes, record_info(fields, pickpipeline)}
                                       ]),
+    % puffer, fuer retrievals, die noch ausgegeben werden muessen
     mnesia:create_table(retrievalpipeline, [{disc_copies, [node()]},
                                        {attributes, record_info(fields, retrievalpipeline)}
                                       ]).
@@ -85,6 +89,7 @@ insert_pipeline_helper(CId, Orderlines, Priority, Customer, Weigth, Volume, Attr
                                       ] ++ proplistlist_to_proplisttuple(Attributes),
                            provisioninglists=[], tries=0, status=new,
                            % normalize on tuples instead of lists
+                           % TODO: normalize attributes to tuple
                            orderlines=lists:map(fun({Quantity, Product, OlAttributes}) -> 
                                                         {Quantity, Product, OlAttributes};
                                                     ([Quantity, Product, OlAttributes]) -> 
@@ -170,6 +175,29 @@ provpipeline_processing_list_all() ->
     mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(provpipeline_processing)])).
     
 
+%% @doc returns a list of all (pick|retrieval)list ids.
+provisioninglist_list() ->
+    lists:sort(mypl_db_util:transaction(fun() -> mnesia:all_keys(provisioninglist) end)).
+
+%% @doc get information concerning a (pick|retrieval)list
+provisioninglist_info(Id) ->
+    Fun = fun() ->
+        case mnesia:read({provisioninglist, Id}) of
+            [] -> {error, unknown_provisioninglist, {Id}};
+            [Plist] -> 
+                {ok, 
+                 [{id ,              Plist#provisioninglist.id},
+                  {type,             Plist#provisioninglist.type},
+                  {provpipeline_id,  Plist#provisioninglist.provpipeline_id},
+                  {destination,      Plist#provisioninglist.destination},
+                  {parts,            Plist#provisioninglist.parts},
+                  {attributes,       Plist#provisioninglist.attributes},
+                  {provisioning_ids, [element(1, X) || X <- Plist#provisioninglist.provisionings]}
+                 ]}
+        end
+    end,
+    mypl_db_util:transaction(Fun).
+    
 
 %% @spec delete_pipeline(CId::string()) -> ok|error
 %% @doc removes an unprocessed order from the provisioningpipeline
@@ -375,8 +403,11 @@ refill_pipeline(Type, Candidates) ->
     Orderlines = [{Quantity, Product} || {Quantity, Product, _Attributes} <- Entry#provpipeline.orderlines],
     case mypl_provisioning:find_provisioning_candidates_multi(Orderlines) of
         {error, no_fit} ->
-            mypl_db_util:transaction(fun() -> mnesia:write(Entry#provpipeline{tries=Entry#provpipeline.tries+1}) end),
-            % nochmal versuchen
+            % update number of tries
+            mypl_db_util:transaction(fun() ->
+                                        mnesia:write(Entry#provpipeline{tries=Entry#provpipeline.tries+1})
+                                     end),
+            % retry with the next candidate
             refill_pipeline(Type, CandidatesTail);
         {ok, Retrievals, Picks} ->
             if
