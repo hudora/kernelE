@@ -17,10 +17,10 @@ start() ->
     Res = application:start(?APPLICATION, temporary),
     case Res of 
         ok ->
-            io:format("~nmyPL/kernel-E started in on ~w with PID ~s~n.", [{os:type(), os:version()}, os:getpid()]),
+            io:format("~nmyPL/kernel-E started in on ~w with PID ~s.~n", [{os:type(), os:version()}, os:getpid()]),
             ok;
         {error, {already_started, ?APPLICATION}} ->
-            io:format("~nmyPL/kernel-E already started~n"),
+            io:format("~nmyPL/kernel-E already started.~n"),
             ok;
         {error, R} ->
             io:format("~nmyPL/kernel-E failed to start: ~p~n",[R]),

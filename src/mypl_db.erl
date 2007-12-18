@@ -176,7 +176,6 @@ init_location(Name, Height, Floorlevel, Preference, Info, Attributes)
                                                 allocated_by=Location#location.allocated_by,
                                                 reserved_for=Location#location.reserved_for},
                 ok = mnesia:write(NewLocation),
-                ?WARNING("Location ~w saved", [Name]),
                 Ret
             end,
             {atomic, Ret} = mnesia:transaction(Fun),
@@ -657,13 +656,6 @@ correction(Uid, Mui, OldQuantity, Product, ChangeQuantity, Attributes) when is_l
                             true ->
                                 % update Unit
                                 ok = mnesia:write(NewUnit),
-                                mypl_audit:articleaudit(ChangeQuantity, Product,
-                                                        "Korrekturbuchung auf " ++ Unit#unit.mui,
-                                                        Unit#unit.mui, Uid),
-                                mypl_audit:unitaudit(Unit, "Korrekturbuchung von " 
-                                                     ++ integer_to_list(ChangeQuantity) 
-                                                     ++ " Neuer Bestand " ++ integer_to_list(NewUnit#unit.quantity),
-                                                     Uid),
                                 if
                                     NewUnit#unit.quantity =:= 0 ->
                                         % disband unit since it is empty now
@@ -678,8 +670,10 @@ correction(Uid, Mui, OldQuantity, Product, ChangeQuantity, Attributes) when is_l
                                                               text="Korrekturbuchung",
                                                               created_at=calendar:universal_time()}),
                                 mypl_audit:articleaudit(ChangeQuantity, Product,
-                                                        "Korrektur auf " ++ Unit#unit.mui, Unit#unit.mui, Uid),
-                                mypl_audit:unitaudit(Unit, "Korrektur von " ++ integer_to_list(ChangeQuantity) 
+                                                        "Korrekturbuchung auf " ++ Unit#unit.mui,
+                                                        Unit#unit.mui, Uid),
+                                mypl_audit:unitaudit(Unit, "Korrekturbuchung von " 
+                                                     ++ integer_to_list(ChangeQuantity) 
                                                      ++ " Neuer Bestand " ++ integer_to_list(NewUnit#unit.quantity),
                                                      Uid),
                                 {ok, {NewUnit#unit.quantity, NewUnit#unit.mui}}
