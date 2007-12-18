@@ -669,7 +669,8 @@ mypl_simple_test() ->
     R1 = get_retrievallists(),
     [{R1id,lieferschein1,"AUSLAG",_,2,[{_,"mui6","010302",10,"a0005",[]}]}] = R1,
     
-    
+    [Id1,Id2,Id3,Id4,Id5] = provisioninglist_list(),
+    {ok, _} = provisioninglist_info(Id1),
     
     % TODO: test
     % update_pipeline({versandtermin, lieferschein1, "2007-10-01"}),

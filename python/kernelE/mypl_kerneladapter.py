@@ -217,6 +217,15 @@ class Kerneladapter:
         
     
     @nice_exception
+    def get_articlecorrection(self, artnr):
+        """Liefert Korrekruren fuer eine Artnr."""
+        artnr = artnr.replace(',','').replace('\n','').replace('\r','')
+        self._send("get_articlecorrection %s" % (artnr,))
+        ret = self._read_json(220)
+        return ret
+        
+    
+    @nice_exception
     def location_list(self):
         """Returns a list of all location names.
         
@@ -674,8 +683,8 @@ class Kerneladapter:
         self._send("commit_retrievallist %s" % (cId,))
         ret = self._read_json(220)
         return ret
+        
     
-
     @nice_exception
     def provpipeline_processing_list_all(self):
         # XXX Removeme
@@ -691,6 +700,22 @@ class Kerneladapter:
             data['pickids'] = [e2string(x) for x in pickids]
             out.append(data)
         return out
+        
+    
+    @nice_exception
+    def provisioninglist_list(self):
+        self._send("provisioninglist_list")
+        ret = self._read_json(220)
+        return ret
+        
+    
+    @nice_exception
+    def provisioninglist_list(self, cid):
+        self._send("provisioninglist_info")
+        ret = self._read_json(220)
+        return ret
+        
+    
 
 def tester():
     from pprint import pprint

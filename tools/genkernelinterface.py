@@ -58,6 +58,8 @@ funcdefs = [
 ('mypl_provpipeline', 'provpipeline_list_new', '', ['async']),
 ('mypl_provpipeline', 'provpipeline_list_processing', '', ['async']),
 ('mypl_provpipeline', 'provpipeline_processing_list_all', '', ['async']),
+('mypl_provpipeline', 'provisioninglist_list', '', ['async']),
+('mypl_provpipeline', 'provisioninglist_info', 'CId', []),
 ('mypl_provpipeline', 'delete_pipeline', '', []),
 
 ('mypl_audit', 'get_articleaudit', 'Product', ['async']),
