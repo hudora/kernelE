@@ -125,6 +125,38 @@
              pickids
             }).
 
+% archiviert units, movements und picks
+-record(archive, {id,           % eindeutiger Bezeichner
+                  created_at,
+                  archived_by,  % wodurch wurde der Datensatz archiviert
+                  body
+                  }).
+
+% Speichert die Logoistischen Stammdaten
+-record(eap,{
+    artnr,
+    updated_at,
+    prod_x,
+    prod_y,
+    prod_z,
+    prod_vol,
+    prod_g,
+    prod_ve1,
+    ve1_x,
+    ve1_y,
+    ve1_z,
+    ve1_vol,
+    ve1_g,
+    prod_exportkarton,
+    export_x,
+    export_y,
+    export_z,
+    export_vol,
+    export_g,
+    export_palette
+    }).
+
+
 % Trace utilities from adviserl
 
 -ifdef(LOG_DEBUG).

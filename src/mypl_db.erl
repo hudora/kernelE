@@ -29,7 +29,7 @@ init_table_info(Status, TableName) ->
         {atomic, ok} ->
             ?WARNING("table '~w' created", [TableName]);
         {aborted, {already_exists, TableName}} ->
-            ?DEBUG("using existing table '~w'", [TableName]);
+            ok;
         _ ->
             ?ERROR("cannot create table '~w' -- ~w", [TableName, Status], Status)
     end,
@@ -309,7 +309,7 @@ retrieve(Mui) ->
                 mypl_audit:articleaudit(-1 * Unit#unit.quantity, Unit#unit.product,
                                  "Warenabgang von " ++  Unit#unit.mui
                                  ++ " auf " ++ Location#location.name, Unit#unit.mui),
-                mypl_audit:archive(Unit, retieve),
+                mypl_audit:archive(Unit, retrieve),
                 {ok, {Unit#unit.quantity, Unit#unit.product}};
             {_, no, _} ->
                 erlang:error({internal_error, inconsistent_retrieve, {"Tried to retrieve a unit involved in a movement or pick",

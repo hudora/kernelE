@@ -199,6 +199,15 @@ handle_command("provpipeline_list_processing", _Parameters, State) ->
 handle_command("provpipeline_processing_list_all", _Parameters, State) ->
     % implementation for provpipeline_processing_list_all,
     {noreply, reply(220, rfc4627:encode(mypl_server:provpipeline_processing_list_all()), reset_buffers(State))};
+handle_command("provisioninglist_list", _Parameters, State) ->
+    % implementation for provisioninglist_list,
+    {noreply, reply(220, rfc4627:encode(mypl_server:provisioninglist_list()), reset_buffers(State))};
+handle_command("provisioninglist_info", _Parameters, State) ->
+    % implementation for provisioninglist_info,
+    Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
+    [CId] = Tokens,
+    NewCId = convertString(CId),
+    {noreply, reply(220, rfc4627:encode(mypl_server:provisioninglist_info(NewCId)), reset_buffers(State))};
 handle_command("delete_pipeline", _Parameters, State) ->
     % implementation for delete_pipeline,
     {noreply, reply(220, rfc4627:encode(mypl_server:delete_pipeline()), reset_buffers(State))};
@@ -273,6 +282,8 @@ is_provisioned CId
 provpipeline_list_new 
 provpipeline_list_processing 
 provpipeline_processing_list_all 
+provisioninglist_list 
+provisioninglist_info CId
 delete_pipeline 
 get_articleaudit Product
 get_unitaudit Mui

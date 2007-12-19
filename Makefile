@@ -79,7 +79,7 @@ regression: devbuild
 		-kernel error_logger      "{file, \"log/utest-kernel.log\"}" \
 		-sasl   sasl_error_logger "{file, \"log/utest-sasl.log\"}" \
 		${ERLPATH} \
-		-eval "lists:map(fun(M) ->io:format(\"Testing ~p~n\", [M]), eunit:test(M, [{verbose, true}]) end, [mypl_db, mypl_db_query, mypl_provisioning, mypl_util, mypl_movements, mypl_abcserver, mypl_nveserver, mypl_provpipeline, mypl_distance, mypl_db_util])." \
+		-eval "lists:map(fun(M) ->io:format(\"Testing ~p~n\", [M]), eunit:test(M, [{verbose, true}]) end, [mypl_db, mypl_db_query, mypl_provisioning, mypl_util, mypl_movements, mypl_abcserver, mypl_nveserver, mypl_provpipeline, mypl_distance, mypl_db_util, mypl_volumes])." \
 		-s init stop
 
 
