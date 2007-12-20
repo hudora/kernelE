@@ -360,6 +360,16 @@ class Kerneladapter:
         self._send("init_location %s,%d,%r,%d,%s,[]" % (name, height, floorlevel, preference, info))
         return self._read_code(220)
         
+    @nice_exception
+    def init_movement(self, mui, destinationname):
+        """Initialisiert ein movement"""
+        self._send("init_movement %s,%s" % mui, destinationname)
+        ret = self._read_json(220)
+        if len(ret) == 2:
+            ok, ret = ret
+            return e2string(ret)
+        else:
+            raise RuntimeError, "Fehler im kernel: %r" % ret
     
     @nice_exception
     def init_movement_to_good_location(self, mui):
