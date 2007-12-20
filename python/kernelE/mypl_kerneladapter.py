@@ -363,7 +363,7 @@ class Kerneladapter:
     @nice_exception
     def init_movement(self, mui, destinationname):
         """Initialisiert ein movement"""
-        self._send("init_movement %s,%s" % mui, destinationname)
+        self._send("init_movement %s,%s" % (mui, destinationname))
         ret = self._read_json(220)
         if len(ret) == 2:
             ok, ret = ret
