@@ -251,14 +251,25 @@ get_picklists() ->
                     {ok, P} ->
                         Id = "p" ++ P#pickpipeline.id,
                         [PPEntry] = mnesia:read({provpipeline, P#pickpipeline.provpipelineid}),
+                        % Volume for the Picklist
+                        Positions=lists:map(fun(PickId) ->
+                                                {ok, PickInfo} = mypl_db_query:pick_info(PickId),
+                                                  {proplists:get_value(quantity, PickInfo),
+                                                  proplists:get_value(product, PickInfo)}
+                                             end, P#pickpipeline.pickids),
+                        VolumeAttributes = mypl_volumes:volume_proplist(Positions),
+                        
                         Picklist = #provisioninglist{id=Id, type=picklist,
                                         provpipeline_id=PPEntry#provpipeline.id,
                                         destination="AUSLAG",
-                                        attributes=PPEntry#provpipeline.attributes,
+                                        attributes=VolumeAttributes ++ PPEntry#provpipeline.attributes,
                                         parts=1 + lists:min([length(P#pickpipeline.retrievalids),1]),
                                         provisionings=lists:map(fun(PickId) ->
                                             {ok, PickInfo} = mypl_db_query:pick_info(PickId),
                                             FromLocation = mypl_db_util:get_mui_location(proplists:get_value(from_unit, PickInfo)),
+                                            % Volume for the Posistion
+                                            mypl_volumes:volume_proplist([{proplists:get_value(quantity, PickInfo),
+                                                                           proplists:get_value(product, PickInfo)}]),
                                             {PickId,
                                              proplists:get_value(from_unit, PickInfo),
                                              FromLocation#location.name,
@@ -304,10 +315,18 @@ get_retrievallists() ->
                     {ok, R} ->
                         Id = "r" ++ R#retrievalpipeline.id,
                         [PPEntry] = mnesia:read({provpipeline, R#retrievalpipeline.provpipelineid}),
+                        % Volume for the Picklist
+                        Positions=lists:map(fun(RetrievalId) ->
+                                                {ok, MovementInfo} = mypl_db_query:movement_info(RetrievalId),
+                                                  {proplists:get_value(quantity, MovementInfo),
+                                                  proplists:get_value(product, MovementInfo)}
+                                             end, R#retrievalpipeline.retrievalids),
+                        VolumeAttributes = mypl_volumes:volume_proplist(Positions),
+                        
                         Retrievallist = #provisioninglist{id=Id, type=retrievallist,
                                             provpipeline_id=PPEntry#provpipeline.id,
                                             destination="AUSLAG",
-                                            attributes=PPEntry#provpipeline.attributes,
+                                            attributes=VolumeAttributes ++ PPEntry#provpipeline.attributes,
                                             parts=1 + lists:min([length(R#retrievalpipeline.pickids),1]),
                                             provisionings=lists:map(fun(RetrievalId) ->
                                                 {ok, MovementInfo} = mypl_db_query:movement_info(RetrievalId),
@@ -317,7 +336,8 @@ get_retrievallists() ->
                                                  FromLocation#location.name,
                                                  proplists:get_value(quantity, MovementInfo),
                                                  proplists:get_value(product, MovementInfo),
-                                                 []
+                                                 mypl_volumes:volume_proplist([{proplists:get_value(quantity, MovementInfo),
+                                                                                proplists:get_value(product, MovementInfo)}])
                                                  }
                                                  end, R#retrievalpipeline.retrievalids)},
                         mnesia:write(Retrievallist),

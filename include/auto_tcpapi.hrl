@@ -241,6 +241,27 @@ handle_command("make_nve", _Parameters, State) ->
 handle_command("dump_requests", _Parameters, State) ->
     % implementation for dump_requests,
     {noreply, reply(220, rfc4627:encode(mypl_server:dump_requests()), reset_buffers(State))};
+handle_command("feed_eap", _Parameters, State) ->
+    % implementation for feed_eap,
+    Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
+    [Product,Prod_ve1,Prod_exportpackage,Export_pallet,Prod_x,Prod_y,Prod_z,Prod_g,Ve1_x,Ve1_y,Ve1_z,Ve1_g,Export_x,Export_y,Export_z,Export_g] = Tokens,
+    NewProduct = convertString(Product),
+    NewProd_ve1 = convertPositiveInteger(Prod_ve1),
+    NewProd_exportpackage = convertPositiveInteger(Prod_exportpackage),
+    NewExport_pallet = convertPositiveInteger(Export_pallet),
+    NewProd_x = convertPositiveInteger(Prod_x),
+    NewProd_y = convertPositiveInteger(Prod_y),
+    NewProd_z = convertPositiveInteger(Prod_z),
+    NewProd_g = convertPositiveInteger(Prod_g),
+    NewVe1_x = convertPositiveInteger(Ve1_x),
+    NewVe1_y = convertPositiveInteger(Ve1_y),
+    NewVe1_z = convertPositiveInteger(Ve1_z),
+    NewVe1_g = convertPositiveInteger(Ve1_g),
+    NewExport_x = convertPositiveInteger(Export_x),
+    NewExport_y = convertPositiveInteger(Export_y),
+    NewExport_z = convertPositiveInteger(Export_z),
+    NewExport_g = convertPositiveInteger(Export_g),
+    {noreply, reply(220, rfc4627:encode(mypl_server:feed_eap(NewProduct,NewProd_ve1,NewProd_exportpackage,NewExport_pallet,NewProd_x,NewProd_y,NewProd_z,NewProd_g,NewVe1_x,NewVe1_y,NewVe1_z,NewVe1_g,NewExport_x,NewExport_y,NewExport_z,NewExport_g)), reset_buffers(State))};
 
 handle_command("help", _Parameters, State) -> {noreply, reply(220, "Help follows:
 backup 
@@ -291,7 +312,8 @@ get_articlecorrection Product
 get_abc 
 make_oid 
 make_nve 
-dump_requests ", reset_buffers(State))};
+dump_requests 
+feed_eap Product,Prod_ve1,Prod_exportpackage,Export_pallet,Prod_x,Prod_y,Prod_z,Prod_g,Ve1_x,Ve1_y,Ve1_z,Ve1_g,Export_x,Export_y,Export_z,Export_g", reset_buffers(State))};
 handle_command("quit", _ClientDomain, State) -> {stop, normal, reply(201, "Goodbye", reset_buffers(State))};
 handle_command(Command, _Parameters, State) -> {noreply, reply(500, "Unsupported command " ++ Command, State)}.
 

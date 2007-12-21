@@ -34,7 +34,7 @@ def e2datetime(data):
         return datetime.datetime(year, month, day, hour, minute, second, microsecond)
 
 
-def attributelist2dict(l, fixattnames=[]):
+def attributelist2dict(attlist, fixattnames=[]):
     """Converts an Erlang Proplit to a Python Dict.
     
     See http://www.erlang.org/doc/man/proplists.html for proplists.
@@ -43,18 +43,18 @@ def attributelist2dict(l, fixattnames=[]):
     the key is present in fixattnames.
     """
     ret = {}
-    for name, value in l:
+    for name, value in attlist:
         if name in fixattnames:
             ret[e2string(name)] = e2string(value)
         else:
             ret[e2string(name)] = value
     return ret
 
-def attributelist2dict_str(l):
+def attributelist2dict_str(attlist):
     """Like attributelist2dict but tries to convert _all_ values to strings."""
     
     ret = {}
-    for name, value in l:
+    for name, value in attlist:
         if type(value) == types.ListType:
             ret[e2string(name)] = e2string(value)
         else:
@@ -455,7 +455,8 @@ class Kerneladapter:
     @nice_exception
     def correction(self, uid, mui, old_quantity, product, change_quantity, attributes={}):
         """See http://static.23.nu/md/Files/myPL/doc/mypl_db.html#correction-6"""
-        self._send("correction %s" % (simplejson.dumps((uid, mui, old_quantity, product, change_quantity, attributes.items()))))
+        self._send("correction %s" % (simplejson.dumps((uid, mui, old_quantity, product, change_quantity,
+                                      attributes.items()))))
         ret = self._read_json(220)
         return ret
         
@@ -531,10 +532,10 @@ class Kerneladapter:
                  {"auftragsnumer": "123432", "liefertermin": "2007-12-23"}).
         """
         
-        newOrderlines = []
+        new_orderlines = []
         for orderline in orderlines:
-            newOrderlines.append((orderline[0], orderline[1], orderline[2].items()))
-        parameters = (str(cid), newOrderlines, int(priority), unicode(customer).encode('utf-8'),
+            new_orderlines.append((orderline[0], orderline[1], orderline[2].items()))
+        parameters = (str(cid), new_orderlines, int(priority), unicode(customer).encode('utf-8'),
                            int(weigth), float(volume), attributes.items())
         self._send("insert_pipeline %s" % (simplejson.dumps(parameters)))
         
@@ -596,9 +597,9 @@ class Kerneladapter:
         return orders
         
     @nice_exception
-    def delete_pipeline(self, cId):
+    def delete_pipeline(self, cid):
         """Delete a provpipeline."""
-        self._send("delete_pipeline %s" % (cId,))
+        self._send("delete_pipeline %s" % (cid,))
         ret = self._read_json(220)
         return ret
     
@@ -619,19 +620,19 @@ class Kerneladapter:
             return []
         out = []
         for data in ret:
-            pickListId, cId, destination, attributes, parts, positions = data
-            pickListId = e2string(pickListId)
-            cId = e2string(cId)
+            pick_list_id, cid, destination, attributes, parts, positions = data
+            pick_list_id = e2string(pick_list_id)
+            cid = e2string(cid)
             destination = e2string(destination)
             poslist = []
             for position in positions:
-                (posId, nve, source, quantity, product, posattributes) = position
-                posId = e2string(posId)
+                (pos_id, nve, source, quantity, product, posattributes) = position
+                pos_id = e2string(pos_id)
                 nve = e2string(nve)
                 source = e2string(source)
                 product = e2string(product)
-                poslist.append((posId, nve, source, quantity, product, attributelist2dict_str(posattributes)))
-            out.append((pickListId, cId, destination, parts, attributelist2dict_str(attributes), poslist))
+                poslist.append((pos_id, nve, source, quantity, product, attributelist2dict_str(posattributes)))
+            out.append((pick_list_id, cid, destination, parts, attributelist2dict_str(attributes), poslist))
         return out
     
     
@@ -650,9 +651,9 @@ class Kerneladapter:
             return []
         out = []
         for data in ret:
-            retrievalListId, cId, destination, attributes, parts, positions = data
-            retrievalListId = e2string(retrievalListId)
-            cId = e2string(cId)
+            retrieval_list_id, cid, destination, attributes, parts, positions = data
+            retrieval_list_id = e2string(retrieval_list_id)
+            cid = e2string(cid)
             destination = e2string(destination)
             poslist = []
             for position in positions:
@@ -662,7 +663,7 @@ class Kerneladapter:
                 source = e2string(source)
                 product = e2string(product)
                 poslist.append((posId, nve, source, quantity, product, attributelist2dict_str(posattributes)))
-            out.append((retrievalListId, cId, destination, parts,
+            out.append((retrieval_list_id, cid, destination, parts,
                         attributelist2dict_str(attributes), poslist))
         return out
         
@@ -720,16 +721,38 @@ class Kerneladapter:
         
     
     @nice_exception
-    def provisioninglist_list(self, cid):
+    def provisioninglist_info(self, cid):
         self._send("provisioninglist_info")
         ret = self._read_json(220)
         return ret
         
     
+    @nice_exception
+    def feed_eap(self, artnr, prod_ve1=0, prod_exportpackage=1, export_pallet=0,
+                 prod_x=0, prod_y=0, prod_z=0, prod_g=0,
+                 ve1_x=0, ve1_y=0, ve1_z=0, ve1_g=0,
+                 export_x=0, export_y=0, export_z=0, export_g=0):
+        """Sends information about product dimensions etc. to the kernel."""
+        self._send("feed_eap %s,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d" % (artnr, 
+                   prod_ve1, prod_exportpackage, export_pallet, prod_x, prod_y, prod_z, prod_g,
+                   ve1_x, ve1_y, ve1_z, ve1_g, export_x, export_y, export_z, export_g))
+        ret = self._read_json(220)
+        return ret
+    
 
 def tester():
     from pprint import pprint
-    data = {u'provisioninglists': [[u'provisioninglist', [112, 48, 48, 48, 53, 53, 49, 54, 51], u'picklist', [57, 51, 48, 53, 53, 55], [65, 85, 83, 76, 65, 71], [[u'kernel_customer', [49, 56, 48, 52, 48]], [[97, 117, 102, 116, 114, 97, 103, 115, 110, 117, 109, 109, 101, 114], 644338], [[108, 105, 101, 102, 101, 114, 116, 101, 114, 109, 105, 110], [50, 48, 48, 55, 45, 49, 48, 45, 49, 53]]], 1, [[[80, 48, 48, 48, 53, 53, 49, 53, 57], [51, 52, 48, 48, 53, 57, 57, 56, 49, 48, 48, 48, 48, 50, 48, 57, 55, 51], [49, 57, 51, 53, 48, 49], 4, [56, 52, 48, 48, 51], []]]]], 
+    data = {u'provisioninglists': [[u'provisioninglist', [112, 48, 48, 48, 53, 53, 49, 54, 51], 
+                                    u'picklist', [57, 51, 48, 53, 53, 55], [65, 85, 83, 76, 65, 71], 
+                                  [[u'kernel_customer', [49, 56, 48, 52, 48]],
+                                  [[97, 117, 102, 116, 114, 97, 103, 115, 110, 117, 109, 109, 101, 114],
+                                   644338], 
+                                   [[108, 105, 101, 102, 101, 114, 116, 101, 114, 109, 105, 110],
+                                   [50, 48, 48, 55, 45, 49, 48, 45, 49, 53]]], 
+                                   1, 
+                                   [[[80, 48, 48, 48, 53, 53, 49, 53, 57], 
+                                   [51, 52, 48, 48, 53, 57, 57, 56, 49, 48, 48, 48, 48, 50, 48, 57, 55, 51],
+                                   [49, 57, 51, 53, 48, 49], 4, [56, 52, 48, 48, 51], []]]]], 
             'orderlines_count': 1, 
             'orderlines': [
             {'auftragsposition': 1, 

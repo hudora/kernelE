@@ -147,13 +147,13 @@
     ve1_z,
     ve1_vol,
     ve1_g,
-    prod_exportkarton,
+    prod_export_package,
     export_x,
     export_y,
     export_z,
     export_vol,
     export_g,
-    export_palette
+    export_pallet
     }).
 
 
