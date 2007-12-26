@@ -18,7 +18,7 @@
 %% API
 -export([do/1, do_trans/1, transaction/1, get_mui_location/1, mui_to_unit/1, mui_to_unit_trans/1,
          unit_picks/1, unit_movement/1, unit_moving/1, unit_movable/1,
-         best_location/1, best_locations/2,
+         find_empty_location/1, best_location/1, best_locations/2,
          read_location/1, find_movable_units/1]).
 
 %% @private
@@ -168,6 +168,7 @@ best_location_helper(Unit) ->
                     {Adistance, A#location.height, B#location.preference} 
                         < {Bdistance, B#location.height, A#location.preference}
                end, Candidates).
+    % TODO: try to avoid floorlevel locations for not recently needed articles
     
 
 %% @private
@@ -188,6 +189,10 @@ best_location(Unit) ->
 best_location(floorlevel, Unit, Ignore) ->
     % order by heigth, so we prefer lower locations
     [H|_] = [X || X <- best_location_helper(Unit), X#location.floorlevel =:= true] -- Ignore,
+    H;
+best_location(higherlevel, Unit, Ignore) ->
+    % order by heigth, so we prefer lower locations
+    [H|_] = [X || X <- best_location_helper(Unit), X#location.floorlevel =:= false] -- Ignore,
     H.
 
 %% @doc suggest for each unit in units where it could be moved
@@ -195,9 +200,18 @@ best_locations(floorlevel, [], _) -> [];
 best_locations(floorlevel, Units, Ignore) -> 
     [H|T] = Units,
     Best = best_location(floorlevel, H, Ignore),
-    [Best|best_locations(floorlevel, T, [Best|Ignore])].
+    [Best|best_locations(floorlevel, T, [Best|Ignore])];
+best_locations(higherlevel, [], _) -> [];
+best_locations(higherlevel, Units, Ignore) -> 
+    [H|T] = Units,
+    Best = best_location(higherlevel, H, Ignore),
+    [Best|best_locations(higherlevel, T, [Best|Ignore])].
+
 best_locations(floorlevel, Units) -> 
-    best_locations(floorlevel, Units, []).
+    best_locations(floorlevel, Units, []);
+best_locations(higherlevel, Units) -> 
+    best_locations(higherlevel, Units, []).
+
 
 %% @private
 %% @spec read_location(string()) -> mypl_db:unitRecord()

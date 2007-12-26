@@ -210,7 +210,10 @@ handle_command("provisioninglist_info", _Parameters, State) ->
     {noreply, reply(220, rfc4627:encode(mypl_server:provisioninglist_info(NewCId)), reset_buffers(State))};
 handle_command("delete_pipeline", _Parameters, State) ->
     % implementation for delete_pipeline,
-    {noreply, reply(220, rfc4627:encode(mypl_server:delete_pipeline()), reset_buffers(State))};
+    Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
+    [CId] = Tokens,
+    NewCId = convertString(CId),
+    {noreply, reply(220, rfc4627:encode(mypl_server:delete_pipeline(NewCId)), reset_buffers(State))};
 handle_command("get_articleaudit", _Parameters, State) ->
     % implementation for get_articleaudit,
     Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
@@ -305,7 +308,7 @@ provpipeline_list_processing
 provpipeline_processing_list_all 
 provisioninglist_list 
 provisioninglist_info CId
-delete_pipeline 
+delete_pipeline CId
 get_articleaudit Product
 get_unitaudit Mui
 get_articlecorrection Product

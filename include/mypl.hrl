@@ -132,6 +132,7 @@
                   body
                   }).
 
+
 % Speichert die Logoistischen Stammdaten
 -record(eap,{
     artnr,

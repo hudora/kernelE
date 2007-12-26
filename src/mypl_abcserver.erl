@@ -38,7 +38,7 @@
 
 
 %% API
--export([run_me_once/0, start_link/0, feed/3, get_abc/0, get_class/1]).
+-export([run_me_once/0, start_link/0, feed/3, get_abc/0, get_penner/0, get_class/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -77,6 +77,11 @@ get_abc() ->
     gen_server:call(?SERVER, {get_abc}).
     
 
+%% @doc returns all product with NO activity in the last 45 days
+get_penner() ->
+    gen_server:call(?SERVER, {get_penner}).
+    
+
 %% @doc retuns the class for a specific product
 get_class(Product) ->
     gen_server:call(?SERVER, {get_class, Product}).
@@ -107,6 +112,9 @@ init([]) ->
 %%--------------------------------------------------------------------
 handle_call({get_abc}, _From, State) ->
     Reply = abc(),
+    {reply, Reply, State};
+handle_call({get_penner}, _From, State) ->
+    Reply = penner(),
     {reply, Reply, State};
 handle_call({get_class, Product}, _From, State) ->
     Reply = get_class_helper(Product),
@@ -222,6 +230,12 @@ aggregate() ->
 
 abc() ->
     abc_spit(aggregate()).
+    
+
+penner() ->
+    AbcProducts = [Product || {_, Product} <- aggregate()],
+    LagerProducts = [Product || {Product, _, _, _, _} <- mypl_db_query:count_products()],
+    LagerProducts -- AbcProducts.
     
 
 abc_split_helper(_, [], Acc) -> {lists:reverse(Acc), []};

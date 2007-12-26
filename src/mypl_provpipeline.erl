@@ -14,7 +14,7 @@
          update_pipeline/1,
          get_picklists/0, get_retrievallists/0, get_movementlist/0,
          commit_picklist/1, commit_retrievallist/1, % commit_movementlist/1,
-         is_provisioned/1, run_me_once/0]).
+         is_provisioned/1, run_me_once/0, pipelinearticles/0]).
 
 run_me_once() ->
     % komissionierbelege, so wie sie aus SoftM kommen
@@ -592,6 +592,21 @@ mark_as_finished(CId) ->
     end.
     
 
+piplinearticles_helper2([], Dict) -> Dict;
+piplinearticles_helper2([Product|Tail], Dict) ->
+    piplinearticles_helper2(Tail, dict:update_counter(Product, 1, Dict)).
+    
+piplinearticles_helper1([], Dict) -> Dict;
+piplinearticles_helper1([Orderline|Tail], Dict) ->
+    piplinearticles_helper1(Tail, piplinearticles_helper2([Product || {_, Product, _} <- Orderline], Dict)).
+    
+%% @doc get a list of all articles in the provisioning pipeline
+pipelinearticles() ->
+    Orderlines = mypl_db_util:do_trans(qlc:q([X#provpipeline.orderlines || X <- mnesia:table(provpipeline),
+                                              X#provpipeline.status /= provisioned])),
+    ProductDict = piplinearticles_helper1(Orderlines, dict:new()),
+    lists:reverse(lists:sort(lists:map(fun({A, B}) -> {B, A} end, dict:to_list(ProductDict)))).
+    
 
 % ~~ Unit tests
 -ifdef(EUNIT).
@@ -684,42 +699,44 @@ mypl_simple_test() ->
                                        {_,"mui5","010301",10,"a0005",[]}]}] = P2,
     
     % at this time we should have one retrieval prepared
-    [{retrievalpipeline,_,lieferschein1,_,_}] = provpipeline_list_prepared(),
+    ?assertMatch([{retrievalpipeline,_,lieferschein1,_,_}], provpipeline_list_prepared()),
     
     R1 = get_retrievallists(),
-    [{R1id,lieferschein1,"AUSLAG",_,2,[{_,"mui6","010302",10,"a0005",[]}]}] = R1,
+    [{R1id,lieferschein1,"AUSLAG",_,2,[{_,"mui6","010302",10,"a0005",_}]}] = R1,
     
-    [Id1,Id2,Id3,Id4,Id5] = provisioninglist_list(),
-    {ok, _} = provisioninglist_info(Id1),
+    [Id1,_Id2,_Id3,_Id4,_Id5] = provisioninglist_list(),
+    ?assertMatch({ok, _}, provisioninglist_info(Id1)),
     
     % TODO: test
     % update_pipeline({versandtermin, lieferschein1, "2007-10-01"}),
     
     % provpipeline should be empty now
-    [] = provpipeline_list_prepared(),
-    [] = provpipeline_list_new(),
-    [{lieferschein4,_,[{1,"a0005",[]},{1,"a0004",[]}]},
-     {lieferschein1,_,[{10,"a0005",[]},{1,"a0004",[]}]},
-     {lieferschein3,_,[{50,"a0005",[]},{16,"a0004",[]}]},
-     {lieferschein2,_,[{10,"a0005",[]},{1,"a0004",[]}]}] = provpipeline_list_processing(),
+    ?assertMatch([], provpipeline_list_prepared()),
+    ?assertMatch([], provpipeline_list_new()),
+    ?assertMatch([{lieferschein4,_,[{1,"a0005",[]},{1,"a0004",[]}]},
+                  {lieferschein1,_,[{10,"a0005",[]},{1,"a0004",[]}]},
+                  {lieferschein3,_,[{50,"a0005",[]},{16,"a0004",[]}]},
+                  {lieferschein2,_,[{10,"a0005",[]},{1,"a0004",[]}]}],
+                 provpipeline_list_processing()),
     % checks that goods are reserved for picking and retrieval
-    [{"a0003",10,10,0,0},{"a0004",36,17,19,0},{"a0005",71,0,61,10}] = mypl_db_query:count_products(),
+    ?assertMatch([{"a0003",10,10,0,0},{"a0004",36,17,19,0},{"a0005",71,0,61,10}],
+                 mypl_db_query:count_products()),
     
-    unfinished = is_provisioned(lieferschein1),
-    unfinished = commit_retrievallist(R1id),
-    unfinished = is_provisioned(lieferschein1),
-    provisioned = commit_picklist(P1id),
-    provisioned = is_provisioned(lieferschein1),
-    provisioned = commit_picklist(P2id),
-    provisioned = commit_picklist(P3id),
-    provisioned = commit_picklist(P4id),
+    ?assertMatch(unfinished, is_provisioned(lieferschein1)),
+    ?assertMatch(unfinished, commit_retrievallist(R1id)),
+    ?assertMatch(unfinished, is_provisioned(lieferschein1)),
+    ?assertMatch(provisioned, commit_picklist(P1id)),
+    ?assertMatch(provisioned, is_provisioned(lieferschein1)),
+    ?assertMatch(provisioned, commit_picklist(P2id)),
+    ?assertMatch(provisioned, commit_picklist(P3id)),
+    ?assertMatch(provisioned, commit_picklist(P4id)),
     mark_as_finished(lieferschein1),
     mark_as_finished(lieferschein2),
     mark_as_finished(lieferschein3),
     mark_as_finished(lieferschein4),
     
     % check that goods are removed from warehouse now
-    [{"a0003",10,10,0,0},{"a0004",17,17,0,0}] = mypl_db_query:count_products(),
+    ?assertMatch([{"a0003",10,10,0,0},{"a0004",17,17,0,0}], mypl_db_query:count_products()),
     ok.
     
 
