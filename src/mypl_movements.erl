@@ -31,9 +31,43 @@
 -include_lib("stdlib/include/qlc.hrl").
 -include("include/mypl.hrl").
 
--export([get_floor_removal_unit/0, count_empty_floor_locations/0, get_movementsuggestion_from_floorcleaner/0,
+-export([unwanted_location_units/0,
+         get_floor_removal_unit/0, count_empty_floor_locations/0, get_movementsuggestion_from_floorcleaner/0,
          create_automatic_movements/0, more_than_one_floorunit/0]).
 -compile(export_all).
+
+unwanted_location_units_helper([]) -> [];
+unwanted_location_units_helper([Location|Tail]) ->
+    Ret = [X || X <- Location#location.allocated_by, mypl_db_util:unit_movable(mypl_db_util:mui_to_unit(X)) =:= yes],
+    Ret ++ unwanted_location_units_helper(Tail).
+
+unwanted_location_units() ->
+    Fun = fun() ->
+        UnwantedLocations = mypl_db_util:do(qlc:q([X || X <- mnesia:table(location),
+                                                        X#location.preference =:= 0,
+                                                        X#location.allocated_by /= []])),
+        unwanted_location_units_helper(UnwantedLocations)
+    end,
+    mypl_db_util:transaction(Fun).
+
+
+%% @doc suggests unit to be moved away von locations with preference 0
+%% returns [{unit, location}]
+%% see the configuration option minimum_free_floor       
+get_movementsuggestion_from_unwanted_locations() ->            
+    erlang:display({get_movementsuggestion_from_unwanted_locations, a}),
+    case unwanted_location_units() of             
+        [] ->
+            [];
+        [Mui|_Tail] ->
+            erlang:display({get_movementsuggestion_from_unwanted_locations, Mui}),
+            Location = mypl_db_util:transaction(fun() ->
+                                                      mypl_db_util:best_location(mypl_db_util:mui_to_unit(Mui))
+                                                  end),
+            erlang:display({get_movementsuggestion_from_unwanted_locations, [{Mui, Location#location.name}]}),
+            [{Mui, Location#location.name}]
+    end.
+
 
 floorunits_dictbuilder2([], Dict) -> Dict;
 floorunits_dictbuilder2([Mui|Tail], Dict) ->
@@ -176,7 +210,7 @@ get_movementsuggestion_from_floorcleaner() ->
                     [Location] = mypl_db_util:transaction(fun() -> 
                                                               mypl_db_util:best_locations(higherlevel, [Unit])
                                                           end),
-                    {Unit, Location}
+                    [{Unit#unit.mui, Location#location.name}]
             end;
         true ->
             []
@@ -276,21 +310,27 @@ get_movementsuggestion_from_abc() ->
 %% {@link get_movementsuggestion_from_floorcleaner/0}, {@link get_movementsuggestion_from_requesstracker/0} or if this yields nor results based on
 %% {@link get_movementsuggestion_from_abc/0}.
 init_automovements() ->
-    case get_movementsuggestion_from_floorcleaner() of
+    erlang:display({init_automovements, a}),
+    case get_movementsuggestion_from_unwanted_locations() of
         [] ->
-            case get_movementsuggestion_from_requesstracker() of
+            case get_movementsuggestion_from_floorcleaner() of
                 [] ->
-                    %case get_movementsuggestion_from_abc() of
-                    %    % TODO: dalyzer says:
-                    %    % mypl_movements.erl:137: The variable L2 can never match since previous clauses completely covered the type []
-                    %    [] ->
-                    %        % No Movementsuggestions
-                    %        {ok, []};
-                    %    L2 ->
-                    %        [H|_] = L2, % we are only interested in the first result
-                    %        {ok, init_movements([H])}
-                    %end;
-                    {ok, []};
+                    case get_movementsuggestion_from_requesstracker() of
+                        [] ->
+                            %case get_movementsuggestion_from_abc() of
+                            %    % TODO: dalyzer says:
+                            %    % mypl_movements.erl:137: The variable L2 can never match since previous clauses completely covered the type []
+                            %    [] ->
+                            %        % No Movementsuggestions
+                            %        {ok, []};
+                            %    L2 ->
+                            %        [H|_] = L2, % we are only interested in the first result
+                            %        {ok, init_movements([H])}
+                            %end;
+                            {ok, []};
+                        L3 ->
+                            {ok, init_movements(L3)}
+                    end;
                 L2 ->
                     {ok, init_movements(L2)}
             end;
@@ -302,13 +342,17 @@ init_automovements() ->
 %% @spec init_movements([{Mui, Destination}]) -> [mypl_db:movementID()]
 %% @see mypl_db:init_movement/2
 %% @doc call init_movement/2 for several movements at once
-init_movements(L) ->
+init_movements(L) when is_list(L) ->
     %% we use a transaction to ensure all movements fail if a single one fails.
+    erlang:display({init_movements, a}),
     Fun = fun() ->
+    erlang:display({init_movements, b, L}),
         lists:map(fun({Mui, Destination}) -> 
-                       {ok, MovementId} = mypl_db:init_movement(Mui, Destination,
-                                                                [{mypl_notify_requestracker}]),
-                       MovementId
+                      erlang:display({init_movements, c, Mui, Destination}),
+                      {ok, MovementId} = mypl_db:init_movement(Mui, Destination,
+                                                              [{mypl_notify_requestracker}]),
+                      erlang:display({init_movements, d, MovementId}),
+                      MovementId
                     end, L)
           end,
     mypl_db_util:transaction(Fun).

@@ -56,6 +56,7 @@ handle_command_line(Line, State) ->
       {ok, Value} ->
           Value;
       Term ->
+          error_logger:error_msg("~w~n", [Term]),
           {noreply, reply(500, rfc4627:encode_nolist(Term), reset_buffers(State))}
     end.
 

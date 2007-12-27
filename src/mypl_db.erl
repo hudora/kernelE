@@ -56,6 +56,7 @@ run_me_once() ->
     mypl_abcserver:run_me_once(),
     mypl_audit:run_me_once(),
     mypl_provpipeline:run_me_once(),
+    mypl_volumes:run_me_once(),
     
     ok = mnesia:wait_for_tables([location, unit, movement, pick, reservation, multistorage, correction,
                                  articleaudit, unitaudit], 30000),

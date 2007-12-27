@@ -175,7 +175,7 @@ best_location_helper(Unit) ->
 %% @spec best_location(unitRecord()) -> locationRecord()
 %% @see mypl_db:init_movement_to_good_location/1
 %% @doc finds the best location for an Unit
-best_location(Unit) ->
+best_location(Unit) when is_record(Unit, unit) ->
     Locations = best_location_helper(Unit),
     case Locations of
         [] ->
@@ -186,11 +186,11 @@ best_location(Unit) ->
     end.
     
 
-best_location(floorlevel, Unit, Ignore) ->
+best_location(floorlevel, Unit, Ignore) when is_record(Unit, unit) ->
     % order by heigth, so we prefer lower locations
     [H|_] = [X || X <- best_location_helper(Unit), X#location.floorlevel =:= true] -- Ignore,
     H;
-best_location(higherlevel, Unit, Ignore) ->
+best_location(higherlevel, Unit, Ignore) when is_record(Unit, unit) ->
     % order by heigth, so we prefer lower locations
     [H|_] = [X || X <- best_location_helper(Unit), X#location.floorlevel =:= false] -- Ignore,
     H.
