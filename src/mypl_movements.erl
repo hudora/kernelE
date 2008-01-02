@@ -32,7 +32,9 @@
 -include("include/mypl.hrl").
 
 -export([unwanted_location_units/0,
-         get_floor_removal_unit/0, count_empty_floor_locations/0, get_movementsuggestion_from_floorcleaner/0,
+         get_floor_removal_unit/0, count_empty_floor_locations/0, 
+         get_movementsuggestion_from_floorcleaner/0,
+         get_movementsuggestion_from_unwanted_locations/0, 
          create_automatic_movements/0, more_than_one_floorunit/0]).
 -compile(export_all).
 
@@ -174,9 +176,10 @@ get_floor_removal_unit1([Head|Tail]) ->
     end.
     
 
+get_floor_removal_unit2([]) -> [];
 get_floor_removal_unit2([Product|CandidateProducts]) ->
     Units = mypl_db_query:find_floor_units_for_product(Product),
-    % We prefer to move smallest units upwards first, because they have a higher chanvce to be coohsen
+    % We prefer to move smallest units upwards first, because they have a higher chance to be coohsen
     % for retiievals instead of picks.
     SortedUnits = lists:keysort(#unit.quantity, Units),
     case [X || X <- SortedUnits, mypl_db_util:unit_movable(X) =:= yes] of
