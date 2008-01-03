@@ -179,8 +179,8 @@ get_floor_removal_unit1([Head|Tail]) ->
 get_floor_removal_unit2([]) -> [];
 get_floor_removal_unit2([Product|CandidateProducts]) ->
     Units = mypl_db_query:find_floor_units_for_product(Product),
-    % We prefer to move smallest units upwards first, because they have a higher chance to be coohsen
-    % for retiievals instead of picks.
+    % We prefer to move smallest units upwards first, because they have a higher chance to be choosen
+    % for retrievals instead of picks.
     SortedUnits = lists:keysort(#unit.quantity, Units),
     case [X || X <- SortedUnits, mypl_db_util:unit_movable(X) =:= yes] of
         [] ->
