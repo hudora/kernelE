@@ -226,7 +226,7 @@ get_movementsuggestion_from_floorcleaner() ->
     
 
 init_next_movement() ->
-    get_movementsuggestion_from_requesstracker().
+    get_movementsuggestion_from_requesttracker().
     
 
 collect_requesed_units(Quantity, _, Acc) when Quantity =< 0 -> lists:reverse(Acc);
@@ -239,7 +239,7 @@ collect_requesed_units(Quantity, Candidates, Acc) ->
 %% @doc generates list of movement suggestions by looking at requirements from the {@link requesttracker}.
 %%
 %% a movement suggestion is defined as {unit, location}
-get_movementsuggestion_from_requesstracker() ->
+get_movementsuggestion_from_requesttracker() ->
     case mypl_requesttracker:out() of
         {empty} ->
             [];
@@ -318,7 +318,7 @@ show_movementsuggestions() ->
     erlang:display({unwanted_locations, Unwanted}),
     Floorcleaner   = get_movementsuggestion_from_floorcleaner(),
     erlang:display({floorcleaner, Floorcleaner}),
-    Requesttracker = get_movementsuggestion_from_requesstracker(),
+    Requesttracker = get_movementsuggestion_from_requesttracker(),
     erlang:display({requesttracker, Requesttracker}),
     Abc            = get_movementsuggestion_from_abc(),
     erlang:display({abc, Abc}),
@@ -332,17 +332,14 @@ show_movementsuggestions() ->
 %% @doc generate movements
 %% 
 %% the movements are generated either based on the results from
-%% {@link get_movementsuggestion_from_floorcleaner/0}, {@link get_movementsuggestion_from_requesstracker/0} or if this yields nor results based on
+%% {@link get_movementsuggestion_from_floorcleaner/0}, {@link get_movementsuggestion_from_requesttracker/0} or if this yields nor results based on
 %% {@link get_movementsuggestion_from_abc/0}.
 init_automovements() ->
-    erlang:display({init_automovements, a}),
     case get_movementsuggestion_from_unwanted_locations() of
         [] ->
-     erlang:display({init_automovements, b}),
            case get_movementsuggestion_from_floorcleaner() of
                 [] ->
-    erlang:display({init_automovements, c}),
-                    case get_movementsuggestion_from_requesstracker() of
+                    case get_movementsuggestion_from_floorcleaner() of
                         [] ->
                             %case get_movementsuggestion_from_abc() of
                             %    % TODO: dalyzer says:
@@ -352,36 +349,29 @@ init_automovements() ->
                             %        {ok, []};
                             %    L2 ->
                             %        [H|_] = L2, % we are only interested in the first result
-                            %        {ok, init_movements([H])}
+                            %        {ok, init_movements([H], [])}
                             %end;
-    erlang:display({init_automovements, d}),
                             {ok, []};
                         L3 ->
-    erlang:display({init_automovements, e}),
-                            {ok, init_movements(L3)}
+                            {ok, init_movements(L3, [{mypl_notify_requestracker}, {reason, requesttracker}])}
                     end;
                 L2 ->
-    erlang:display({init_automovements, f}),
-                    {ok, init_movements(L2)}
+                    {ok, init_movements(L2, [{reason, floorcleaner}])}
             end;
         L1 ->
-    erlang:display({init_automovements, g}),
-            {ok, init_movements(L1)}
+            {ok, init_movements(L1, [{reason, unwanted_locations}])}
     end.
     
 
 %% @spec init_movements([{Mui, Destination}]) -> [mypl_db:movementID()]
 %% @see mypl_db:init_movement/2
 %% @doc call init_movement/2 for several movements at once
-init_movements(L) when is_list(L) ->
+init_movements(L, Attributes) when is_list(L), is_list(Attributes) ->
     %% we use a transaction to ensure all movements fail if a single one fails.
-    erlang:display({init_movements, a}),
     Fun = fun() ->
-    erlang:display({init_movements, b, L}),
         lists:map(fun({Mui, Destination}) -> 
                       erlang:display({init_movements, c, Mui, Destination}),
-                      {ok, MovementId} = mypl_db:init_movement(Mui, Destination,
-                                                              [{mypl_notify_requestracker}]),
+                      {ok, MovementId} = mypl_db:init_movement(Mui, Destination, Attributes),
                       erlang:display({init_movements, d, MovementId}),
                       MovementId
                     end, L)
@@ -440,15 +430,15 @@ get_movementsuggestion_test() ->
     {ok, _} = mypl_db:store_at_location("010302", "mui5", 23, "a0005", 1200),
     {ok, _} = mypl_db:store_at_location("010303", "mui6", 71, "a0005", 1200),
     mypl_requesttracker:in(20, "a0005"),
-    ?assertMatch([{"mui5","010301"}], get_movementsuggestion_from_requesstracker()),
+    ?assertMatch([{"mui5","010301"}], get_movementsuggestion_from_requesttracker()),
     mypl_requesttracker:in(30, "a0005"),
-    ?assertMatch([{"mui5","010301"},{"mui6","010201"}], get_movementsuggestion_from_requesstracker()),
+    ?assertMatch([{"mui5","010301"},{"mui6","010201"}], get_movementsuggestion_from_requesttracker()),
     mypl_requesttracker:in(999, "a0005"),
     mypl_requesttracker:in(30, "a0004"),
     % why is mui6 this time leading the list ???
-    ?assertMatch([{"mui6","010301"}, {"mui5","010201"}], get_movementsuggestion_from_requesstracker()),
+    ?assertMatch([{"mui6","010301"}, {"mui5","010201"}], get_movementsuggestion_from_requesttracker()),
     % the second call to mypl_requesttracker will address Product a0004
-    ?assertMatch([{"mui3","010301"},{"mui4","010201"}], get_movementsuggestion_from_requesstracker()),
+    ?assertMatch([{"mui3","010301"},{"mui4","010201"}], get_movementsuggestion_from_requesttracker()),
     ok.
     
 

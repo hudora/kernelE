@@ -447,7 +447,9 @@ commit_movement(MovementId) ->
         Destination = mypl_db_util:read_location(Movement#movement.to_location),
         % change locationdata
         teleport(Unit, Source, Destination),
-        mypl_audit:archive(Movement, commit_movement),
+        mypl_audit:archive(Movement#movement{attributes=Movement#movement.attributes
+                                             ++ [{committed_at, mypl_util:timestamp()}]},
+                           commit_movement),
         ok = mnesia:delete({movement, MovementId}),
         mypl_audit:unitaudit(Unit, "Umlagerung von " ++ Source#location.name ++ " nach "
                       ++ Destination#location.name ++ " comitted", Movement#movement.id),
@@ -482,7 +484,9 @@ rollback_movement(MovementId) ->
         Newdestination = Destination#location{reserved_for=lists:filter(fun(X) -> X /= Unit#unit.mui end,
                                                                         Destination#location.reserved_for)},
         ok = mnesia:write(Newdestination),
-        mypl_audit:archive(Movement, rollback_movement),
+        mypl_audit:archive(Movement#movement{attributes=Movement#movement.attributes
+                                             ++ [{rolled_back_at, mypl_util:timestamp()}]},
+                           rollback_movement),
         ok = mnesia:delete({movement, MovementId}),
         ok = mnesia:delete({reservation, (Movement#movement.to_location ++ "-" ++ Movement#movement.mui)}),
         mypl_audit:unitaudit(Unit, "Umlagerung von " ++ Source#location.name ++ " nach "
@@ -535,7 +539,8 @@ init_pick(Quantity, Mui, Attributes) when is_integer(Quantity) ->
                 % generate Pick
                 Pick = #pick{id=("P" ++ mypl_util:serial()), quantity=Quantity,
                              product=Unit#unit.product, from_unit=Unit#unit.mui,
-                             created_at=mypl_util:timestamp()},
+                             created_at=mypl_util:timestamp(),
+                             attributes=Attributes},
                 ok = mnesia:write(Pick),
                 mypl_audit:unitaudit(Unit, "Pick von " ++ integer_to_list(Pick#pick.quantity) 
                                      ++ " initialisiert. Verfügbarer Bestand " 
@@ -570,7 +575,9 @@ commit_pick(PickId) ->
             true ->
                 % update Unit
                 ok = mnesia:write(NewUnit),
-                mypl_audit:archive(Pick, commit_pick),
+                mypl_audit:archive(Pick#pick{attributes=Pick#pick.attributes
+                                             ++ [{committed_at, mypl_util:timestamp()}]},
+                                   commit_pick),
                 ok = mnesia:delete({pick, PickId}),
                 mypl_audit:articleaudit(-1 * Pick#pick.quantity, Pick#pick.product,
                                         "Pick auf " ++ Unit#unit.mui, Unit#unit.mui, PickId),
@@ -611,7 +618,9 @@ rollback_pick(PickId) ->
             true ->
                 % update Unit
                 ok = mnesia:write(NewUnit),
-                mypl_audit:archive(Pick, rollback_pick),
+                mypl_audit:archive(Pick#pick{attributes=Pick#pick.attributes
+                                             ++ [{rolled_back_at, mypl_util:timestamp()}]},
+                                   rollback_pick),
                 ok = mnesia:delete({pick, PickId}),
                 mypl_audit:unitaudit(Unit, "Pick von " ++ integer_to_list(Pick#pick.quantity) 
                                      ++ " abgebrochen.", PickId),

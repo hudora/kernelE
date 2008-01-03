@@ -251,22 +251,34 @@ pick_list() ->
 pick_info(PickId) -> 
     Fun = fun() ->
         case mnesia:read({pick, PickId}) of
-            [] -> {error, unknown_pick, {PickId}};
-            [Pick] -> 
-                Unit = mypl_db_util:mui_to_unit(Pick#pick.from_unit),
-                {ok, 
-                 [{id ,           Pick#pick.id},
-                  {from_unit,     Pick#pick.from_unit},
-                  {from_location, Unit#unit.location},
-                  {quantity,      Pick#pick.quantity},
-                  {product,       Unit#unit.product},
-                  {attributes,    Pick#pick.attributes},
-                  {created_at,    Pick#pick.created_at}
-                 ]}
+            [] ->
+                % not found in the active database - check archive
+                case mypl_audit:get_from_archive(pick, PickId) of
+                    [] ->
+                        {error, unknown_pick, {PickId}};
+                    [Pick] -> 
+                        Proplist = pick_info_helper(Pick),
+                        {ok, Proplist ++ [{status, open}]}
+                end;
+            [Pick] ->
+                Proplist = pick_info_helper(Pick),
+                {ok, Proplist ++ [{status, open}]}
         end
     end,
     {atomic, Ret} = mnesia:transaction(Fun),
     Ret.
+    
+
+pick_info_helper(Pick) -> 
+    Unit = mypl_db_util:mui_to_unit(Pick#pick.from_unit),
+    [{id ,           Pick#pick.id},
+     {from_unit,     Pick#pick.from_unit},
+     {from_location, Unit#unit.location},
+     {quantity,      Pick#pick.quantity},
+     {product,       Unit#unit.product},
+     {attributes,    Pick#pick.attributes},
+     {created_at,    Pick#pick.created_at}
+    ].
     
 
 
