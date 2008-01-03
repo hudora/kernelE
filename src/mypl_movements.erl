@@ -35,6 +35,7 @@
          get_floor_removal_unit/0, count_empty_floor_locations/0, 
          get_movementsuggestion_from_floorcleaner/0,
          get_movementsuggestion_from_unwanted_locations/0, 
+         show_movementsuggestions/0,
          create_automatic_movements/0, more_than_one_floorunit/0]).
 -compile(export_all).
 
@@ -55,10 +56,10 @@ unwanted_location_units() ->
 
 %% @doc suggests unit to be moved away von locations with preference 0
 %% returns [{unit, location}]
-%% see the configuration option minimum_free_floor       
-get_movementsuggestion_from_unwanted_locations() ->            
+%% see the configuration option minimum_free_floor
+get_movementsuggestion_from_unwanted_locations() ->
     erlang:display({get_movementsuggestion_from_unwanted_locations, a}),
-    case unwanted_location_units() of             
+    case unwanted_location_units() of
         [] ->
             [];
         [Mui|_Tail] ->
@@ -305,6 +306,23 @@ get_movementsuggestion_from_abc() ->
         end
     end,
     mypl_db_util:transaction(Fun).
+    
+
+%% @doc displays all movementsuggestions
+show_movementsuggestions() ->
+    Unwanted       = get_movementsuggestion_from_unwanted_locations(),
+    erlang:display({unwanted_locations, Unwanted}),
+    Floorcleaner   = get_movementsuggestion_from_floorcleaner(),
+    erlang:display({floorcleaner, Floorcleaner}),
+    Requesttracker = get_movementsuggestion_from_requesstracker(),
+    erlang:display({requesttracker, Requesttracker}),
+    Abc            = get_movementsuggestion_from_abc(),
+    erlang:display({abc, Abc}),
+    [{unwanted_locations, Unwanted},
+     {floorcleaner, Floorcleaner}
+     {requesttracker, Requesttracker}
+     {abc, Abc}
+    ].
     
 
 %% @doc generate movements
