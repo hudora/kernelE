@@ -245,9 +245,9 @@ archive(Object, Archivaltype) ->
     ok.
 
 get_from_archive(Type, Id) ->
-    mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(auditbuffer),
-                                      element(1, X#auditbuffer.body) =:= Type,
-                                      element(2, X#auditbuffer.body) =:= Id])).
+    mypl_db_util:do_trans(qlc:q([X#archive.body || X <- mnesia:table(archive),
+                                                   element(1, X#archive.body) =:= Type,
+                                                   element(2, X#archive.body) =:= Id])).
 
 
 %% TODO: chage from dirty to transaction based

@@ -192,8 +192,10 @@ best_location(floorlevel, Unit, Ignore) when is_record(Unit, unit) ->
     H;
 best_location(higherlevel, Unit, Ignore) when is_record(Unit, unit) ->
     % order by heigth, so we prefer lower locations
-    [H|_] = [X || X <- best_location_helper(Unit), X#location.floorlevel =:= false] -- Ignore,
-    H.
+    case [X || X <- best_location_helper(Unit), X#location.floorlevel =:= false] -- Ignore of
+        [H|_] -> H;
+        [] -> []
+    end.
 
 %% @doc suggest for each unit in units where it could be moved
 best_locations(floorlevel, [], _) -> [];

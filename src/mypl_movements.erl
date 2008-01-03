@@ -210,11 +210,15 @@ get_movementsuggestion_from_floorcleaner() ->
                 [] ->
                     [];
                 Unit ->
-                    erlang:display({d}),
-                    [Location] = mypl_db_util:transaction(fun() -> 
+                    erlang:display({d, Unit}),
+                    case mypl_db_util:transaction(fun() -> 
                                                               mypl_db_util:best_locations(higherlevel, [Unit])
-                                                          end),
-                    [{Unit#unit.mui, Location#location.name}]
+                                                          end) of
+                        [[]] -> []; % TODO: why not []?
+                        [Location] ->
+                            erlang:display({e, Location}),
+                            [{Unit#unit.mui, Location#location.name}]
+                    end
             end;
         true ->
             []
@@ -319,8 +323,8 @@ show_movementsuggestions() ->
     Abc            = get_movementsuggestion_from_abc(),
     erlang:display({abc, Abc}),
     [{unwanted_locations, Unwanted},
-     {floorcleaner, Floorcleaner}
-     {requesttracker, Requesttracker}
+     {floorcleaner, Floorcleaner},
+     {requesttracker, Requesttracker},
      {abc, Abc}
     ].
     
@@ -334,8 +338,10 @@ init_automovements() ->
     erlang:display({init_automovements, a}),
     case get_movementsuggestion_from_unwanted_locations() of
         [] ->
-            case get_movementsuggestion_from_floorcleaner() of
+     erlang:display({init_automovements, b}),
+           case get_movementsuggestion_from_floorcleaner() of
                 [] ->
+    erlang:display({init_automovements, c}),
                     case get_movementsuggestion_from_requesstracker() of
                         [] ->
                             %case get_movementsuggestion_from_abc() of
@@ -348,14 +354,18 @@ init_automovements() ->
                             %        [H|_] = L2, % we are only interested in the first result
                             %        {ok, init_movements([H])}
                             %end;
+    erlang:display({init_automovements, d}),
                             {ok, []};
                         L3 ->
+    erlang:display({init_automovements, e}),
                             {ok, init_movements(L3)}
                     end;
                 L2 ->
+    erlang:display({init_automovements, f}),
                     {ok, init_movements(L2)}
             end;
         L1 ->
+    erlang:display({init_automovements, g}),
             {ok, init_movements(L1)}
     end.
     
