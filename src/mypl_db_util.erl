@@ -70,9 +70,14 @@ mui_to_unit(Mui) ->
         [Unit] ->
             Unit;
         [] ->
-            error_logger:error_msg({unknown_mui, Mui}),
-            {error, unknown_mui, {Mui}};
-
+            % not found in the active database - check archive
+            case mypl_audit:get_from_archive(unit, Mui) of
+                [] ->
+                    error_logger:error_msg({unknown_mui, Mui}),
+                    {error, unknown_mui, {Mui}};
+                [Unit] ->
+                    Unit
+            end;
         Wrong ->
             {error, unknown_mui, {Mui, Wrong}}
     end.

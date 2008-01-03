@@ -205,26 +205,38 @@ movement_list() ->
 movement_info(MovementId) -> 
     Fun = fun() ->
         case mnesia:read({movement, MovementId}) of
-            [] -> {error, unknown_movement, {MovementId}};
+            [] -> 
+                % not found in the active database - check archive
+                case mypl_audit:get_from_archive(movement, MovementId) of
+                    [] ->
+                        {error, unknown_movement, {MovementId}};
+                    [Movement] ->
+                        Proplist = movement_info_helper(Movement),
+                        {ok, Proplist ++ [{status, archived}]}
+                end;
             [Movement] ->
-                Unit = mypl_db_util:mui_to_unit(Movement#movement.mui),
-                Quantity = Unit#unit.quantity,
-                Product = Unit#unit.product,
-                {ok, 
-                 [{id ,            Movement#movement.id},
-                  {mui,            Movement#movement.mui},
-                  {from_location,  Movement#movement.from_location},
-                  {to_location,    Movement#movement.to_location},
-                  {attributes,     Movement#movement.attributes},
-                  {created_at,     Movement#movement.created_at},
-                  {quantity,       Quantity},
-                  {product,        Product}
-                 ]}
+                Proplist = movement_info_helper(Movement),
+                {ok, Proplist ++ [{status, open}]}
         end
     end,
     {atomic, Ret} = mnesia:transaction(Fun),
     Ret.
     
+
+movement_info_helper(Movement) ->
+    Unit = mypl_db_util:mui_to_unit(Movement#movement.mui),
+    Quantity = Unit#unit.quantity,
+    Product = Unit#unit.product,
+    [{id ,            Movement#movement.id},
+     {mui,            Movement#movement.mui},
+     {from_location,  Movement#movement.from_location},
+     {to_location,    Movement#movement.to_location},
+     {attributes,     Movement#movement.attributes},
+     {created_at,     Movement#movement.created_at},
+     {quantity,       Quantity},
+     {product,        Product}
+    ].
+
 
 %% @spec pick_list() -> [PickID]
 %% @doc gets a List with all pick_list IDs
@@ -256,15 +268,6 @@ pick_info(PickId) ->
     {atomic, Ret} = mnesia:transaction(Fun),
     Ret.
     
-
-
-% get (quantity, Product) of all products
-% find_product(Product) ->
-%     mypl_db_util:do(qlc:q([{X#unit.quantity, X#unit.mui} || X <- mnesia:table(unit), X#unit.product =:= Product])).
-
-
-
-
 
 
 % ~~ Unit tests
