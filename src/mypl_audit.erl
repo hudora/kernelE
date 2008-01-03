@@ -63,7 +63,8 @@
          articleaudit/6, articleaudit/5, articleaudit/4,
          unitaudit_mui/2, unitaudit/4, unitaudit/3, unitaudit/2,
          archive/2, spawn_audit_transfer/0, compress_audit/0, compress_audit/1,
-         fix_articleaudit/0, fix_unitaudit/0]).
+         fix_articleaudit/0, fix_unitaudit/0,
+         get_from_archive/2]).
 
 %%% we assume all test and initialisation functionality is provided vby other modules
 
@@ -242,6 +243,12 @@ archive(Object, Archivaltype) ->
     end,
     {atomic, _} = mnesia:transaction(Fun),
     ok.
+
+get_from_archive(Type, Id) ->
+    mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(auditbuffer),
+                                      element(1, X#auditbuffer.body) =:= Type,
+                                      element(2, X#auditbuffer.body) =:= Id])).
+
 
 %% TODO: chage from dirty to transaction based
 %% @doc transfer data from temporary audit table to it's final destination
