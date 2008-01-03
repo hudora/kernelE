@@ -78,6 +78,8 @@ run_me_once() ->
     mypl_db:init_table_info(mnesia:create_table(auditbuffer,      [{disc_copies, [node()]}, {attributes, record_info(fields, auditbuffer)}]), auditbuffer),
     % Disk only Tables
     mypl_db:init_table_info(mnesia:create_table(archive,          [{disc_only_copies, [node()]}, {attributes, record_info(fields, archive)}]), archive),
+    mnesia:add_table_index(archive, #archive.type),
+    mnesia:add_table_index(archive, #archive.body_id),
     mypl_db:init_table_info(mnesia:create_table(articleaudit,     [{disc_only_copies, [node()]}, {attributes, record_info(fields, articleaudit)}]), articleaudit),
     mnesia:add_table_index(articleaudit, #articleaudit.product),
     mypl_db:init_table_info(mnesia:create_table(unitaudit,        [{disc_only_copies, [node()]}, {attributes, record_info(fields, unitaudit)}]), unitaudit),
@@ -246,8 +248,8 @@ archive(Object, Archivaltype) ->
 
 get_from_archive(Type, Id) ->
     mypl_db_util:do_trans(qlc:q([X#archive.body || X <- mnesia:table(archive),
-                                                   element(1, X#archive.body) =:= Type,
-                                                   element(2, X#archive.body) =:= Id])).
+                                                   X#archive.type =:= Type,
+                                                   X#archive.body_id =:= Id])).
 
 
 %% TODO: chage from dirty to transaction based

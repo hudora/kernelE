@@ -62,17 +62,34 @@ run_me_once() ->
                                  articleaudit, unitaudit], 30000),
     
     % upgrade tables where needed
-        Fields = record_info(fields, pick),
+    Fields1 = record_info(fields, pick),
     case mnesia:table_info(pick, attributes) of
-        Fields ->
+        Fields1 ->
             ok;
         [id,product,quantity,from_unit,created_at] ->
             ?WARNING("upgrading table picks with attributes field", []),
             mnesia:transform_table(pick,
                                    fun({_, I, P, Q, F, C}) -> 
                                        {pick, I, P, Q, F, C, []}
-                                    end, [id, product, quantity, from_unit, created_at, attributes])
+                                    end,
+                                    [id, product, quantity, from_unit, created_at, attributes])
     end,
+    
+    Fields2 = record_info(fields, archive),
+    case mnesia:table_info(archive, attributes) of
+        Fields2 ->
+            ok;
+        [id,created_at,archived_by,body] ->
+            ?WARNING("upgrading table archive with new fields", []),
+            erlang:display({
+            mnesia:transform_table(archive,
+                                   fun({_, I, C, A, Body}) -> 
+                                        {archive, I, C, A, element(1, Body), element(2, Body), Body}
+                                    end,
+                                    [id,created_at,archived_by,type,body_id,body])
+                                    })
+    end,
+
 
 
     init_location("EINLAG", 3000, true,  0, [{no_picks}]),

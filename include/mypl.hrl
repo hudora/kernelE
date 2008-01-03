@@ -129,6 +129,8 @@
 -record(archive, {id,           % eindeutiger Bezeichner
                   created_at,
                   archived_by,  % wodurch wurde der Datensatz archiviert
+                  type,
+                  body_id,
                   body
                   }).
 
