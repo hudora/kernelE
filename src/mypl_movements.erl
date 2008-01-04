@@ -256,8 +256,14 @@ get_movementsuggestion_from_requesttracker() ->
                 Units = collect_requesed_units(Quantity, Candidates, []),
                 Locations = mypl_db_util:best_locations(floorlevel, Units),
                 lists:zip([X#unit.mui || X <- Units], [X#location.name || X <- Locations])
+                %% TODO: sort by something reasonable : age?
             end,
-            mypl_db_util:transaction(Fun)
+            case mypl_db_util:transaction(Fun) of
+                [] ->
+                    [];
+                [H|_] ->
+                    [H]
+            end,
     end.
     
 
