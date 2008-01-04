@@ -212,9 +212,11 @@ get_movementsuggestion_from_floorcleaner() ->
                 Unit ->
                     erlang:display({d, Unit}),
                     case mypl_db_util:transaction(fun() -> 
-                                                              mypl_db_util:best_locations(higherlevel, [Unit])
-                                                          end) of
-                        [[]] -> []; % TODO: why not []?
+                                                      mypl_db_util:best_locations(higherlevel, [Unit])
+                                                  end) of
+                        [[]] -> 
+                            erlang:display({strange_stuff, Unit, Empty, MinEmpty}),
+                            []; % TODO: why not []?
                         [Location] ->
                             erlang:display({e, Location}),
                             [{Unit#unit.mui, Location#location.name}]
@@ -339,7 +341,7 @@ init_automovements() ->
         [] ->
            case get_movementsuggestion_from_floorcleaner() of
                 [] ->
-                    case get_movementsuggestion_from_floorcleaner() of
+                    case get_movementsuggestion_from_requesttracker() of
                         [] ->
                             %case get_movementsuggestion_from_abc() of
                             %    % TODO: dalyzer says:
