@@ -304,7 +304,7 @@ update_unit({height, Mui, Height}) ->
         Unit = mypl_db_util:mui_to_unit(Mui),
         NewUnit = Unit#unit{height = Height},
         ok = mnesia:write(NewUnit),
-        mypl_audit:unitaudit(NewUnit, "Hoehe geanedert"),
+        mypl_audit:unitaudit(NewUnit, "Hoehe geanedert")
     end,
     mypl_db_util:transaction(Fun).
     

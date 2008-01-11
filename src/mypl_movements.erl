@@ -109,7 +109,7 @@ get_floor_removal_products() ->
     Penner = ordsets:from_list(mypl_abcserver:get_penner()),
     Doppelboden = ordsets:from_list(more_than_one_floorunit()),
     Einzelboden = ordsets:from_list([Product || {Quantity, Product} <- floorunits(), Quantity =:= 1]),
-    InPipeline = mypl_provpipeline:pipelinearticles(),
+    InPipeline = lists:sort([Y || {_X, Y} <- mypl_provpipeline:pipelinearticles()]),
     Alle = ordsets:union([A, B, C]),
     Boden = ordsets:union([Einzelboden, Doppelboden]),
     % @TODO: create a way to find open orders
@@ -203,9 +203,10 @@ count_empty_floor_locations() ->
 %% see the configuration option minimum_free_floor
 get_movementsuggestion_from_floorcleaner() ->
     Empty = count_empty_floor_locations(),
-    MinEmpty = application:get_env(minimum_free_floor),
+    MinEmpty = 15, % A minimum of 15 locations must be free at floorlevel
     if
         Empty < MinEmpty ->
+            erlang:display({yooohooo, Empty, MinEmpty, Empty < MinEmpty}),
             case get_floor_removal_unit() of
                 [] ->
                     [];
@@ -263,7 +264,7 @@ get_movementsuggestion_from_requesttracker() ->
                     [];
                 [H|_] ->
                     [H]
-            end,
+            end
     end.
     
 
@@ -376,6 +377,7 @@ init_automovements() ->
 %% @doc call init_movement/2 for several movements at once
 init_movements(L, Attributes) when is_list(L), is_list(Attributes) ->
     %% we use a transaction to ensure all movements fail if a single one fails.
+    erlang:display({init_movements, a, L, Attributes}),
     Fun = fun() ->
         lists:map(fun({Mui, Destination}) -> 
                       erlang:display({init_movements, c, Mui, Destination}),
