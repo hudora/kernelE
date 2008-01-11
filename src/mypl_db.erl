@@ -16,7 +16,7 @@
 -include_lib("stdlib/include/qlc.hrl").
 -include("include/mypl.hrl").
 
--export([init_table_info/2, run_me_once/0, init_location/6, init_location/5,store_at_location/5, retrieve/1,
+-export([init_table_info/2, run_me_once/0, init_location/6, init_location/5,store_at_location/5, update_unit/1, retrieve/1,
  init_movement/2, init_movement/3, init_movement_to_good_location/1, commit_movement/1, rollback_movement/1,
  commit_retrieval/1, rollback_retrieval/1,
  init_pick/2, init_pick/3, commit_pick/1, rollback_pick/1,
@@ -89,8 +89,6 @@ run_me_once() ->
                                     [id,created_at,archived_by,type,body_id,body])
                                     })
     end,
-
-
 
     init_location("EINLAG", 3000, true,  0, [{no_picks}]),
     init_location("AUSLAG", 3000, true,  0, [{no_picks}]),
@@ -300,6 +298,17 @@ store_at_location_multi([Id, Locname, Elements]) ->
     store_at_location_multi(Id, Locname, Elements).
     
 
+%% TODO: doc
+update_unit({height, Mui, Height}) ->
+    Fun = fun() ->
+        Unit = mypl_db_util:mui_to_unit(Mui),
+        NewUnit = Unit#unit{height = Height},
+        ok = mnesia:write(NewUnit),
+        mypl_audit:unitaudit(NewUnit, "Hoehe geanedert"),
+    end,
+    mypl_db_util:transaction(Fun).
+    
+
 %% @spec retrieve(muID()) -> {ok, {Quantity::integer(), Product::string()}}
 %% @doc remove a Unit and the goods on it from the warehouse
 %%
@@ -337,8 +346,8 @@ retrieve(Mui) ->
                 erlang:error({internal_error, inconsistent_retrieve, {Mui, Unit, Location, Wrong}})
         end
     end,
-    {atomic, Ret} = mnesia:transaction(Fun),
-    Ret.
+    mypl_db_util:transaction(Fun).
+    
 
 %% @doc Disbands (deletes) an unit.
 %%
