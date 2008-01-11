@@ -241,7 +241,9 @@ archive(Object, Archivaltype) ->
         mnesia:write(#auditbuffer{id=mypl_util:oid(),
                                   body=#archive{id="R" ++ mypl_util:oid(),
                                                 body=Object, archived_by=Archivaltype,
-                                                created_at=mypl_util:timestamp()}})
+                                                created_at=mypl_util:timestamp(),
+                                                type=element(1, Object),
+                                                body_id=element(2, Object)}})
     end,
     {atomic, _} = mnesia:transaction(Fun),
     ok.
