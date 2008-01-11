@@ -13,7 +13,7 @@
 -define(SERVER, mypl_requesttracker).
 
 %% API
--export([start_link/0, start/0, stop/0, in/2, out/0, movement_done/2, dump_requests/0]).
+-export([start_link/0, start/0, stop/0, in/2, out/0, movement_done/2, dump_requests/0, flush/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -50,6 +50,10 @@ movement_done(Quantity, Product) ->
 %% @doc get a list of all data inside the requesttracker
 dump_requests() ->
     gen_server:call(?SERVER, {dump_requests}). 
+
+%% @doc delete requesttrackerentries
+flush() ->
+    gen_server:call(?SERVER, {flush}). 
 
 stop() -> 
     gen_server:cast(?SERVER, stop). 
@@ -91,8 +95,11 @@ handle_call({out}, _From, State) ->
             ets:delete(State#state.table, Product),
             {reply, {ok, {Quantity, Product}}, State}
     end;
+handle_call({flush}, _From, State) ->
+   Ret = ets:delete_all_objects(State#state.table),
+   {reply, Ret, State};
 handle_call({dump_requests}, _From, State) ->
-   Ret = ets:tab2list(State#state.table),
+   Ret = lists:sort(fun({_, _, TSa}, {_, _, TSb}) -> TSa < TSb end, ets:tab2list(State#state.table)),
    {reply, Ret, State}.
 
 %%--------------------------------------------------------------------
