@@ -112,13 +112,20 @@ open_movements_for_product(Product) ->
     Ret.
     
 
+%% @doc get a list of all units at floorlevel or moving to floorlevel
 find_floor_units_for_product(Product) ->
     [X || X <- mypl_db_util:do(qlc:q([X || X <- mnesia:table(unit),
                                            X#unit.product =:= Product, unit_floor_helper(X)]))].
 
 unit_floor_helper(Unit) ->
-     Loc = mypl_db_util:read_location(Unit#unit.location),
-     Loc#location.floorlevel =:= true.
+    case mypl_db_util:unit_moving(Unit) of
+        no ->
+            Loc = mypl_db_util:read_location(Unit#unit.location);
+        yes -> 
+            Movement = mypl_db_util:unit_movement(Unit),
+            Loc = mypl_db_util:read_location(Movement#movement.to_location)
+    end,
+    Loc#location.floorlevel =:= true.
     
 
 %% @spec unit_list() -> [mypl_db:muiId()]

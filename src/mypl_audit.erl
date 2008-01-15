@@ -64,7 +64,7 @@
          unitaudit_mui/2, unitaudit/4, unitaudit/3, unitaudit/2,
          archive/2, spawn_audit_transfer/0, compress_audit/0, compress_audit/1,
          fix_articleaudit/0, fix_unitaudit/0,
-         get_from_archive/2]).
+         get_from_archive/2, get_recent_from_archive/1]).
 
 %%% we assume all test and initialisation functionality is provided vby other modules
 
@@ -248,11 +248,23 @@ archive(Object, Archivaltype) ->
     {atomic, _} = mnesia:transaction(Fun),
     ok.
 
+%% @doc retrives the entry with type and id from the archive
 get_from_archive(Type, Id) ->
     mypl_db_util:do_trans(qlc:q([X#archive.body || X <- mnesia:table(archive),
                                                    X#archive.type =:= Type,
                                                    X#archive.body_id =:= Id])).
 
+
+%% doc get all entries if type generated in the last 5 days
+get_recent_from_archive(Type) when is_atom(Type) ->
+    {Date, _} = calendar:now_to_datetime(erlang:now()),
+    {Start, {0,0,0}, 0} = calendar:gregorian_days_to_date(calendar:date_to_gregorian_days(Date) - 5),
+    mypl_db_util:do_trans(qlc:q([X#archive.body || X <- mnesia:table(archive),
+                                                   X#archive.type =:= Type,
+                                                   X#archive.created_at > Start]));
+get_recent_from_archive(Type) ->
+    get_recent_from_archive(erlang:list_to_atom(Type)).
+    
 
 %% TODO: chage from dirty to transaction based
 %% @doc transfer data from temporary audit table to it's final destination
@@ -268,7 +280,7 @@ transfer_buffers(Key) ->
         [Buffer] ->
             mnesia:dirty_write(Buffer#auditbuffer.body),
             mnesia:dirty_delete(auditbuffer, Buffer#auditbuffer.id),
-            timer:sleep(11), % sleep 11 ms to give disk drives / mnesia time to rest
+            timer:sleep(1), % sleep 11 ms to give disk drives / mnesia time to rest
             transfer_buffers(mnesia:dirty_first(auditbuffer))
     end.
 

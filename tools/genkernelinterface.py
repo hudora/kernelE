@@ -35,13 +35,13 @@ funcdefs = [
 ('mypl_db_query', 'count_product', 'Product', []),
 ('mypl_db_query', 'count_products', '', ['async']),
 ('mypl_db_query', 'unit_list', '', ['async']),
-('mypl_db_query', 'unit_info', 'Mui', []),
+('mypl_db_query', 'unit_info', 'Mui', ['async']),
 ('mypl_db_query', 'location_list', '', ['async']),
 ('mypl_db_query', 'location_info', 'Locname', []),
 ('mypl_db_query', 'movement_list', '', ['async']),
-('mypl_db_query', 'movement_info', 'MovementId', []),
+('mypl_db_query', 'movement_info', 'MovementId', ['async']),
 ('mypl_db_query', 'pick_list', '', ['async']),
-('mypl_db_query', 'pick_info', 'PickId', []),
+('mypl_db_query', 'pick_info', 'PickId', ['async']),
 
 ('mypl_provisioning', 'find_provisioning_candidates', 'Quantity, Product', ['async']),
 ('mypl_provisioning', 'find_provisioning_candidates_multi', 'JsonList', ['async']),
@@ -65,6 +65,7 @@ funcdefs = [
 ('mypl_audit', 'get_articleaudit', 'Product', ['async']),
 ('mypl_audit', 'get_unitaudit', 'Mui', ['async']),
 ('mypl_audit', 'get_articlecorrection', 'Product', ['async']),
+('mypl_audit', 'get_recent_from_archive', 'Type', ['async']),
 
 ('mypl_abcserver', 'get_abc', '', ['async']),
 
@@ -107,6 +108,7 @@ typemap = {
 'CId':               'String',
 'Info':              'String',
 'Customer':          'String',
+'Type':              'String',
 'Floorlevel':        'Boolean',
 'Attributes':        'Array',
 'JsonList':          'JsonList',

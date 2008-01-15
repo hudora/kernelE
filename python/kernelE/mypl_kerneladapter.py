@@ -288,7 +288,10 @@ class Kerneladapter:
         {u'to_location': '212402', u'from_location': '012801', u'created_at': datetime.datetime(2007, 11, 21, 13, 18, 18, 538711), u'attributes': [], u'mui': '012801|30.0|10106|340059981000000463', u'id': 'm1195651098.535517'}
         """
         self._send("movement_info %s" % name)
-        ok, data = self._read_json(220)
+        json = self._read_json(220)
+        if json[0] == 'error':
+            raise RuntimeError, repr(json)
+        ok, data = json
         data = attributelist2dict_str(data)
         data['created_at'] = e2datetime(data['created_at'])
         return data

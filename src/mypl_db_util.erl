@@ -93,7 +93,7 @@ mui_to_unit_trans(Mui) ->
     
 
 %% @private
-%% @spec unit_movement(unitRecord()) -> mypl_db:movementRecort()
+%% @spec unit_movement (unitRecord()) -> mypl_db:movementRecort()
 %% @doc returns the movement record for a unit or false if unit is not moving.
 unit_movement(Unit) ->
     case do(qlc:q([X || X <- mnesia:table(movement), X#movement.mui =:= Unit#unit.mui])) of
@@ -154,20 +154,20 @@ best_location_helper(Unit) ->
                        "EINLAG" =:= Unit#unit.location ->
                             % for Units on EINLAG we do no distance calculations but base on ABC classification
                             case Class of
-                                a -> % order by distance from front - divide by 10 to get groups/bins of distances
-                                    Adistance = mypl_distance:distance("061301", A#location.name) div 10,
-                                    Bdistance = mypl_distance:distance("061301", B#location.name) div 10;
+                                a -> % order by distance from front - divide by 20 to get groups/bins of distances
+                                    Adistance = mypl_distance:distance("061301", A#location.name) div 20,
+                                    Bdistance = mypl_distance:distance("061301", B#location.name) div 20;
                                 b -> % products of class B are placed "randomly"
                                     Adistance = 0,
                                     Bdistance = 0;
                                 _ ->  % order by distance from back - divide by 10 to get groups/bins of distances
-                                    Adistance = mypl_distance:distance("194001", A#location.name) div 10,
-                                    Bdistance = mypl_distance:distance("194001", B#location.name) div 10
+                                    Adistance = mypl_distance:distance("194001", A#location.name) div 20,
+                                    Bdistance = mypl_distance:distance("194001", B#location.name) div 20
                             end;
                         true ->
-                            % divide by 10 to get groups/bins of distances
-                            Adistance = mypl_distance:distance(Unit#unit.location, A#location.name) div 10,
-                            Bdistance = mypl_distance:distance(Unit#unit.location, B#location.name) div 10
+                            % divide by 20 to get groups/bins of distances
+                            Adistance = mypl_distance:distance(Unit#unit.location, A#location.name) div 20,
+                            Bdistance = mypl_distance:distance(Unit#unit.location, B#location.name) div 20
                     end,
                     % order by as near as possible, as low as possible, preference as high as possible
                     {Adistance, A#location.height, B#location.preference} 

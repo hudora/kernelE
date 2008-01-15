@@ -232,6 +232,12 @@ handle_command("get_articlecorrection", _Parameters, State) ->
     [Product] = Tokens,
     NewProduct = convertString(Product),
     {noreply, reply(220, rfc4627:encode(mypl_server:get_articlecorrection(NewProduct)), reset_buffers(State))};
+handle_command("get_recent_from_archive", _Parameters, State) ->
+    % implementation for get_recent_from_archive,
+    Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
+    [Type] = Tokens,
+    NewType = convertString(Type),
+    {noreply, reply(220, rfc4627:encode(mypl_server:get_recent_from_archive(NewType)), reset_buffers(State))};
 handle_command("get_abc", _Parameters, State) ->
     % implementation for get_abc,
     {noreply, reply(220, rfc4627:encode(mypl_server:get_abc()), reset_buffers(State))};
@@ -312,6 +318,7 @@ delete_pipeline CId
 get_articleaudit Product
 get_unitaudit Mui
 get_articlecorrection Product
+get_recent_from_archive Type
 get_abc 
 make_oid 
 make_nve 

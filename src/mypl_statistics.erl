@@ -1,6 +1,6 @@
 -module(mypl_statistics).
 
--export([aggregate/0]).
+-export([statistics/0, aggregate/0]).
 
 -include_lib("stdlib/include/qlc.hrl").
 -include("include/mypl.hrl").
@@ -15,3 +15,10 @@ aggregate() ->
     Records = mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(archive)])),
     lists:sort(dict:to_list(aggregate_helper(Records, dict:new()))).
     
+statistics() ->
+    [{empty_pickable_locations, mypl_movements:count_empty_floor_locations()},
+     {multi_floorunits,         mypl_movements:more_than_one_floorunit()},
+     {requesstracker_entries,   length(mypl_requesttracker:dump_requests())},
+     {provpipeline_articles,    length(mypl_provpipeline:pipelinearticles())}
+     ].
+     
