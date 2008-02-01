@@ -471,7 +471,8 @@ flood_requestracker() ->
     Candidates = mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(provpipeline),
                                                    X#provpipeline.status =:= new])),
     flood_requestracker(Candidates).
-flood_requestracker() -> ok;
+
+flood_requestracker([]) -> ok;
 flood_requestracker([Entry|CandidatesTail]) ->
     Orderlines = [{Quantity, Product} || {Quantity, Product, _Attributes} <- Entry#provpipeline.orderlines],
     mypl_provisioning:find_provisioning_candidates_multi(Orderlines, sort_provpipeline_helper(Entry)),
