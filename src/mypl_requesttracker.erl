@@ -114,9 +114,12 @@ handle_call({dump_requests}, _From, State) ->
 handle_cast({in, {Quantity, Product, Priority}}, State) ->
     
     %% check if we have an open movement before adding
-    %% ignore movements to AUSLAG - TODO: actually we have to ignore all retrieval movements
-    Movements = [X || X <- mypl_db_query:open_movements_for_product(Product),
-                          X#movement.to_location /= "AUSLAG" ],
+    %% ignore movements not bound to floorlevel.
+    MovLoc = [{X, mypl_db_util:read_location(X#movement.to_location) } 
+              || X <- mypl_db_query:open_movements_for_product(Product),
+                 X#movement.to_location /= "AUSLAG" ],
+    Movements = [Mov || {Mov, Loc} <- MovLoc, Loc#location.floorlevel =:= true],
+    % Movements is now a list of all Movements for this Article which are bound to floor locations
     case Movements of
         [] ->
             % no open movement, so we can add
