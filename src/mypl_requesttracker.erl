@@ -13,7 +13,7 @@
 -define(SERVER, mypl_requesttracker).
 
 %% API
--export([start_link/0, start/0, stop/0, in/2, out/0, movement_done/2, dump_requests/0, flush/0]).
+-export([start_link/0, start/0, stop/0, in/2, in/3, out/0, movement_done/2, dump_requests/0, flush/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -34,9 +34,11 @@ start_link() ->
 start() -> 
     gen_server:start({local, ?SERVER}, ?MODULE, [], []). 
 
-%% @doc inform the requesttracker than an specific quantity of a product is needed for picking
+%% @doc inform the requesttrackerquesttracker than an specific quantity of a product is needed for picking
 in(Quantity, Product) -> 
-    gen_server:cast(?SERVER, {in, {Quantity, Product}}).
+    gen_server:cast(?SERVER, {in, {Quantity, Product, "X"}}).
+in(Quantity, Product, Priority) -> 
+    gen_server:cast(?SERVER, {in, {Quantity, Product, Priority}}).
 
 %% @spec out() -> {ok, {Quantity, Product}}|{empty}
 %% @doc get the next product which should be moved to floorlevel for picking
@@ -86,12 +88,11 @@ init([]) ->
 %% @doc get a request {Quantity, Product} for to most urgently at floorlevel needed product
 handle_call({out}, _From, State) ->
     % sort by timestamp
-    case lists:sort(fun({_, _, TSa}, {_, _, TSb}) -> TSa < TSb end,
-                    qlc:e(qlc:q([Y || Y <- ets:table(State#state.table)]))) of
+    case sort_entries(qlc:e(qlc:q([Y || Y <- ets:table(State#state.table)]))) of
         [] ->
             {reply, {empty}, State};
         [H|_] ->
-            {Product, Quantity, _} = H,
+            {Product, Quantity, _Timestamp, _Prio} = H,
             ets:delete(State#state.table, Product),
             {reply, {ok, {Quantity, Product}}, State}
     end;
@@ -99,7 +100,7 @@ handle_call({flush}, _From, State) ->
    Ret = ets:delete_all_objects(State#state.table),
    {reply, Ret, State};
 handle_call({dump_requests}, _From, State) ->
-   Ret = lists:sort(fun({_, _, TSa}, {_, _, TSb}) -> TSa < TSb end, ets:tab2list(State#state.table)),
+   Ret = sort_entries(ets:tab2list(State#state.table)),
    {reply, Ret, State}.
 
 %%--------------------------------------------------------------------
@@ -110,11 +111,10 @@ handle_call({dump_requests}, _From, State) ->
 %%--------------------------------------------------------------------
 
 %% @doc inform the requesttracker of a product needed at floorlevel
-handle_cast({in, {Quantity, Product}}, State) ->
+handle_cast({in, {Quantity, Product, Priority}}, State) ->
     
     %% check if we have an open movement before adding
-    %% ignore movements to AUSLAG
-    %% TODO: actually we have to ignore all retrieval movements
+    %% ignore movements to AUSLAG - TODO: actually we have to ignore all retrieval movements
     Movements = [X || X <- mypl_db_query:open_movements_for_product(Product),
                           X#movement.to_location /= "AUSLAG" ],
     case Movements of
@@ -122,9 +122,11 @@ handle_cast({in, {Quantity, Product}}, State) ->
             % no open movement, so we can add
             case ets:lookup(State#state.table, Product) of
                 [] ->
-                    ets:insert(State#state.table, {Product, Quantity, mypl_util:timestamp()});
-                [_] ->
-                    ets:update_counter(State#state.table, Product, {2, Quantity})
+                    ets:insert(State#state.table, {Product, Quantity, mypl_util:timestamp(), Priority});
+                [{_OProduct, OQuantity, OTimestamp, OPriority}] ->
+                    ets:insert(State#state.table,
+                               {Product, Quantity + OQuantity, OTimestamp, lists:min([Priority, OPriority])}
+                              )
             end;
         _Movements ->
             % since there are open movements we can't be sure that the open movements
@@ -172,3 +174,6 @@ code_change(_OldVsn, State, _Extra) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+
+sort_entries(L) ->
+    lists:sort(fun({_, _, TSa, Prioa}, {_, _, TSb, Priob}) -> {Prioa, TSa} < {Priob, TSb} end, L).

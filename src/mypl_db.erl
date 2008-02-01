@@ -375,8 +375,8 @@ disband_unit(Unit) ->
 %% Attributes can be used for arbitrary purposes. Those attributes starting with 'mypl' are
 %% reserved for internal use by kernel-E. So far the following Attributes are used
 %% <dl>
-%%   <dt>mypl_notify_requestracker</dt> <dd>Upon committing the movement calls
-%% {@link mypl_requestracker:movement_done/2}(Product).</dd>
+%%   <dt>mypl_notify_requesttracker</dt> <dd>Upon committing the movement calls
+%% {@link mypl_requesttracker:movement_done/2}(Product).</dd>
 %% </dl>
 init_movement(Mui, DestinationName, Attributes) when is_list(Attributes) ->
     Fun = fun() ->
@@ -470,7 +470,7 @@ commit_movement(MovementId) ->
                       ++ Destination#location.name ++ " comitted", Movement#movement.id),
         
         ok = mnesia:delete({reservation, (Movement#movement.to_location ++ "-" ++ Movement#movement.mui)}),
-        case (lists:member({mypl_notify_requestracker}, Movement#movement.attributes) 
+        case (lists:member({mypl_notify_requesttracker}, Movement#movement.attributes) 
               andalso Movement#movement.to_location /= "AUSLAG") of
             true ->
                 mypl_requesttracker:movement_done(Unit#unit.quantity, Unit#unit.product);

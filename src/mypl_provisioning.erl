@@ -16,7 +16,9 @@
 -include("include/mypl.hrl").
 
 -export([find_provisioning_candidates/2,find_provisioning_candidates_multi/1,
-         init_provisionings_multi/1, init_provisionings_multi/2]).
+         find_provisioning_candidates/3,find_provisioning_candidates_multi/2,
+         init_provisionings_multi/1, init_provisionings_multi/2,
+         init_provisionings_multi/2, init_provisionings_multi/3]).
 
 
 %%%%
@@ -227,6 +229,8 @@ find_oldest_units_of(Quantities, Units) when is_list(Quantities), is_list(Units)
 %% to get a certain amound of goods out of the warehouse is analysed.
 %% Returns {error, no_fit} or {ok, retrievals, picks}
 find_provisioning_candidates(Quantity, Product) ->
+    find_provisioning_candidates(Quantity, Product, "X").
+find_provisioning_candidates(Quantity, Product, Priority) ->
     % check for full MUIs which can be retrieved
     case find_retrieval_candidates(Quantity, Product) of
         {ok, 0, Candidates} ->
@@ -251,11 +255,11 @@ find_provisioning_candidates(Quantity, Product) ->
                                     {fit, NPickcandidates} ->
                                         {ok, NCandidates, NPickcandidates};
                                     {error, no_fit} ->
-                                        mypl_requesttracker:in(Quantity, Product),
+                                        mypl_requesttracker:in(Quantity, Product, Priority),
                                         {error, no_fit}
                                 end;
                             {error, no_fit} ->
-                                mypl_requesttracker:in(Quantity, Product),
+                                mypl_requesttracker:in(Quantity, Product, Priority),
                                 {error, no_fit};
                             {error, not_enough} ->
                                 % this shouldn't happen
@@ -265,11 +269,11 @@ find_provisioning_candidates(Quantity, Product) ->
                     mypl_db_util:transaction(Fun)
             end;
         {error, no_fit} ->
-            mypl_requesttracker:in(Quantity, Product),
+            mypl_requesttracker:in(Quantity, Product, Priority),
             {error, no_fit};
         {error, not_enough} ->
             % this might happen, if to much of a certain product is on the move in the warehouse
-            mypl_requesttracker:in(Quantity, Product),
+            mypl_requesttracker:in(Quantity, Product, Priority),
             {error, not_enough}
     end.
     
@@ -301,9 +305,11 @@ deduper(L) ->
 %% Example:
 %% [{ok, [{6, Mui1a0010}], [{4, Mui2a0009}]}, ] = find_provisioning_candidates_multi([{4, "a0009"}, {6, "a0010"}])
 find_provisioning_candidates_multi(L1) ->
+    find_provisioning_candidates_multi(L1, "X").
+find_provisioning_candidates_multi(L1, Priority) ->
     L = deduper(L1),
-    CandList = plists:map(fun({Quantity, Product}) -> find_provisioning_candidates(Quantity, Product);
-                             ([Quantity, Product]) -> find_provisioning_candidates(Quantity, Product) end, L),
+    CandList = plists:map(fun({Quantity, Product}) -> find_provisioning_candidates(Quantity, Product, Priority);
+                             ([Quantity, Product]) -> find_provisioning_candidates(Quantity, Product, Priority) end, L),
     case lists:all(fun(Reply) -> element(1, Reply) =:= ok end, CandList) of
         false ->
             {error, no_fit};
@@ -322,7 +328,9 @@ find_provisioning_candidates_multi(L1) ->
 %% Example:
 %% {ok, [MovementID1, MovementID2], [PickId3]} = init_provisionings_multi([{9, "a0009"}, {6, "a0010"}])
 init_provisionings_multi(L, Attributes) ->
-    case find_provisioning_candidates_multi(L) of
+    init_provisionings_multi(L, Attributes, "X").
+init_provisionings_multi(L, Attributes, Priority) ->
+    case find_provisioning_candidates_multi(L, Priority) of
         {error, no_fit} ->
             {error, no_fit};
         {ok, Retrievals, Picks} ->
@@ -528,22 +536,22 @@ mypl_simple_provisioning2_test() ->
     {ok, _} = mypl_db:store_at_location("010201", Mui4,  6, "a0010", 1200),
     
     % check random combinations
-    {ok, [Mui3], []} = find_provisioning_candidates(5, "a0009"),
-    {ok, [], [{4, Mui1}]} = find_provisioning_candidates(4, "a0009"),
-    {ok, [Mui3], [{1, Mui1}]} = find_provisioning_candidates(6, "a0009"),
-    {ok, [Mui2], [{3, Mui1}]} = find_provisioning_candidates(10, "a0009"),
-    {ok, [Mui1], []} = find_provisioning_candidates(11, "a0009"),
-    {ok, [Mui3, Mui2], []} = find_provisioning_candidates(12, "a0009"),
-    {ok, [Mui3, Mui2], [{1, Mui1}]} = find_provisioning_candidates(13, "a0009"),
+    {ok, [Mui3], []} = find_provisioning_candidates(5, "a0009", "X"),
+    {ok, [], [{4, Mui1}]} = find_provisioning_candidates(4, "a0009", "X"),
+    {ok, [Mui3], [{1, Mui1}]} = find_provisioning_candidates(6, "a0009", "X"),
+    {ok, [Mui2], [{3, Mui1}]} = find_provisioning_candidates(10, "a0009", "X"),
+    {ok, [Mui1], []} = find_provisioning_candidates(11, "a0009", "X"),
+    {ok, [Mui3, Mui2], []} = find_provisioning_candidates(12, "a0009", "X"),
+    {ok, [Mui3, Mui2], [{1, Mui1}]} = find_provisioning_candidates(13, "a0009", "X"),
     
     % TODO: there are actual fits for that pick, our code is just not smart enough to find them
     % on the first run - so there is some extremely obscure code at work to find the picks
-    {ok, [Mui3, Mui2], [{10, Mui1}]} = find_provisioning_candidates(22, "a0009"),
+    {ok, [Mui3, Mui2], [{10, Mui1}]} = find_provisioning_candidates(22, "a0009", "X"),
     %                
-    {ok, [Mui3, Mui2, Mui1], []} = find_provisioning_candidates(23, "a0009"),
-    {error, not_enough} = find_provisioning_candidates(24, "a0009"),
-    {ok, [Mui4], [{4, Mui1}]} = find_provisioning_candidates_multi([{4, "a0009"}, {6, "a0010"}]),
-    {ok, [Mui4, Mui2], [{2, Mui1}]} = find_provisioning_candidates_multi([{9, "a0009"}, {6, "a0010"}]),
+    {ok, [Mui3, Mui2, Mui1], []} = find_provisioning_candidates(23, "a0009", "X"),
+    {error, not_enough} = find_provisioning_candidates(24, "a0009", "X"),
+    {ok, [Mui4], [{4, Mui1}]} = find_provisioning_candidates_multi([{4, "a0009"}, {6, "a0010"}], "X"),
+    {ok, [Mui4, Mui2], [{2, Mui1}]} = find_provisioning_candidates_multi([{9, "a0009"}, {6, "a0010"}], "X"),
     ok.
     
 real_world1_test() ->

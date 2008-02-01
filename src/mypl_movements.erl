@@ -362,7 +362,7 @@ init_automovements() ->
                             %end;
                             {ok, []};
                         L3 ->
-                            {ok, init_movements(L3, [{mypl_notify_requestracker}, {reason, requesttracker}])}
+                            {ok, init_movements(L3, [{mypl_notify_requesttracker}, {reason, requesttracker}])}
                     end;
                 L2 ->
                     {ok, init_movements(L2, [{reason, floorcleaner}])}
