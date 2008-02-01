@@ -421,7 +421,7 @@ refill_pipeline(_Type, []) -> no_fit;
 refill_pipeline(Type, Candidates) ->
     [Entry|CandidatesTail] = Candidates,
     Orderlines = [{Quantity, Product} || {Quantity, Product, _Attributes} <- Entry#provpipeline.orderlines],
-    case mypl_provisioning:find_provisioning_candidates_multi(Orderlines) of
+    case mypl_provisioning:find_provisioning_candidates_multi(Orderlines, sort_provpipeline_helper(Entry)) of
         {error, no_fit} ->
             % update number of tries
             mypl_db_util:transaction(fun() ->
@@ -438,7 +438,8 @@ refill_pipeline(Type, Candidates) ->
                     % we have got a match - add to the two queues, remove from pipeline and we are done here
                     {ok, RetrievalIds, PickIds} = mypl_provisioning:init_provisionings_multi(Orderlines,
                                                          [{provpipeline_id, Entry#provpipeline.id},
-                                                          {allocated_at, calendar:universal_time()}]),
+                                                          {allocated_at, calendar:universal_time()}],
+                                                          sort_provpipeline_helper(Entry)),
                     Fun = fun() ->
                         case RetrievalIds of
                             [] -> ignore;
@@ -479,8 +480,8 @@ sort_provpipeline_helper(Record) ->
      proplists:get_value(versandtermin, proplistlist_to_proplisttuple(Record#provpipeline.attributes), "") ++
      proplists:get_value(liefertermin,  proplistlist_to_proplisttuple(Record#provpipeline.attributes), ""), 
      100 - Record#provpipeline.priority, % higher priorities mean lower values mean beeing sorted first
-     Record#provpipeline.tries,
-     proplists:get_value(kernel_customer, Record#provpipeline.attributes, "99999")
+     proplists:get_value(kernel_customer, Record#provpipeline.attributes, "99999"),
+     Record#provpipeline.tries
     }.
     
 
