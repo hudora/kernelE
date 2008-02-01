@@ -58,16 +58,13 @@ unwanted_location_units() ->
 %% returns [{unit, location}]
 %% see the configuration option minimum_free_floor
 get_movementsuggestion_from_unwanted_locations() ->
-    erlang:display({get_movementsuggestion_from_unwanted_locations, a}),
     case unwanted_location_units() of
         [] ->
             [];
         [Mui|_Tail] ->
-            erlang:display({get_movementsuggestion_from_unwanted_locations, Mui}),
             Location = mypl_db_util:transaction(fun() ->
                                                       mypl_db_util:best_location(mypl_db_util:mui_to_unit(Mui))
                                                   end),
-            erlang:display({get_movementsuggestion_from_unwanted_locations, [{Mui, Location#location.name}]}),
             [{Mui, Location#location.name}]
     end.
 
@@ -206,20 +203,16 @@ get_movementsuggestion_from_floorcleaner() ->
     MinEmpty = 15, % A minimum of 15 locations must be free at floorlevel
     if
         Empty < MinEmpty ->
-            erlang:display({yooohooo, Empty, MinEmpty, Empty < MinEmpty}),
             case get_floor_removal_unit() of
                 [] ->
                     [];
                 Unit ->
-                    erlang:display({d, Unit}),
                     case mypl_db_util:transaction(fun() -> 
                                                       mypl_db_util:best_locations(higherlevel, [Unit])
                                                   end) of
                         [[]] -> 
-                            erlang:display({strange_stuff, Unit, Empty, MinEmpty}),
                             []; % TODO: why not []?
                         [Location] ->
-                            erlang:display({e, Location}),
                             [{Unit#unit.mui, Location#location.name}]
                     end
             end;
@@ -242,12 +235,13 @@ collect_requesed_units(Quantity, Candidates, Acc) ->
 %% @doc generates list of movement suggestions by looking at requirements from the {@link requesttracker}.
 %%
 %% a movement suggestion is defined as {unit, location}
-get_movementsuggestion_from_requesttracker() ->
+get_movementsuggestion_from_requesttracker(0) -> [];
+get_movementsuggestion_from_requesttracker(Tries) ->
+    % might return {empty}}
     case mypl_requesttracker:out() of
         {empty} ->
             [];
         {ok, {Quantity, Product}} ->
-            % might return {empty}}
             % find movable pallets not on the floor.
             Fun = fun() ->
                 Candidates = lists:keysort(#unit.created_at,
@@ -261,12 +255,15 @@ get_movementsuggestion_from_requesttracker() ->
             end,
             case mypl_db_util:transaction(Fun) of
                 [] ->
-                    [];
+                    get_movementsuggestion_from_requesttracker(Tries-1);
                 [H|_] ->
                     [H]
             end
     end.
-    
+
+get_movementsuggestion_from_requesttracker() ->
+    get_movementsuggestion_from_requesttracker(17).
+
 
 % [] == no units at floorlevel 
 % TODO: instead check "no units at floorlevel not having any open movements or open picks"
@@ -324,13 +321,9 @@ get_movementsuggestion_from_abc() ->
 %% @doc displays all movementsuggestions
 show_movementsuggestions() ->
     Unwanted       = get_movementsuggestion_from_unwanted_locations(),
-    erlang:display({unwanted_locations, Unwanted}),
     Floorcleaner   = get_movementsuggestion_from_floorcleaner(),
-    erlang:display({floorcleaner, Floorcleaner}),
     Requesttracker = get_movementsuggestion_from_requesttracker(),
-    erlang:display({requesttracker, Requesttracker}),
     Abc            = get_movementsuggestion_from_abc(),
-    erlang:display({abc, Abc}),
     [{unwanted_locations, Unwanted},
      {floorcleaner, Floorcleaner},
      {requesttracker, Requesttracker},
@@ -377,12 +370,9 @@ init_automovements() ->
 %% @doc call init_movement/2 for several movements at once
 init_movements(L, Attributes) when is_list(L), is_list(Attributes) ->
     %% we use a transaction to ensure all movements fail if a single one fails.
-    erlang:display({init_movements, a, L, Attributes}),
     Fun = fun() ->
         lists:map(fun({Mui, Destination}) -> 
-                      erlang:display({init_movements, c, Mui, Destination}),
                       {ok, MovementId} = mypl_db:init_movement(Mui, Destination, Attributes),
-                      erlang:display({init_movements, d, MovementId}),
                       MovementId
                     end, L)
           end,
