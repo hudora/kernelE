@@ -14,6 +14,7 @@
          update_pipeline/1,
          get_picklists/0, get_retrievallists/0, get_movementlist/0,
          commit_picklist/1, commit_retrievallist/1, % commit_movementlist/1,
+         flood_requestracker/0,
          is_provisioned/1, run_me_once/0, pipelinearticles/0]).
 
 run_me_once() ->
@@ -465,6 +466,18 @@ refill_pipeline(Type, Candidates) ->
     end.
     
 
+% @doc ensure that the requestracker is informed about the products we need
+flood_requestracker() ->
+    Candidates = mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(provpipeline),
+                                                   X#provpipeline.status =:= new])),
+    flood_requestracker(Candidates).
+flood_requestracker() -> ok;
+flood_requestracker([Entry|CandidatesTail]) ->
+    Orderlines = [{Quantity, Product} || {Quantity, Product, _Attributes} <- Entry#provpipeline.orderlines],
+    mypl_provisioning:find_provisioning_candidates_multi(Orderlines, sort_provpipeline_helper(Entry)),
+    flood_requestracker(CandidatesTail).
+    
+
 % @doc sort provpipeline records in order which they should be handled
 %
 % sorts by the attributes `versandtermin', `liefertermin' the priority cusotmer ID
@@ -481,7 +494,7 @@ sort_provpipeline_helper(Record) ->
      proplists:get_value(liefertermin,  proplistlist_to_proplisttuple(Record#provpipeline.attributes), ""), 
      100 - Record#provpipeline.priority, % higher priorities mean lower values mean beeing sorted first
      proplists:get_value(kernel_customer, Record#provpipeline.attributes, "99999"),
-     Record#provpipeline.tries
+     100 - Record#provpipeline.tries % higer tries mean lower values mean being sorted first
     }.
     
 
