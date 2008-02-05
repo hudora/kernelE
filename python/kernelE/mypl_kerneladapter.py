@@ -736,6 +736,17 @@ class Kerneladapter:
                  ve1_x=0, ve1_y=0, ve1_z=0, ve1_g=0,
                  export_x=0, export_y=0, export_z=0, export_g=0):
         """Sends information about product dimensions etc. to the kernel."""
+        # ensure that none values are translated to 0
+        def nonone(x):
+            if not x:
+                return 0
+            return x
+        
+        (artnr,  prod_ve1, prod_exportpackage, export_pallet, prod_x, prod_y, prod_z, prod_g,
+         ve1_x, ve1_y, ve1_z, ve1_g, export_x, export_y, export_z,
+         export_g) = [nonone(x) for x in (artnr,  prod_ve1, prod_exportpackage, export_pallet, 
+                                          prod_x, prod_y, prod_z, prod_g, ve1_x, ve1_y, ve1_z, ve1_g,
+                                          export_x, export_y, export_z, export_g)]
         self._send("feed_eap %s,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d" % (artnr, 
                    prod_ve1, prod_exportpackage, export_pallet, prod_x, prod_y, prod_z, prod_g,
                    ve1_x, ve1_y, ve1_z, ve1_g, export_x, export_y, export_z, export_g))

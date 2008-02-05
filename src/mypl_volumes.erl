@@ -161,10 +161,7 @@ volume_proplist(L) ->
     
 
 init_tests() ->
-    mnesia:dirty_write(#eap{artnr="14600",
-        prod_x=115, prod_y=730, prod_z=210, prod_vol=115*730*210/1000/1000, prod_g=3200,
-        export_x=225, export_y=740, export_z=215, export_vol=225*740*215/1000/1000,export_g=700,
-        prod_ve1=0,prod_export_package=2,export_pallet=35}),
+feed_eap("14600", 0, 2, 35, 115, 730, 210, 3200, ve1_x, ve1_y, ve1_z, ve1_g, 225, 740, 215, 700),
     mnesia:dirty_write(#eap{artnr="77003",
         prod_x=460, prod_y=41, prod_z=450, prod_vol=460*41*450/1000/1000, prod_g=2330,
         export_x=480, export_y=280, export_z=480, export_vol=480*280*480/1000/1000,export_g=14780,
