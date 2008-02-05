@@ -412,10 +412,14 @@ refill_retrievalpipeline() -> refill_pipeline(retrievals).
     
 
 refill_pipeline(Type) ->
+    %BlockAfterDay = "2008-02-10",
     % check provisinings until we find one which would generate picks
-    Candidates = mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(provpipeline),
+    Candidates1 = mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(provpipeline),
                                                    X#provpipeline.status =:= new])),
-    refill_pipeline(Type, sort_provpipeline(Candidates)).
+    % remove candidates which are to far in the future
+    %Candidates2 = [X || X <- Candidates1,
+    %                    proplists:get_value(liefertermin, X#provpipeline.attributes) > BlockAfterDay],
+    refill_pipeline(Type, sort_provpipeline(Candidates2)).
     
 
 refill_pipeline(_Type, []) -> no_fit;
