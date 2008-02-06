@@ -105,8 +105,18 @@ update_pipeline({priority, CId, Priority}) ->
     Fun = fun() ->
         [PPEntry] = mnesia:read({provpipeline, CId}),
         NewAttributes = [{kernel_updated_at, calendar:universal_time()}|
-                         proplists:delete(versandtermin, PPEntry#provpipeline.attributes)],
+                         proplists:delete(priority, PPEntry#provpipeline.attributes)],
         mnesia:write(PPEntry#provpipeline{priority=Priority, attributes=NewAttributes})
+    end,
+    mypl_db_util:transaction(Fun),
+    ok;
+update_pipeline({liefertermin, CId, Liefertermin}) ->
+    Fun = fun() ->
+        [PPEntry] = mnesia:read({provpipeline, CId}),
+        NewAttributes = [{kernel_updated_at, calendar:universal_time()}|
+                         proplists:delete(liefertermin, PPEntry#provpipeline.attributes)],
+        mnesia:write(PPEntry#provpipeline{attributes=[{liefertermin, Liefertermin}] ++ NewAttributes}),
+        erlang:display({CId, mnesia:read({provpipeline, CId})})
     end,
     mypl_db_util:transaction(Fun),
     ok;
@@ -166,7 +176,9 @@ format_pipeline_record(Record) ->
     {Record#provpipeline.id,
      [{tries, Record#provpipeline.tries},
       {provisioninglists, Record#provpipeline.provisioninglists},
-      {priority, Record#provpipeline.priority}] ++ Record#provpipeline.attributes,
+      {priority, Record#provpipeline.priority},
+      {volume, Record#provpipeline.volume},
+      {weigth, Record#provpipeline.weigth}] ++ Record#provpipeline.attributes,
      Record#provpipeline.orderlines
     }.
     
@@ -415,7 +427,8 @@ refill_pipeline(Type) ->
     %BlockAfterDay = "2008-02-10",
     % check provisinings until we find one which would generate picks
     Candidates1 = mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(provpipeline),
-                                                   X#provpipeline.status =:= new])),
+                                                   X#provpipeline.status =:= new,
+                                                   X#provpipeline.priority > 0])),
     % remove candidates which are to far in the future
     %Candidates2 = [X || X <- Candidates1,
     %                    proplists:get_value(liefertermin, X#provpipeline.attributes) > BlockAfterDay],
