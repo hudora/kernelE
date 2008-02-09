@@ -194,8 +194,7 @@ get_class_helper(Product) ->
                 _ -> penner
             end
         end
-    end,
-    ok.
+    end.
     
 
 aggregate_helper([], Dict) -> Dict;
