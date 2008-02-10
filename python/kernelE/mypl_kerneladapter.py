@@ -742,8 +742,13 @@ class Kerneladapter:
     def provpipeline_info(self, cid):
         """Get information related to a provpipeline entry."""
         self._send("provpipeline_info %s" % cid)
-        ret = self._read_json(220)
-        return ret
+        (cid, metadata, positions) = self._read_json(220)
+        cid = e2string(cid)
+        metadata = attributelist2dict_str(metadata)
+        positions = [(quantity, e2string(artnr), attributelist2dict_str(attr)) for (quantity, artnr, attr) in positions]
+        if 'provisioninglists' in metadata:
+            metadata['provisioninglists'] = [e2string(pid) for pid in metadata['provisioninglists']]
+        return (cid, metadata, positions)
         
     
     @nice_exception
