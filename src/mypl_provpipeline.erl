@@ -171,12 +171,39 @@ provpipeline_list_processing() ->
                                            qlc:q([X || X <- mnesia:table(provpipeline),
                                                        X#provpipeline.status =:= processing])))].
     
+%% @doc decides if this Record can be packed/shipped.
+%% 
+%% Returns:
+%%   yes:   MUST be shipped today
+%%   maybe: CAN be shipped today
+%%   no:    MAY NOT be shipped today
 
+shouldprocess(Record) ->
+    {{Year,Month,Day}, _} =  calendar:now_to_datetime(erlang:now()),
+    Today = lists:flatten(io_lib:format("~4.10.0B-~2.10.0B-~2.10.0B", [Year, Month, Day])),
+    Termin = proplists:get_value(versandtermin, Record#provpipeline.attributes,
+                                 proplists:get_value(liefertermin,  Record#provpipeline.attributes, "")),
+    Fix = proplists:get_value(fixtermin, Record#provpipeline.attributes, false),
+    case {Fix, Termin =< Today} of
+        {_, true} ->
+            % due date reached - ship it
+            yes;
+        {false, false} ->
+            % due date not reached, but we may ship, because no fixed delivery date was given
+            maybe;
+        {true, false} ->
+            % due date not reached, fixed delivery date was given
+            no
+    end.
+    
+
+%% @doc create a nice proplist representation of the provpipeline
 format_pipeline_record(Record) ->
     {Record#provpipeline.id,
      [{tries, Record#provpipeline.tries},
       {provisioninglists, Record#provpipeline.provisioninglists},
       {priority, Record#provpipeline.priority},
+      {shouldprocess, shouldprocess(Record)},
       {volume, Record#provpipeline.volume},
       {weigth, Record#provpipeline.weigth}] ++ Record#provpipeline.attributes,
      Record#provpipeline.orderlines
@@ -427,12 +454,11 @@ refill_pipeline(Type) ->
     %BlockAfterDay = "2008-02-10",
     % check provisinings until we find one which would generate picks
     Candidates1 = mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(provpipeline),
-                                                   X#provpipeline.status =:= new,
-                                                   X#provpipeline.priority > 0])),
+                                                   X#provpipeline.status =:= new])),
     % remove candidates which are to far in the future
     %Candidates2 = [X || X <- Candidates1,
     %                    proplists:get_value(liefertermin, X#provpipeline.attributes) > BlockAfterDay],
-    refill_pipeline(Type, sort_provpipeline(Candidates2)).
+    refill_pipeline(Type, sort_provpipeline(Candidates1)).
     
 
 refill_pipeline(_Type, []) -> no_fit;

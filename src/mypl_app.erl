@@ -9,7 +9,8 @@ start(_Type, Args) ->
     % init database tables
     mypl_db:run_me_once(),
     % check database integrity - also warms up caches
-    mypl_integrity:selftest(),
+    % this gets to slow
+    % mypl_integrity:selftest(),
     % start supervisor
     mypl_sup:start_link(Args).
     % fill requestracker at startup
