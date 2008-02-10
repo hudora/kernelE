@@ -55,8 +55,10 @@ funcdefs = [
 ('mypl_provpipeline', 'commit_retrievallist', 'CId', []),
 ('mypl_provpipeline', 'commit_movementlist', 'CId', []),
 ('mypl_provpipeline', 'is_provisioned', 'CId', []),
+('mypl_provpipeline', 'provpipeline_info', 'CId', []),
 ('mypl_provpipeline', 'provpipeline_list_new', '', ['async']),
 ('mypl_provpipeline', 'provpipeline_list_processing', '', ['async']),
+('mypl_provpipeline', 'provpipeline_list_prepared', '', ['async']),
 ('mypl_provpipeline', 'provpipeline_processing_list_all', '', ['async']),
 ('mypl_provpipeline', 'provisioninglist_list', '', ['async']),
 ('mypl_provpipeline', 'provisioninglist_info', 'CId', []),
@@ -68,6 +70,7 @@ funcdefs = [
 ('mypl_audit', 'get_recent_from_archive', 'Type', ['async']),
 
 ('mypl_abcserver', 'get_abc', '', ['async']),
+('mypl_abcserver', 'get_abcclass', '', ['async']),
 
 ('mypl_nveserver', 'make_oid', '', []),
 ('mypl_nveserver', 'make_nve', '', []),

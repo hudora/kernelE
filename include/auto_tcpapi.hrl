@@ -190,6 +190,12 @@ handle_command("is_provisioned", _Parameters, State) ->
     [CId] = Tokens,
     NewCId = convertString(CId),
     {noreply, reply(220, rfc4627:encode(mypl_server:is_provisioned(NewCId)), reset_buffers(State))};
+handle_command("provpipeline_info", _Parameters, State) ->
+    % implementation for provpipeline_info,
+    Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
+    [CId] = Tokens,
+    NewCId = convertString(CId),
+    {noreply, reply(220, rfc4627:encode(mypl_server:provpipeline_info(NewCId)), reset_buffers(State))};
 handle_command("provpipeline_list_new", _Parameters, State) ->
     % implementation for provpipeline_list_new,
     {noreply, reply(220, rfc4627:encode(mypl_server:provpipeline_list_new()), reset_buffers(State))};
@@ -241,6 +247,9 @@ handle_command("get_recent_from_archive", _Parameters, State) ->
 handle_command("get_abc", _Parameters, State) ->
     % implementation for get_abc,
     {noreply, reply(220, rfc4627:encode(mypl_server:get_abc()), reset_buffers(State))};
+handle_command("get_abcclass", _Parameters, State) ->
+    % implementation for get_abcclass,
+    {noreply, reply(220, rfc4627:encode(mypl_server:get_abcclass()), reset_buffers(State))};
 handle_command("make_oid", _Parameters, State) ->
     % implementation for make_oid,
     {noreply, reply(220, rfc4627:encode(mypl_server:make_oid()), reset_buffers(State))};
@@ -309,6 +318,7 @@ commit_picklist CId
 commit_retrievallist CId
 commit_movementlist CId
 is_provisioned CId
+provpipeline_info CId
 provpipeline_list_new 
 provpipeline_list_processing 
 provpipeline_processing_list_all 
@@ -320,6 +330,7 @@ get_unitaudit Mui
 get_articlecorrection Product
 get_recent_from_archive Type
 get_abc 
+get_abcclass 
 make_oid 
 make_nve 
 dump_requests 

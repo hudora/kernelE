@@ -634,7 +634,8 @@ class Kerneladapter:
                 nve = e2string(nve)
                 source = e2string(source)
                 product = e2string(product)
-                poslist.append((pos_id, nve, source, quantity, product, attributelist2dict_str(posattributes)))
+                poslist.append((pos_id, nve, source, quantity, product,
+                                attributelist2dict_str(posattributes)))
             out.append((pick_list_id, cid, destination, parts, attributelist2dict_str(attributes), poslist))
         return out
     
@@ -700,23 +701,6 @@ class Kerneladapter:
         
     
     @nice_exception
-    def provpipeline_processing_list_all(self):
-        # XXX Removeme
-        self._send("provpipeline_processing_list_all")
-        ret = self._read_json(220)
-        out = []
-        for row in ret:
-            data = {}
-            name, mypl_id, kommibelegnr, retrievalids, pickids = row
-            data['mypl_id'] = e2string(mypl_id)
-            data['kommibelegnr'] = e2string(kommibelegnr)
-            data['retrievalids'] = [e2string(x) for x in retrievalids]
-            data['pickids'] = [e2string(x) for x in pickids]
-            out.append(data)
-        return out
-        
-    
-    @nice_exception
     def provisioninglist_list(self):
         self._send("provisioninglist_list")
         ret = self._read_json(220)
@@ -725,7 +709,39 @@ class Kerneladapter:
     
     @nice_exception
     def provisioninglist_info(self, cid):
-        self._send("provisioninglist_info")
+        self._send("provisioninglist_info %s" % cid)
+        ret = self._read_json(220)
+        return ret
+        
+    
+    @nice_exception
+    def provpipeline_list_new(self):
+        """List the provpipeline entries not yet processed."""
+        self._send("provpipeline_list_new")
+        ret = self._read_json(220)
+        return ret
+        
+    
+    @nice_exception
+    def provpipeline_list_processing(self):
+        """List the provpipeline entries which are just beeing processed."""
+        self._send("provpipeline_list_processing")
+        ret = self._read_json(220)
+        return ret
+        
+    
+    @nice_exception
+    def provpipeline_list_prepared(self):
+        """List the provpipeline entries to be given out next."""
+        self._send("provpipeline_list_prepared")
+        ret = self._read_json(220)
+        return ret
+        
+    
+    @nice_exception
+    def provpipeline_info(self, cid):
+        """Get information related to a provpipeline entry."""
+        self._send("provpipeline_info %s" % cid)
         ret = self._read_json(220)
         return ret
         
@@ -737,10 +753,10 @@ class Kerneladapter:
                  export_x=0, export_y=0, export_z=0, export_g=0):
         """Sends information about product dimensions etc. to the kernel."""
         # ensure that none values are translated to 0
-        def nonone(x):
-            if not x:
+        def nonone(val):
+            if not val:
                 return 0
-            return x
+            return val
         
         (artnr,  prod_ve1, prod_exportpackage, export_pallet, prod_x, prod_y, prod_z, prod_g,
          ve1_x, ve1_y, ve1_z, ve1_g, export_x, export_y, export_z,

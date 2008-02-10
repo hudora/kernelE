@@ -164,7 +164,7 @@ best_location_helper(Unit) ->
                                     Adistance = mypl_distance:distance("194001", A#location.name) div 20,
                                     Bdistance = mypl_distance:distance("194001", B#location.name) div 20
                             end;
-                        true ->
+                        true -> % else
                             % divide by 20 to get groups/bins of distances
                             Adistance = mypl_distance:distance(Unit#unit.location, A#location.name) div 20,
                             Bdistance = mypl_distance:distance(Unit#unit.location, B#location.name) div 20

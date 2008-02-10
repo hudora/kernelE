@@ -10,10 +10,15 @@
 -include("mypl.hrl").
 
 %% API
--export([insert_pipeline/1, provpipeline_list_new/0, provpipeline_list_processing/0, delete_pipeline/1,
-         update_pipeline/1,
+-export([insert_pipeline/1, 
+         provpipeline_list_new/0, provpipeline_list_processing/0, provpipeline_list_processing/0,
+         provpipeline_info/1, delete_pipeline/1, update_pipeline/1, 
+         
+         % get work to do
          get_picklists/0, get_retrievallists/0, get_movementlist/0,
+         % mark work as done
          commit_picklist/1, commit_retrievallist/1, % commit_movementlist/1,
+         
          flood_requestracker/0,
          is_provisioned/1, run_me_once/0, pipelinearticles/0]).
 
@@ -152,7 +157,8 @@ proplistlist_to_proplisttuple(L) ->
                   {erlang:list_to_atom(Name), Value} end, L).
     
 
-%% @doc returns the unprocessed contents of provpipeline in the approximate order in which they will be processed
+%% @doc returns the unprocessed contents of provpipeline in the approximate order in which they will
+%% be processed
 provpipeline_list_new() ->
     [format_pipeline_record(X) || X <- sort_provpipeline(mypl_db_util:do_trans(
                                            qlc:q([X || X <- mnesia:table(provpipeline),
@@ -171,6 +177,16 @@ provpipeline_list_processing() ->
                                            qlc:q([X || X <- mnesia:table(provpipeline),
                                                        X#provpipeline.status =:= processing])))].
     
+
+%% @doc return information on a provpipeline entry
+provpipeline_info(CId) ->
+    Fun = fun()->
+        mnesia:read({provpipeline, CId})
+    end,
+    [PPEntry] = mypl_db_util:transaction(Fun),
+    format_pipeline_record(PPEntry).
+    
+
 %% @doc decides if this Record can be packed/shipped.
 %% 
 %% Returns:
@@ -208,11 +224,6 @@ format_pipeline_record(Record) ->
       {weigth, Record#provpipeline.weigth}] ++ Record#provpipeline.attributes,
      Record#provpipeline.orderlines
     }.
-    
-
-%% @TODO: removeme 
-provpipeline_processing_list_all() ->
-    mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(provpipeline_processing)])).
     
 
 %% @doc returns a list of all (pick|retrieval)list ids.
@@ -739,6 +750,7 @@ provpipeline_list_test() ->
      {lieferschein3,_,[{50,"a0005",[]},{16,"a0004",[]}]},
      % lieferschein2 is the youngest with the owest priority
      {lieferschein2,_,[{10,"a0005",[]},{ 1,"a0004",[]}]}] = provpipeline_list_new(),
+    {lieferschein4,_,_} = provpipeline_info(lieferschein4),
     ok.
         
 
