@@ -121,8 +121,7 @@ update_pipeline({liefertermin, CId, Liefertermin}) ->
         [PPEntry] = mnesia:read({provpipeline, CId}),
         NewAttributes = [{kernel_updated_at, calendar:universal_time()}|
                          proplists:delete(liefertermin, PPEntry#provpipeline.attributes)],
-        mnesia:write(PPEntry#provpipeline{attributes=[{liefertermin, Liefertermin}] ++ NewAttributes}),
-        erlang:display({CId, mnesia:read({provpipeline, CId})})
+        mnesia:write(PPEntry#provpipeline{attributes=[{liefertermin, Liefertermin}] ++ NewAttributes})
     end,
     mypl_db_util:transaction(Fun),
     ok;
@@ -131,8 +130,7 @@ update_pipeline({versandtermin, CId, Versandtermin}) ->
         [PPEntry] = mnesia:read({provpipeline, CId}),
         NewAttributes = [{kernel_updated_at, calendar:universal_time()}|
                          proplists:delete(versandtermin, PPEntry#provpipeline.attributes)],
-        mnesia:write(PPEntry#provpipeline{attributes=[{versandtermin, Versandtermin}|NewAttributes]}),
-        erlang:display({CId, mnesia:read({provpipeline, CId})})
+        mnesia:write(PPEntry#provpipeline{attributes=[{versandtermin, Versandtermin}|NewAttributes]})
     end,
     mypl_db_util:transaction(Fun),
     ok.
@@ -295,28 +293,22 @@ get_picklists() ->
     % check if we have picks available
     case mypl_db_util:transaction(fun() -> mnesia:first(provpipeline) end) of
         '$end_of_table' ->
-            erlang:display({get_picklists, '$end_of_table'}),
             no_more_provisionings_requested;
         _ ->
             Fun = fun() ->
                 case choose_next_pick() of
                     nothing_available ->
-                        erlang:display({nothing_available}),
                         nothing_available;
                     {ok, P} ->
-                        erlang:display({get_picklists,b}),
                         Id = "p" ++ P#pickpipeline.id,
                         [PPEntry] = mnesia:read({provpipeline, P#pickpipeline.provpipelineid}),
-                        erlang:display({get_picklists,c}),
                         % Volume for the Picklist
                         Positions=lists:map(fun(PickId) ->
                                                 {ok, PickInfo} = mypl_db_query:pick_info(PickId),
                                                   {proplists:get_value(quantity, PickInfo),
                                                   proplists:get_value(product, PickInfo)}
                                              end, P#pickpipeline.pickids),
-                        erlang:display({get_picklists,c2}),     
-                        VolumeAttributes = [], % mypl_volumes:volume_proplist(Positions),
-                        erlang:display({get_picklists,d}),
+                        VolumeAttributes = mypl_volumes:volume_proplist(Positions),
                         
                         Picklist = #provisioninglist{id=Id, type=picklist,
                                         provpipeline_id=PPEntry#provpipeline.id,
@@ -327,9 +319,8 @@ get_picklists() ->
                                             {ok, PickInfo} = mypl_db_query:pick_info(PickId),
                                             FromLocation = mypl_db_util:get_mui_location(proplists:get_value(from_unit, PickInfo)),
                                             % Volume for the Posistion
-                                            % mypl_volumes:volume_proplist([{proplists:get_value(quantity, PickInfo),
-                                            %                                proplists:get_value(product, PickInfo)}]),
-                                            [],
+                                            mypl_volumes:volume_proplist([{proplists:get_value(quantity, PickInfo),
+                                                                           proplists:get_value(product, PickInfo)}]),
                                             {PickId,
                                              proplists:get_value(from_unit, PickInfo),
                                              FromLocation#location.name,
@@ -337,14 +328,10 @@ get_picklists() ->
                                              proplists:get_value(product, PickInfo),
                                              []}
                                             end, P#pickpipeline.pickids)},
-                        erlang:display({get_picklists,e}),
                         mnesia:write(Picklist),
-                        erlang:display({get_picklists,f}),
                         mnesia:write(#provpipeline_processing{id=Id, provpipelineid=PPEntry#provpipeline.id,
                                                               pickids=P#pickpipeline.pickids, retrievalids=[]}),
                         mnesia:write(PPEntry#provpipeline{provisioninglists=[Picklist#provisioninglist.id|PPEntry#provpipeline.provisioninglists]}),
-                        erlang:display({get_picklists,g}),
-
                         % fixme: this has to return a list of provisioninglists - has to be fixed in python too
                         [format_provisioninglist(Picklist)]
                 end
@@ -385,7 +372,7 @@ get_retrievallists() ->
                                                   {proplists:get_value(quantity, MovementInfo),
                                                   proplists:get_value(product, MovementInfo)}
                                              end, R#retrievalpipeline.retrievalids),
-                        VolumeAttributes = [], % mypl_volumes:volume_proplist(Positions),
+                        VolumeAttributes = mypl_volumes:volume_proplist(Positions),
                         
                         Retrievallist = #provisioninglist{id=Id, type=retrievallist,
                                             provpipeline_id=PPEntry#provpipeline.id,
@@ -400,9 +387,8 @@ get_retrievallists() ->
                                                  FromLocation#location.name,
                                                  proplists:get_value(quantity, MovementInfo),
                                                  proplists:get_value(product, MovementInfo),
-                                                 []
-                                                 % mypl_volumes:volume_proplist([{proplists:get_value(quantity, MovementInfo),
-                                                 %                               proplists:get_value(product, MovementInfo)}])
+                                                 mypl_volumes:volume_proplist([{proplists:get_value(quantity, MovementInfo),
+                                                                                proplists:get_value(product, MovementInfo)}])
                                                  }
                                                  end, R#retrievalpipeline.retrievalids)},
                         mnesia:write(Retrievallist),
@@ -420,32 +406,26 @@ get_retrievallists() ->
 % @private
 % 
 choose_next_pick() ->
-    erlang:display({choose_next_pick,a}),
     % refill pipeline if that is needed
     case mypl_db_util:transaction(fun() -> mnesia:first(pickpipeline) end) of
         '$end_of_table' ->
-            erlang:display({choose_next_pick,refill_pickpipeline}),
             refill_pickpipeline();
         _ ->
             ok
     end,
     % now return first entry, unless pipeline is still empty
-    erlang:display({choose_next_pick,b}),
     case mypl_db_util:transaction(fun() -> mnesia:first(pickpipeline) end) of
         '$end_of_table' ->
             nothing_available;
         PipelineId ->
-            erlang:display({choose_next_pick,c}),
             Fun = fun() ->
                 % get entry from DB
                 [PipelineEntry] = mnesia:read({pickpipeline, PipelineId}),
                 % remove entry from the pipeline
                 mnesia:delete({pickpipeline, PipelineId}),
-                erlang:display({choose_next_pick,d}),
                 % return pickids
                 {ok, PipelineEntry}
             end,
-            erlang:display({choose_next_pick,e}),
             mypl_db_util:transaction(Fun)
     end.
     
@@ -482,18 +462,18 @@ refill_retrievalpipeline() -> refill_pipeline(retrievals).
     
 
 refill_pipeline(Type) ->
-    erlang:display({refill_pipeline, Type}),
     %BlockAfterDay = "2008-02-10",
     % check provisinings until we find one which would generate picks
-    Candidates = mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(provpipeline),
-                                                   X#provpipeline.status =:= new,
-                                                   shouldprocess(X) /= no])),
-    refill_pipeline(Type, sort_provpipeline(Candidates)).
+    Candidates1 = mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(provpipeline),
+                                                   X#provpipeline.status =:= new])),
+    % remove candidates which are to far in the future
+    %Candidates2 = [X || X <- Candidates1,
+    %                    proplists:get_value(liefertermin, X#provpipeline.attributes) > BlockAfterDay],
+    refill_pipeline(Type, sort_provpipeline(Candidates1)).
     
 
 refill_pipeline(_Type, []) -> no_fit;
 refill_pipeline(Type, Candidates) ->
-    erlang:display({refill_pipeline, Type, length(Candidates)}),
     [Entry|CandidatesTail] = Candidates,
     Orderlines = [{Quantity, Product} || {Quantity, Product, _Attributes} <- Entry#provpipeline.orderlines],
     case mypl_provisioning:find_provisioning_candidates_multi(Orderlines, sort_provpipeline_helper(Entry)) of
@@ -571,13 +551,6 @@ sort_provpipeline_helper(Record) ->
      Record#provpipeline.tries,
      proplists:get_value(kernel_customer, Record#provpipeline.attributes, "99999")
     }.
-    
-
-provpipeline_find_by_product({Quantity, Product}) ->
-    Candidates = mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(provpipeline),
-                                                   X#provpipeline.status =:= new,
-                                                   length(X#provpipeline.orderlines) =:= 1])),
-    Candidates.
     
 
 %% @spec get_movementlist() -> MovementlistList|nothing_available
@@ -702,6 +675,13 @@ pipelinearticles() ->
                                               X#provpipeline.status /= provisioned])),
     ProductDict = piplinearticles_helper1(Orderlines, dict:new()),
     lists:reverse(lists:sort(lists:map(fun({A, B}) -> {B, A} end, dict:to_list(ProductDict)))).
+    
+
+provpipeline_find_by_product({Quantity, Product}) -> 
+    Candidates = mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(provpipeline), 
+                                                   X#provpipeline.status =:= new, 
+                                                   length(X#provpipeline.orderlines) =:= 1])), 
+    Candidates. 
     
 
 % ~~ Unit tests
