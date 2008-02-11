@@ -129,25 +129,26 @@ none([Hd|Tail]) ->
 none([]) -> false.
 
 partial_multi(L) ->
-    none(lists:map(fun(X) -> partial(X) end, L)).
+    none(plists:map(fun(X) -> partial(X) end, L)).
     
 
 volume_multi(L) ->
-    lists:sum(lists:map(fun(X) -> volume(X) end, L)).
+    lists:sum(plists:map(fun(X) -> volume(X) end, L)).
     
 
 weight_multi(L) ->
-    lists:sum(lists:map(fun(X) -> weight(X) end, L)).
+    lists:sum(plists:map(fun(X) -> weight(X) end, L)).
     
 
 pallets_multi(L) ->
-    lists:sum(lists:map(fun(X) -> pallets(X) end, L)).
+    lists:sum(plists:map(fun(X) -> pallets(X) end, L)).
     
 
 export_packages_multi(L) ->
-    lists:sum(lists:map(fun(X) -> export_packages(X) end, L)).
+    lists:sum(plists:map(fun(X) -> export_packages(X) end, L)).
 
 volume_proplist(L) ->
+   erlang:display({volume_proplist, L}),
    [{volume,          volume_multi(L)},
     {partial,         partial_multi(L)},
     {weight,          weight_multi(L)},

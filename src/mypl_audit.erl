@@ -250,9 +250,7 @@ archive(Object, Archivaltype) ->
 
 %% @doc retrives the entry with type and id from the archive
 get_from_archive(Type, Id) ->
-    mypl_db_util:do_trans(qlc:q([X#archive.body || X <- mnesia:table(archive),
-                                                   X#archive.type =:= Type,
-                                                   X#archive.body_id =:= Id])).
+    [X#archive.body || X <- mnesia:dirty_match_object(#archive{body_id = Id, type = Type, _ = '_'})].
 
 
 %% doc get all entries if type generated in the last 5 days
