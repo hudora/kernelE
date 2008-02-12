@@ -12,7 +12,7 @@
 -export([insert_pipeline/1, 
          provpipeline_list_new/0, provpipeline_list_processing/0, provpipeline_list_prepared/0,
          provpipeline_info/1, delete_pipeline/1, update_pipeline/1, 
-         %
+         % 
          provisioninglist_list/0, provisioninglist_info/1,
          
          % get work to do
@@ -28,6 +28,7 @@ run_me_once() ->
     mnesia:create_table(provpipeline, [{disc_copies, [node()]},
                                        {attributes, record_info(fields, provpipeline)}
                                       ]),
+    mnesia:add_table_index(provpipeline, status),
     mnesia:create_table(provpipeline_processing, [{disc_copies, [node()]},
                                        {attributes, record_info(fields, provpipeline_processing)}
                                       ]),
@@ -102,7 +103,6 @@ insert_pipeline_helper(CId, Orderlines, Priority, Customer, Weigth, Volume, Attr
                                                     ([Quantity, Product, OlAttributes]) -> 
                                                         {Quantity, Product, OlAttributes} end, Orderlines)},
     mnesia:write(PPline),
-    [mypl_requesttracker:in(Quantity, Product) || {Quantity, Product, _} <- PPline#provpipeline.orderlines],
     ok.
     
 
@@ -462,14 +462,10 @@ refill_retrievalpipeline() -> refill_pipeline(retrievals).
     
 
 refill_pipeline(Type) ->
-    %BlockAfterDay = "2008-02-10",
     % check provisinings until we find one which would generate picks
-    Candidates1 = mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(provpipeline),
-                                                   X#provpipeline.status =:= new])),
-    % remove candidates which are to far in the future
-    %Candidates2 = [X || X <- Candidates1,
-    %                    proplists:get_value(liefertermin, X#provpipeline.attributes) > BlockAfterDay],
-    refill_pipeline(Type, sort_provpipeline(Candidates1)).
+    Candidates = mypl_db_util:trans([X || X <- mnesia:match_object(#provpipeline{status = new, _ = '_'}),
+                                          shouldprocess(X) /= no]),
+    refill_pipeline(Type, sort_provpipeline(Candidates)).
     
 
 refill_pipeline(_Type, []) -> no_fit;
@@ -522,8 +518,8 @@ refill_pipeline(Type, Candidates) ->
 
 % @doc ensure that the requestracker is informed about the products we need
 flood_requestracker() ->
-    Candidates = mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(provpipeline),
-                                                   X#provpipeline.status =:= new])),
+    Candidates = mypl_db_util:trans([X || X <- mnesia:match_object(#provpipeline{status = new, _ = '_'}),
+                                          shouldprocess(X) /= no]),
     flood_requestracker(Candidates).
 
 flood_requestracker([]) -> ok;
@@ -543,10 +539,9 @@ sort_provpipeline(Records) ->
 % @private
 % creates a key for sorting
 sort_provpipeline_helper(Record) ->
-    % proplistlist_to_proplisttuple() is to fix broken legavy data
-    {% concat versandtermin and liefertermin so if no versandtermin is set we sort by liefertermin
-     proplists:get_value(versandtermin, proplistlist_to_proplisttuple(Record#provpipeline.attributes), "") ++
-     proplists:get_value(liefertermin,  proplistlist_to_proplisttuple(Record#provpipeline.attributes), ""), 
+    {not proplists:get_value(fixtermin, Record#provpipeline.attributes, false),
+     proplists:get_value(versandtermin, Record#provpipeline.attributes, ""),
+     proplists:get_value(liefertermin,  Record#provpipeline.attributes, ""), 
      100 - Record#provpipeline.priority, % higher priorities mean lower values mean beeing sorted first
      Record#provpipeline.tries,
      proplists:get_value(kernel_customer, Record#provpipeline.attributes, "99999")
@@ -569,7 +564,6 @@ get_movementlist() ->
 %% spec commit_movements(Id::string()) -> ok
 %% TODO: fixme
 %commit_movementlist(Id) -> ok.
-
 
 commit_picklist(Id) ->
     commit_picklist(Id, [], []).
@@ -607,6 +601,7 @@ commit_anything(Id, _Attributes, _Lines) ->
                   Processing#provpipeline_processing.retrievalids),
         mnesia:delete({provpipeline_processing, Id}),
         
+        % TODO: this might be wrong!
         % find out if finished or if there are other picks/retrievals for this order
         case mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(provpipeline_processing),
                                                X#provpipeline_processing.provpipelineid 
@@ -617,7 +612,9 @@ commit_anything(Id, _Attributes, _Lines) ->
                 Ret = provisioned,
                 % mark in provpipeline as done
                 [PPEntry] = mnesia:read({provpipeline, Processing#provpipeline_processing.provpipelineid}),
-                mnesia:write(PPEntry#provpipeline{status=provisioned});
+                mnesia:write(PPEntry#provpipeline{status=provisioned,
+                                 attributes=[{kernel_provisioned_at,
+                                              calendar:universal_time()}|PPEntry#provpipeline.attributes]});
             X ->
                 Ret = unfinished,
                 error_logger:error_msg("Unexpected provpipeline_processing content in regard to ~w|~w",
@@ -677,11 +674,11 @@ pipelinearticles() ->
     lists:reverse(lists:sort(lists:map(fun({A, B}) -> {B, A} end, dict:to_list(ProductDict)))).
     
 
-provpipeline_find_by_product({Quantity, Product}) -> 
-    Candidates = mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(provpipeline), 
-                                                   X#provpipeline.status =:= new, 
-                                                   length(X#provpipeline.orderlines) =:= 1])), 
-    Candidates. 
+provpipeline_find_by_product({Quantity, Product}) ->
+    Candidates = mypl_db_util:trans([X || X <- mnesia:match_object(#provpipeline{status = new, _ = '_'}),
+                       shouldprocess(X) /= no,
+                       length(X#provpipeline.orderlines) =:= 1]),
+    Candidates.
     
 
 % ~~ Unit tests
@@ -840,6 +837,18 @@ delete_test() ->
     _P2 = get_picklists(),
     _P3 = get_picklists(),
     {error, _, _} = delete_pipeline(lieferschein4),
+    ok.
+    
+
+mypl_parted_test() ->
+    test_init(),
+    P4 = get_picklists(),
+    [{P4id,lieferschein4,"AUSLAG",_,1,[{_,"mui4","010201",1,"a0004",[]},
+                                       {_,"mui5","010301",1,"a0005",[]}]}] = P4,
+    P1 = get_picklists(),
+    [{P1id,lieferschein1,"AUSLAG",_,2,[{"P00000249","mui4","010201",1,"a0004",[]}]}] = P1,
+    erlang:display({provpipeline_list_processing()}),
+    % TODO!
     ok.
     
 
