@@ -539,7 +539,7 @@ sort_provpipeline(Records) ->
 % @private
 % creates a key for sorting
 sort_provpipeline_helper(Record) ->
-    {not proplists:get_value(fixtermin, Record#provpipeline.attributes, false),
+    {not (proplists:get_value(fixtermin, Record#provpipeline.attributes, false) and (shouldprocess(Record) =:= yes)),
      proplists:get_value(versandtermin, Record#provpipeline.attributes, ""),
      proplists:get_value(liefertermin,  Record#provpipeline.attributes, ""), 
      100 - Record#provpipeline.priority, % higher priorities mean lower values mean beeing sorted first
