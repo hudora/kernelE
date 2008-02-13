@@ -543,9 +543,9 @@ class Kerneladapter:
         self._send("insert_pipeline %s" % (simplejson.dumps(parameters)))
         
     
-    def _format_provpipeline(self, ret):
+    def _format_provpipeline(self, data):
         orders = []
-        for order in ret:
+        for order in data:
             cid, attributes, orderlines = order
             data = attributelist2dict_str(attributes)
             data['id'] = e2string(cid)
@@ -716,22 +716,6 @@ class Kerneladapter:
         metadata['attributes'] = attributelist2dict_str(metadata['attributes'])
         metadata['provisioning_ids'] = [e2string(pid) for pid in metadata['provisioning_ids']]
         return metadata
-        
-    
-    @nice_exception
-    def provpipeline_list_processing(self):
-        """List the provpipeline entries which are just beeing processed."""
-        self._send("provpipeline_list_processing")
-        ret = self._read_json(220)
-        return ret
-        
-    
-    @nice_exception
-    def provpipeline_list_prepared(self):
-        """List the provpipeline entries to be given out next."""
-        self._send("provpipeline_list_prepared")
-        ret = self._read_json(220)
-        return ret
         
     
     @nice_exception
