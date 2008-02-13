@@ -463,8 +463,10 @@ refill_retrievalpipeline() -> refill_pipeline(retrievals).
 
 refill_pipeline(Type) ->
     % check provisinings until we find one which would generate picks
-    Candidates = mypl_db_util:trans([X || X <- mnesia:match_object(#provpipeline{status = new, _ = '_'}),
-                                          shouldprocess(X) /= no]),
+    Candidates = [X || X <- mypl_db_util:transaction(fun() -> 
+                                                 mnesia:match_object(#provpipeline{status = new, _ = '_'})
+                                               end),
+                                          shouldprocess(X) /= no],
     refill_pipeline(Type, sort_provpipeline(Candidates)).
     
 
@@ -518,8 +520,10 @@ refill_pipeline(Type, Candidates) ->
 
 % @doc ensure that the requestracker is informed about the products we need
 flood_requestracker() ->
-    Candidates = mypl_db_util:trans([X || X <- mnesia:match_object(#provpipeline{status = new, _ = '_'}),
-                                          shouldprocess(X) /= no]),
+    Candidates = [X || X <- mypl_db_util:transaction(fun() -> 
+                                                   mnesia:match_object(#provpipeline{status = new, _ = '_'})
+                                               end),
+                                          shouldprocess(X) /= no],
     flood_requestracker(Candidates).
 
 flood_requestracker([]) -> ok;
@@ -675,9 +679,11 @@ pipelinearticles() ->
     
 
 provpipeline_find_by_product({Quantity, Product}) ->
-    Candidates = mypl_db_util:trans([X || X <- mnesia:match_object(#provpipeline{status = new, _ = '_'}),
+    Candidates = [X || X <- mypl_db_util:transaction(fun() ->
+                                                   mnesia:match_object(#provpipeline{status = new, _ = '_'})
+                                               end),
                        shouldprocess(X) /= no,
-                       length(X#provpipeline.orderlines) =:= 1]),
+                       length(X#provpipeline.orderlines) =:= 1],
     Candidates.
     
 
