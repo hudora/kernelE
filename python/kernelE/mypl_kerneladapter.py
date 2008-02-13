@@ -711,15 +711,11 @@ class Kerneladapter:
     def provisioninglist_info(self, cid):
         self._send("provisioninglist_info %s" % cid)
         ret = self._read_json(220)
-        return ret
-        
-    
-    @nice_exception
-    def provpipeline_list_new(self):
-        """List the provpipeline entries not yet processed."""
-        self._send("provpipeline_list_new")
-        ret = self._read_json(220)
-        return ret
+        ok, metadata = ret
+        metadata = attributelist2dict_str(metadata)
+        metadata['attributes'] = attributelist2dict_str(metadata['attributes'])
+        metadata['provisioning_ids'] = [e2string(pid) for pid in metadata['provisioning_ids']]
+        return metadata
         
     
     @nice_exception
@@ -748,7 +744,7 @@ class Kerneladapter:
         positions = [(quantity, e2string(artnr), attributelist2dict_str(attr)) for (quantity, artnr, attr) in positions]
         if 'provisioninglists' in metadata:
             metadata['provisioninglists'] = [e2string(pid) for pid in metadata['provisioninglists']]
-        return (cid, metadata, positions)
+        return (metadata, positions)
         
     
     @nice_exception
