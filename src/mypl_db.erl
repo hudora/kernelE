@@ -299,6 +299,8 @@ store_at_location_multi([Id, Locname, Elements]) ->
     
 
 %% TODO: doc
+update_unit(["height", Mui, Height]) ->
+    update_unit({height, Mui, Height});
 update_unit({height, Mui, Height}) ->
     Fun = fun() ->
         Unit = mypl_db_util:mui_to_unit(Mui),

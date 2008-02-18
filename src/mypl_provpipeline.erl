@@ -116,6 +116,15 @@ update_pipeline({priority, CId, Priority}) ->
     end,
     mypl_db_util:transaction(Fun),
     ok;
+update_pipeline({fixtermin, CId, Fixtermin}) when is_boolean(Fixtermin) ->
+    Fun = fun() ->
+        [PPEntry] = mnesia:read({provpipeline, CId}),
+        NewAttributes = [{kernel_updated_at, calendar:universal_time()}|
+                         proplists:delete(fixtermin, PPEntry#provpipeline.attributes)],
+        mnesia:write(PPEntry#provpipeline{attributes=[{fixtermin, Fixtermin}] ++ NewAttributes})
+    end,
+    mypl_db_util:transaction(Fun),
+    ok;
 update_pipeline({liefertermin, CId, Liefertermin}) ->
     Fun = fun() ->
         [PPEntry] = mnesia:read({provpipeline, CId}),

@@ -93,6 +93,10 @@ handle_command("correction", _Parameters, State) ->
     % implementation for correction,
     {ok, NewJsonList, _} = rfc4627:decode(_Parameters),
     {noreply, reply(220, rfc4627:encode(mypl_server:correction(NewJsonList)), reset_buffers(State))};
+handle_command("update_unit", _Parameters, State) ->
+    % implementation for update_unit,
+    {ok, NewJsonList, _} = rfc4627:decode(_Parameters),
+    {noreply, reply(220, rfc4627:encode(mypl_server:update_unit(NewJsonList)), reset_buffers(State))};
 handle_command("count_product", _Parameters, State) ->
     % implementation for count_product,
     Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
@@ -202,6 +206,9 @@ handle_command("provpipeline_list_new", _Parameters, State) ->
 handle_command("provpipeline_list_processing", _Parameters, State) ->
     % implementation for provpipeline_list_processing,
     {noreply, reply(220, rfc4627:encode(mypl_server:provpipeline_list_processing()), reset_buffers(State))};
+handle_command("provpipeline_list_prepared", _Parameters, State) ->
+    % implementation for provpipeline_list_prepared,
+    {noreply, reply(220, rfc4627:encode(mypl_server:provpipeline_list_prepared()), reset_buffers(State))};
 handle_command("provpipeline_processing_list_all", _Parameters, State) ->
     % implementation for provpipeline_processing_list_all,
     {noreply, reply(220, rfc4627:encode(mypl_server:provpipeline_processing_list_all()), reset_buffers(State))};
@@ -297,6 +304,7 @@ init_pick Quantity,Mui
 commit_pick PickId
 rollback_pick PickId
 correction JsonList
+update_unit JsonList
 count_product Product
 count_products 
 unit_list 
@@ -321,6 +329,7 @@ is_provisioned CId
 provpipeline_info CId
 provpipeline_list_new 
 provpipeline_list_processing 
+provpipeline_list_prepared 
 provpipeline_processing_list_all 
 provisioninglist_list 
 provisioninglist_info CId

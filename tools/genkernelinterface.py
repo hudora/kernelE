@@ -11,7 +11,7 @@ import sys
 import os
 import unittest
 
-TIMEOUT = 9999 # timeout parameter in ms fuer gen_server:call/3
+TIMEOUT = 19999 # timeout parameter in ms fuer gen_server:call/3
 
 # Dies definiert der öffentliche API. Aus dem Code werden die diversen Schnittstellen erstellt
 funcdefs = [
@@ -31,6 +31,7 @@ funcdefs = [
 ('mypl_db', 'commit_pick', 'PickId', []),
 ('mypl_db', 'rollback_pick', 'PickId', []),
 ('mypl_db', 'correction', 'JsonList', []),
+('mypl_db', 'update_unit', 'JsonList', []),
 
 ('mypl_db_query', 'count_product', 'Product', []),
 ('mypl_db_query', 'count_products', '', ['async']),
