@@ -279,6 +279,11 @@ class Kerneladapter:
         return data
     
     @nice_exception
+    def update_unit_height(self, name, height):
+        self._send("update_unit %s" % (simplejson.dumps(('height', name, height))))
+        return self._read_json(220)
+    
+    @nice_exception
     def movement_info(self, name):
         """Liefert Informationen zu einem Movement.
         
