@@ -265,7 +265,7 @@ pick_info(PickId) ->
                         {error, unknown_pick, {PickId}};
                     [Pick] -> 
                         Proplist = pick_info_helper(Pick),
-                        {ok, Proplist ++ [{status, open}]}
+                        {ok, Proplist ++ [{status, archived}]}
                 end;
             [Pick] ->
                 Proplist = pick_info_helper(Pick),

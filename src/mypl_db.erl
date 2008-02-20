@@ -432,12 +432,6 @@ init_movement_to_good_location(Mui) ->
     % chooses the best location for an MUI and starts moving it there
     Fun = fun() ->
         Unit = mypl_db_util:mui_to_unit(Mui),
-        %case mypl_db_query:find_floor_units_for_product(Product) of
-        %    [] ->
-        %        % nothing of this product is located at floorlevel - put it there
-        %    _ ->
-        %        % prefer to put it "upstaier"
-        
         Destination = mypl_db_util:best_location(Unit),
         init_movement(Mui, Destination#location.name)
     end,

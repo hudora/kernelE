@@ -143,7 +143,7 @@ unit_movable(Unit) ->
 best_location_helper(Unit) ->
     % locations with preference == 0 are never considered
     Candidates = [X || X <- find_empty_location(Unit#unit.height), X#location.preference > 0],
-    if 
+    if
         % for Units on EINLAG we do no distance calculations but base on ABC classification
         "EINLAG" =:= Unit#unit.location -> Class = mypl_abcserver:get_class(Unit#unit.product);
         true -> Class = unknown
@@ -241,8 +241,7 @@ read_location(Locname) when is_list(Locname)->
 %% find_movable_units(string()) -> [mypl_db:unitRecord()]
 %% @doc returns a list of all movable units for a product
 find_movable_units(Product) -> 
-    Candidates = mypl_db_util:do(qlc:q([X || X <- mnesia:table(unit), X#unit.product =:= Product,
-                                                         X#unit.pick_quantity =< 0])),
+    Candidates = [X || X <- mnesia:match_object(#unit{product = Product, _ = '_'}), X#unit.pick_quantity =< 0],
     lists:filter(fun(X) -> mypl_db_util:unit_movable(X) =:= yes end, Candidates).
     
 
@@ -256,11 +255,13 @@ find_movable_units(Product) ->
 find_empty_location(Height) ->
     lists:reverse(lists:keysort(#location.preference, 
                                 lists:keysort(#location.name,
-                                              do(qlc:q([X || X <- mnesia:table(location), 
-                                               X#location.height >= Height, 
-                                               X#location.allocated_by =:= [], 
-                                               X#location.reserved_for =:= [], 
+                                              do(qlc:q([X || X <- mnesia:table(location),
+                                               X#location.height >= Height,
+                                               X#location.allocated_by =:= [],
+                                               X#location.reserved_for =:= [],
                                                X#location.preference > 0]))))).
+
+
 
 %find_empty_floor_location(Height) ->
 %    lists:filter(fun(X) -> X#location.floorlevel =:= true end, find_empty_location(Height)).
@@ -276,10 +277,10 @@ test_init() ->
     % flush database
     mnesia:start(),
     mnesia:clear_table(unit),
-    mnesia:clear_table(location),   
-    mnesia:clear_table(movement),   
-    mnesia:clear_table(pick),       
-    mnesia:clear_table(picklist),   
+    mnesia:clear_table(location),
+    mnesia:clear_table(movement),
+    mnesia:clear_table(pick),
+    mnesia:clear_table(picklist),
     % regenerate locations
     % init_location(Name, Height, Floorlevel, Preference, Attributes)
     mypl_db:init_location("EINLAG", 6000, true,  0, [{no_picks}]),

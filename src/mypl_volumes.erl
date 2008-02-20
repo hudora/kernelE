@@ -93,7 +93,7 @@ pallets({Quantity, ArtNr}) ->
                 0 ->
                     error_logger:warning_msg("No prod_export_package or export_pallet for ~s~n", [ArtNr]),
                     0;
-                ProdExportPackage ->
+                _ProdExportPackage ->
                     Quantity / (Eap#eap.prod_export_package * Eap#eap.export_pallet)
             end
     end.
@@ -115,7 +115,7 @@ export_packages({Quantity, ArtNr}) ->
                 0 ->
                     error_logger:warning_msg("No prod_export_package for ~s~n", [ArtNr]),
                     0;
-                ProdExportPackage ->
+                _ProdExportPackage ->
                     Quantity / Eap#eap.prod_export_package
             end
     end.

@@ -17,8 +17,12 @@
 
 -export([find_provisioning_candidates/2,find_provisioning_candidates_multi/1,
          find_provisioning_candidates/3,find_provisioning_candidates_multi/2,
-         init_provisionings_multi/1, init_provisionings_multi/2,
-         init_provisionings_multi/2, init_provisionings_multi/3]).
+         init_provisionings_multi/1, init_provisionings_multi/2, init_provisionings_multi/3]).
+
+
+%% solange ein retrieval under RETRIEVALTOPICKVOLUME Liter Volumen hat, wird es in einen pick umgewandelt.
+%% Siehe reorder_provisioning_candidates_multi() für Details.
+-define(RETRIEVALTOPICKVOLUME, 200).
 
 
 %%%%
@@ -112,12 +116,13 @@ find_pick_candidates(Quantity, Product) when is_integer(Quantity), Quantity >= 0
 %% returns a list of all units which can be picked (no no_picks attribute on location)
 %% todo? - move to mypl_db_query?
 find_pickable_units(Product) ->
-    [X || X <- mypl_db_util:do(qlc:q([X || X <- mnesia:table(unit), X#unit.product =:= Product])), unit_pickable_helper(X)].
+    [X || X <- mnesia:match_object(#unit{product = Product, _ = '_'}), unit_pickable_helper(X)].
     
+
 %% @private
 %% TODO: shouldn't this return yes or no?
-%% @doc Checks is a unit os pickable
-%% expects to be caled within a transaction
+%% @doc Checks is a unit is pickable
+%% expects to be called within a transaction
 unit_pickable_helper(Unit) ->
      Loc = mypl_db_util:get_mui_location(Unit#unit.mui),
      % TODO: scheck florlevel
@@ -292,8 +297,10 @@ deduper_dictbuilder([H|T], Dict) ->
     end.
     
 % @doc converts [{4,"10195"}, {0,"14695"}, {24,"66702"}, {180,"66702"}] to [{204,"66702"},{4,"10195"}]
+% also converts list of lists into list of tuples
 deduper(L) ->
-    lists:map(fun({A, B}) -> {B, A} end,
+    lists:map(fun({A, B}) -> {B, A};
+                 ([A, B]) -> {B, A} end,
               dict:to_list(deduper_dictbuilder(L, dict:new()))).
 
 %% @spec find_provisioning_candidates_multi(list()) -> term()
@@ -304,20 +311,77 @@ deduper(L) ->
 %%
 %% Example:
 %% [{ok, [{6, Mui1a0010}], [{4, Mui2a0009}]}, ] = find_provisioning_candidates_multi([{4, "a0009"}, {6, "a0010"}])
+%% @TODO: scheinbar wird diese funktion immer zweimal aufgerufen
 find_provisioning_candidates_multi(L1) ->
     find_provisioning_candidates_multi(L1, "X").
 find_provisioning_candidates_multi(L1, Priority) ->
+    % multipleoccurances of the same Article in L1 are aggregated into a single occurance
     L = deduper(L1),
-    CandList = plists:map(fun({Quantity, Product}) -> find_provisioning_candidates(Quantity, Product, Priority);
-                             ([Quantity, Product]) -> find_provisioning_candidates(Quantity, Product, Priority) end, L),
+    CandList = plists:map(fun({Quantity, Product}) ->
+                              find_provisioning_candidates(Quantity, Product, Priority)
+                          end, L),
     case lists:all(fun(Reply) -> element(1, Reply) =:= ok end, CandList) of
         false ->
             {error, no_fit};
         true ->
-            {ok, lists:foldl(fun(X, Acc) -> lists:append(Acc, X) end, [], [element(2, X) || X <- CandList]),
-                 lists:flatten([element(3, X) || X <- CandList])}
+            Retrievalcandidates = lists:foldl(fun(X, Acc) -> 
+                                                  lists:append(Acc, X) 
+                                              end,
+                                              [],
+                                              [element(2, X) || X <- CandList]),
+            Pickcandidates = lists:flatten([element(3, X) || X <- CandList]),
+            reorder_provisioning_candidates_multi(Retrievalcandidates, Pickcandidates)
     end.
     
+%% @doc this function allows policy decisions on the output of find_provisioning_candidates_multi
+reorder_provisioning_candidates_multi(Retrievalcandidates, Pickcandidates) ->
+    case {Retrievalcandidates, Pickcandidates} of
+        {_, []} ->
+            % alle, die nur retrievals sind unveraendert lassen
+            {ok, Retrievalcandidates, Pickcandidates};
+        {[], _} ->
+            % alle, die nur picks sind unveraendert lassen
+            {ok, Retrievalcandidates, Pickcandidates};
+        _ ->
+            % check if all retrievals could also be reached by picks
+            Pickable = mypl_db_util:transaction(fun() ->
+                           [unit_pickable_helper(mypl_db_util:mui_to_unit(X)) || X <- Retrievalcandidates]
+                                                end),
+            case lists:all(fun(X) -> X end, Pickable) of
+                false ->
+                    % no, we can't reach them all on the floorlevel
+                    {ok, Retrievalcandidates, Pickcandidates};
+                true ->
+                    % calculate volumes for each retrieval
+                    Volumes = mypl_db_util:transaction(fun() ->
+                                                           [get_mui_volume(X) || X <- Retrievalcandidates]
+                                                       end),
+                    case lists:all(fun(X) -> ((X < ?RETRIEVALTOPICKVOLUME) and (X > 0)) end, Volumes) of
+                        false ->
+                            % at least one retrieval has a volume bigger than ?RETRIEVALTOPICKVOLUME
+                            {ok, Retrievalcandidates, Pickcandidates};
+                        true ->
+                            % all retrievals have a volume bleow ?RETRIEVALTOPICKVOLUME,
+                            % change them to picks.
+                            {ok, [], Pickcandidates ++ mypl_db_util:transaction(fun() ->
+                                                           [get_mui_quantity(X) || X <- Retrievalcandidates]
+                                                       end)}
+                    end
+            end
+    end.
+    
+    
+get_mui_volume(Mui) ->
+    Unit = mypl_db_util:mui_to_unit(Mui),
+    mypl_volumes:volume({Unit#unit.quantity, Unit#unit.product}).
+
+%% @doc returns {quantity, mui} for each mui
+get_mui_quantity(Mui) ->
+    Unit = mypl_db_util:mui_to_unit(Mui),
+    {Unit#unit.quantity, Mui}.
+
+
+
 %% @spec init_provisionings_multi([{Quantiy::integer(), Product::string()}], Attributes) -> 
 %%       {ok, [mypl_db:movementID()], [mypl_db:pickID()]}
 %%      Attributes = [{name, value}]

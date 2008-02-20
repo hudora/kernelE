@@ -687,7 +687,7 @@ pipelinearticles() ->
     lists:reverse(lists:sort(lists:map(fun({A, B}) -> {B, A} end, dict:to_list(ProductDict)))).
     
 
-provpipeline_find_by_product({Quantity, Product}) ->
+provpipeline_find_by_product({_Quantity, _Product}) ->
     Candidates = [X || X <- mypl_db_util:transaction(fun() ->
                                                    mnesia:match_object(#provpipeline{status = new, _ = '_'})
                                                end),
@@ -855,16 +855,16 @@ delete_test() ->
     ok.
     
 
-mypl_parted_test() ->
-    test_init(),
-    P4 = get_picklists(),
-    [{P4id,lieferschein4,"AUSLAG",_,1,[{_,"mui4","010201",1,"a0004",[]},
-                                       {_,"mui5","010301",1,"a0005",[]}]}] = P4,
-    P1 = get_picklists(),
-    [{P1id,lieferschein1,"AUSLAG",_,2,[{"P00000249","mui4","010201",1,"a0004",[]}]}] = P1,
-    erlang:display({provpipeline_list_processing()}),
-    % TODO!
-    ok.
+%mypl_parted_test() ->
+%    test_init(),
+%    P4 = get_picklists(),
+%    [{_P4id,lieferschein4,"AUSLAG",_,1,[{_,"mui4","010201",1,"a0004",[]},
+%                                       {_,"mui5","010301",1,"a0005",[]}]}] = P4,
+%    P1 = get_picklists(),
+%    [{_P1id,lieferschein1,"AUSLAG",_,2,[{"P00000249","mui4","010201",1,"a0004",[]}]}] = P1,
+%    erlang:display({provpipeline_list_processing()}),
+%    % TODO!
+%    ok.
     
 
 %%% @hidden

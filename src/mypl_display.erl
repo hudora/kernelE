@@ -126,7 +126,7 @@ init() ->
     
 
 draw_locations([]) -> ok;
-draw_locations([{{X, Y}, Color, Name}|Rest]) ->
+draw_locations([{{X, Y}, _Color, Name}|Rest]) ->
     Rect = gs:create(rectangle, can1, [{coords, [{X*?ZOOM+1, Y*?ZOOM+1}, {X*?ZOOM+(?ZOOM*3)-1, Y*?ZOOM+(?ZOOM*2)-1}]},
                                        {data, Name},
                                        {buttonpress, true},
@@ -144,10 +144,10 @@ update_locations() ->
 
 loop() ->
     receive
-        {gs, IdOrName, enter, Location, []} ->
+        {gs, _IdOrName, enter, Location, []} ->
             gs:config(get(locationname), [{label, {text, Location}}]),
             loop();
-        {gs, IdOrName, buttonpress, Location, Args} ->
+        {gs, _IdOrName, buttonpress, Location, _Args} ->
             put(baselocation, Location),
             update_locations(),
             loop();

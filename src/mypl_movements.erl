@@ -432,13 +432,13 @@ get_movementsuggestion_test() ->
     mypl_requesttracker:in(20, "a0005"),
     ?assertMatch([{"mui5","010301"}], get_movementsuggestion_from_requesttracker()),
     mypl_requesttracker:in(30, "a0005"),
-    ?assertMatch([{"mui5","010301"},{"mui6","010201"}], get_movementsuggestion_from_requesttracker()),
+    ?assertMatch([{"mui5","010301"}], get_movementsuggestion_from_requesttracker()),
     mypl_requesttracker:in(999, "a0005"),
     mypl_requesttracker:in(30, "a0004"),
     % why is mui6 this time leading the list ???
-    ?assertMatch([{"mui6","010301"}, {"mui5","010201"}], get_movementsuggestion_from_requesttracker()),
+    ?assertMatch([{"mui6","010301"}], get_movementsuggestion_from_requesttracker()),
     % the second call to mypl_requesttracker will address Product a0004
-    ?assertMatch([{"mui3","010301"},{"mui4","010201"}], get_movementsuggestion_from_requesttracker()),
+    ?assertMatch([{"mui3","010301"}], get_movementsuggestion_from_requesttracker()),
     ok.
     
 

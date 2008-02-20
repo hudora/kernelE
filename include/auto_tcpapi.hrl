@@ -209,9 +209,6 @@ handle_command("provpipeline_list_processing", _Parameters, State) ->
 handle_command("provpipeline_list_prepared", _Parameters, State) ->
     % implementation for provpipeline_list_prepared,
     {noreply, reply(220, rfc4627:encode(mypl_server:provpipeline_list_prepared()), reset_buffers(State))};
-handle_command("provpipeline_processing_list_all", _Parameters, State) ->
-    % implementation for provpipeline_processing_list_all,
-    {noreply, reply(220, rfc4627:encode(mypl_server:provpipeline_processing_list_all()), reset_buffers(State))};
 handle_command("provisioninglist_list", _Parameters, State) ->
     % implementation for provisioninglist_list,
     {noreply, reply(220, rfc4627:encode(mypl_server:provisioninglist_list()), reset_buffers(State))};
@@ -330,7 +327,6 @@ provpipeline_info CId
 provpipeline_list_new 
 provpipeline_list_processing 
 provpipeline_list_prepared 
-provpipeline_processing_list_all 
 provisioninglist_list 
 provisioninglist_info CId
 delete_pipeline CId
