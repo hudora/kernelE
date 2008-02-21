@@ -15,6 +15,12 @@
 -include_lib("stdlib/include/qlc.hrl").
 -include("mypl.hrl").
 
+% Bei der Distanzberechnung wollen wir, dass nicht sklavisch die geringste Distanz genommen wird, sondern
+% "Klassen" von Entfernungen genommen werden. Zur zeit liegt die Maximale Distanz im Lager ca. bei 60 Einheiten.
+% Indem wir durch 16 Teilen, bekommen wir ca. 4 Entfernungsklassen, nach denen dann Sortiert wird.
+-define(DISTANCESCALINGFACTOR, 20).
+
+
 %% API
 -export([do/1, do_trans/1, transaction/1, get_mui_location/1, mui_to_unit/1, mui_to_unit_trans/1,
          unit_picks/1, unit_movement/1, unit_moving/1, unit_movable/1,
@@ -140,6 +146,8 @@ unit_movable(Unit) ->
     
 
 %% @doc returns a list of location ordered bo "goodness"
+%%
+%% In here there are major policy decisions encoded.
 best_location_helper(Unit) ->
     % locations with preference == 0 are never considered
     Candidates = [X || X <- find_empty_location(Unit#unit.height), X#location.preference > 0],
@@ -152,26 +160,39 @@ best_location_helper(Unit) ->
     lists:sort(fun(A, B) ->
                    if 
                        "EINLAG" =:= Unit#unit.location ->
+                            AdistanceExact = BdistanceExact = 0, % we ignore exact distance
                             % for Units on EINLAG we do no distance calculations but base on ABC classification
                             case Class of
                                 a -> % order by distance from front - divide by 20 to get groups/bins of distances
-                                    Adistance = mypl_distance:distance("061301", A#location.name) div 20,
-                                    Bdistance = mypl_distance:distance("061301", B#location.name) div 20;
+                                    AdistanceClass = mypl_distance:distance("061301", A#location.name) div ?DISTANCESCALINGFACTOR,
+                                    BdistanceClass = mypl_distance:distance("061301", B#location.name) div ?DISTANCESCALINGFACTOR;
                                 b -> % products of class B are placed "randomly"
-                                    Adistance = 0,
-                                    Bdistance = 0;
+                                    AdistanceClass = 0,
+                                    BdistanceClass = 0;
                                 _ ->  % order by distance from back - divide by 10 to get groups/bins of distances
-                                    Adistance = mypl_distance:distance("194001", A#location.name) div 20,
-                                    Bdistance = mypl_distance:distance("194001", B#location.name) div 20
+                                    AdistanceClass = mypl_distance:distance("194001", A#location.name) div ?DISTANCESCALINGFACTOR,
+                                    BdistanceClass = mypl_distance:distance("194001", B#location.name) div ?DISTANCESCALINGFACTOR
                             end;
                         true -> % else
+                            % movement within the warehouse ("Umlagerung")
                             % divide by 20 to get groups/bins of distances
-                            Adistance = mypl_distance:distance(Unit#unit.location, A#location.name) div 20,
-                            Bdistance = mypl_distance:distance(Unit#unit.location, B#location.name) div 20
+                            AdistanceExact = mypl_distance:distance(Unit#unit.location, A#location.name),
+                            BdistanceExact = mypl_distance:distance(Unit#unit.location, B#location.name),
+                            AdistanceClass = AdistanceExact div ?DISTANCESCALINGFACTOR,
+                            BdistanceClass = BdistanceExact div ?DISTANCESCALINGFACTOR
                     end,
-                    % order by as near as possible, as low as possible, preference as high as possible
-                    {Adistance, A#location.height, B#location.preference} 
-                        < {Bdistance, B#location.height, A#location.preference}
+                    % if one of the locations has preference == 1 this location should always be 
+                    % sorted towards the end
+                    if
+                        (A#location.preference < 2) or (B#location.preference < 2) ->
+                            % sort by giving preference the highest priority
+                            {B#location.preference, AdistanceClass, A#location.height, AdistanceExact} 
+                                < {A#location.preference, BdistanceClass, B#location.height, BdistanceExact};
+                        true ->
+                            % order by as near as possible, as low as possible, preference as high as possible
+                            {AdistanceClass, A#location.height, B#location.preference, AdistanceExact}        % preference is inverted!
+                                < {BdistanceClass, B#location.height, A#location.preference, AdistanceExact}  % higher preference values should be used first
+                    end
                end, Candidates).
     % TODO: try to avoid floorlevel locations for not recently needed articles
     
@@ -287,13 +308,13 @@ test_init() ->
     mypl_db:init_location("AUSLAG", 6000, true,  0, [{no_picks}]),
     mypl_db:init_location("010102", 1950, false, 6, []),
     
-    mypl_db:init_location("011001", 2000, true,  1, []),
+    mypl_db:init_location("011001", 2000, true,  2, []),
     mypl_db:init_location("011002", 2000, false, 7, []),
     mypl_db:init_location("011003", 2000, false, 6, []),
     
     mypl_db:init_location("012002", 2000, false, 7, []),
     
-    mypl_db:init_location("013001", 1500, true,  1, []),
+    mypl_db:init_location("013001", 1500, true,  2, []),
     mypl_db:init_location("013002", 1500, false, 7, []),
     mypl_db:init_location("013003", 1500, false, 6, []),
     
@@ -325,6 +346,7 @@ choose_location_test() ->
 choose_locations_test() ->
     test_init(),
     {ok, "mui1"} = mypl_db:store_at_location("012002", "mui1", 5, "a0001", 1200),
+    % 013001 is the lowest fitting location
     [#location{name="013001"}] = transaction(fun() -> best_locations(floorlevel, [mui_to_unit("mui1")]) end),
     
     {ok, "mui2"} = mypl_db:store_at_location("012002", "mui2", 5, "a0001", 1999),
@@ -335,9 +357,24 @@ choose_locations_test() ->
     ok.
     
 
+best_location_helper_test() ->
+    % test that locations with priority 1 are ignored whereever possible
+    test_init(),
+    mypl_db:init_location("013001", 1500, true,  1, []),
+    mypl_db:store_at_location("013002", "mui1", 5, "a0001", 1500),
+    mypl_db:store_at_location("013003", "mui2", 5, "a0001", 1500),
+    
+    % the first result must not be 013001 - it is the best fit, but has priority 1,
+    % so it should be the last element
+    Candidates = transaction(fun() -> best_location_helper(mui_to_unit("mui1")) end),
+    [#location{name="013001"}|_] = lists:reverse(Candidates),
+    ok.
+    
+
 testrunner() ->
     choose_location_test(),
     choose_locations_test(),
+    best_location_helper_test(),
     ok.
     
 -endif.
