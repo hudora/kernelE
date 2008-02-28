@@ -2,26 +2,50 @@
 %%% File    : mypl_provpipeline
 %%% Author  : Maximillian Dornseif
 %%% Created :  Created by Maximillian Dornseif on 2007-11-07.
+%% @doc
+%%
+%% How does data move through the System?
+%%
+%% Data enters the system by beeing written in the provpipeline with status new.
+%%
+%% Then refill_pipeline() generates Picks and Retrievals for an provpipeline Entry,
+%% writes the Picks and Retrievals into the pickpipeline/retrievalpipeline and sets
+%% the status of the provpipeline Entry to "processing". The provpipeline also gets 
+%% two attributes 'kernel_retrievals' and 'kernel_picks' which store the respective
+%% pick and retrieval ids.
+%% The Picks and Retrievals get an Attribute 'kernel_provpipeline_id' which references
+%% the 'cId' of the respective provpipeline entry.
+%%
+%% When a client requests work with get_picklists() or get_retrievallists() a
+%% provisioninglist entry is created and send to the client.
+%%
+%% Geplante Verbesserung:
+%% * Wenn es Mehrere Belege zu einem Kunden gibt, sollten die direkt nachenander herauskommen.
+%% * Wenn es mehrere identische Picklists gibt, sollten die gleichzeitig rauskommen
+%% * Grosse Picklists sollten gesplittet werden.
+%% 
+
+
 -module(mypl_provpipeline).
 -define(SERVER, mypl_provpipeline).
 
 -include_lib("stdlib/include/qlc.hrl").
 -include("mypl.hrl").
 
+%% this sets the maximum values per picklist. We avoid generating picklist bigger than that.
+-define(MAXVOLUMEPERPICKLIST, 1500). % L
+-define(MAXWEIGHTPERPICKLIST, 500000). % g
+
+
 %% API
 -export([insert_pipeline/1, 
-         provpipeline_list_new/0, provpipeline_list_processing/0, provpipeline_list_prepared/0,
-         provpipeline_info/1, delete_pipeline/1, update_pipeline/1, 
-         % 
-         provisioninglist_list/0, provisioninglist_info/1,
-         
          % get work to do
+         get_picklists/1, get_retrievallists/1, get_movementlist/1,
          get_picklists/0, get_retrievallists/0, get_movementlist/0,
          % mark work as done
-         commit_picklist/1, commit_retrievallist/1, % commit_movementlist/1,
+         commit_picklist/1, commit_retrievallist/1,
          
-         flood_requestracker/0, provpipeline_find_by_product/1,
-         is_provisioned/1, run_me_once/0, pipelinearticles/0]).
+         is_provisioned/1, run_me_once/0]).
 
 run_me_once() ->
     % komissionierbelege, so wie sie aus SoftM kommen
@@ -43,7 +67,22 @@ run_me_once() ->
     % puffer, fuer retrievals, die noch ausgegeben werden muessen
     mnesia:create_table(retrievalpipeline, [{disc_copies, [node()]},
                                        {attributes, record_info(fields, retrievalpipeline)}
-                                      ]).
+                                      ]),
+    
+    % upgrade tables where needed
+    Fields1 = record_info(fields, provisioninglist),
+    case mnesia:table_info(provisioninglist, attributes) of
+        Fields1 ->
+            ok;
+        [id, type, provpipeline_id, destination, attributes, parts, provisionings] ->
+            ?WARNING("upgrading table picks provisioninglist status and created_at fields", []),
+            {atomic,ok} = mnesia:transform_table(provisioninglist,
+                            fun({_, I, T, P, D, A, N, R}) ->
+                                {provisioninglist, I, T, P, D, A, N, R, unknown, {{2008,1,1},{0,0,0}}}
+                            end,
+                            [id, type, provpipeline_id, destination, attributes, parts, provisionings, status, created_at])
+    end,
+    ok.
 
 
 
@@ -106,45 +145,6 @@ insert_pipeline_helper(CId, Orderlines, Priority, Customer, Weigth, Volume, Attr
     ok.
     
 
-%% @doc change values on an existing pipeline entry
-update_pipeline({priority, CId, Priority}) ->
-    Fun = fun() ->
-        [PPEntry] = mnesia:read({provpipeline, CId}),
-        NewAttributes = [{kernel_updated_at, calendar:universal_time()}|
-                         proplists:delete(priority, PPEntry#provpipeline.attributes)],
-        mnesia:write(PPEntry#provpipeline{priority=Priority, attributes=NewAttributes})
-    end,
-    mypl_db_util:transaction(Fun),
-    ok;
-update_pipeline({fixtermin, CId, Fixtermin}) when is_boolean(Fixtermin) ->
-    Fun = fun() ->
-        [PPEntry] = mnesia:read({provpipeline, CId}),
-        NewAttributes = [{kernel_updated_at, calendar:universal_time()}|
-                         proplists:delete(fixtermin, PPEntry#provpipeline.attributes)],
-        mnesia:write(PPEntry#provpipeline{attributes=[{fixtermin, Fixtermin}] ++ NewAttributes})
-    end,
-    mypl_db_util:transaction(Fun),
-    ok;
-update_pipeline({liefertermin, CId, Liefertermin}) ->
-    Fun = fun() ->
-        [PPEntry] = mnesia:read({provpipeline, CId}),
-        NewAttributes = [{kernel_updated_at, calendar:universal_time()}|
-                         proplists:delete(liefertermin, PPEntry#provpipeline.attributes)],
-        mnesia:write(PPEntry#provpipeline{attributes=[{liefertermin, Liefertermin}] ++ NewAttributes})
-    end,
-    mypl_db_util:transaction(Fun),
-    ok;
-update_pipeline({versandtermin, CId, Versandtermin}) ->
-    Fun = fun() ->
-        [PPEntry] = mnesia:read({provpipeline, CId}),
-        NewAttributes = [{kernel_updated_at, calendar:universal_time()}|
-                         proplists:delete(versandtermin, PPEntry#provpipeline.attributes)],
-        mnesia:write(PPEntry#provpipeline{attributes=[{versandtermin, Versandtermin}|NewAttributes]})
-    end,
-    mypl_db_util:transaction(Fun),
-    ok.
-    
-
 %% @doc converts
 %% [{tries,0},
 %%  {kernel_customer,"14529"},
@@ -165,123 +165,9 @@ proplistlist_to_proplisttuple(L) ->
                   {erlang:list_to_atom(Name), Value} end, L).
     
 
-%% @doc returns the unprocessed contents of provpipeline in the approximate order in which they will
-%% be processed
-provpipeline_list_new() ->
-    [format_pipeline_record(X) || X <- sort_provpipeline(mypl_db_util:do_trans(
-                                           qlc:q([X || X <- mnesia:table(provpipeline),
-                                                       X#provpipeline.status =:= new])))].
-    
-
-%% 
-provpipeline_list_prepared() ->
-    mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(pickpipeline)])) ++
-    mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(retrievalpipeline)])).
-    
-
-%% processing
-provpipeline_list_processing() ->
-    [format_pipeline_record(X) || X <- sort_provpipeline(mypl_db_util:do_trans(
-                                           qlc:q([X || X <- mnesia:table(provpipeline),
-                                                       X#provpipeline.status =:= processing])))].
-    
-
-%% @doc return information on a provpipeline entry
-provpipeline_info(CId) ->
-    Fun = fun()->
-        mnesia:read({provpipeline, CId})
-    end,
-    [PPEntry] = mypl_db_util:transaction(Fun),
-    format_pipeline_record(PPEntry).
-    
-
-%% @doc decides if this Record can be packed/shipped.
-%% 
-%% Returns:
-%%   yes:   MUST be shipped today
-%%   maybe: CAN be shipped today
-%%   no:    MAY NOT be shipped today
-
-shouldprocess(Record) ->
-    {{Year,Month,Day}, _} =  calendar:now_to_datetime(erlang:now()),
-    Today = lists:flatten(io_lib:format("~4.10.0B-~2.10.0B-~2.10.0B", [Year, Month, Day])),
-    Termin = proplists:get_value(versandtermin, Record#provpipeline.attributes,
-                                 proplists:get_value(liefertermin,  Record#provpipeline.attributes, "")),
-    Fix = proplists:get_value(fixtermin, Record#provpipeline.attributes, false),
-    case {Fix, Termin =< Today} of
-        {_, true} ->
-            % due date reached - ship it
-            yes;
-        {false, false} ->
-            % due date not reached, but we may ship, because no fixed delivery date was given
-            maybe;
-        {true, false} ->
-            % due date not reached, fixed delivery date was given
-            no
-    end.
-    
-
-%% @doc create a nice proplist representation of the provpipeline
-format_pipeline_record(Record) ->
-    {Record#provpipeline.id,
-     [{tries, Record#provpipeline.tries},
-      {provisioninglists, Record#provpipeline.provisioninglists},
-      {priority, Record#provpipeline.priority},
-      {shouldprocess, shouldprocess(Record)},
-      {status, Record#provpipeline.status},
-      {volume, Record#provpipeline.volume},
-      {weigth, Record#provpipeline.weigth}] ++ Record#provpipeline.attributes,
-     Record#provpipeline.orderlines
-    }.
-    
-
-%% @doc returns a list of all (pick|retrieval)list ids.
-provisioninglist_list() ->
-    lists:sort(mypl_db_util:transaction(fun() -> mnesia:all_keys(provisioninglist) end)).
-
-%% @doc get information concerning a (pick|retrieval)list
-provisioninglist_info(Id) ->
-    Fun = fun() ->
-        case mnesia:read({provisioninglist, Id}) of
-            [] -> {error, unknown_provisioninglist, {Id}};
-            [Plist] -> 
-                {ok, 
-                 [{id ,              Plist#provisioninglist.id},
-                  {type,             Plist#provisioninglist.type},
-                  {provpipeline_id,  Plist#provisioninglist.provpipeline_id},
-                  {destination,      Plist#provisioninglist.destination},
-                  {parts,            Plist#provisioninglist.parts},
-                  {attributes,       Plist#provisioninglist.attributes},
-                  {provisioning_ids, [element(1, X) || X <- Plist#provisioninglist.provisionings]}
-                 ]}
-        end
-    end,
-    mypl_db_util:transaction(Fun).
-    
-
-%% @spec delete_pipeline(CId::string()) -> ok|error
-%% @doc removes an unprocessed order from the provisioningpipeline
-%%
-%% Returns `aborted' if the order can't be removed because it is currently processed.
-%% Returns `ok' if the order has been successfully removed
-%% @TODO: fixme
-delete_pipeline(CId) ->
-    Fun = fun() ->
-        [Entry] = mnesia:read({provpipeline, CId}),
-        if 
-            Entry#provpipeline.status /= new ->
-                % we can't reinsert something which is not new
-                {error, cant_delete_already_open, {CId, Entry}};
-            true ->
-                mypl_audit:archive(Entry, delete),
-                mnesia:delete({provpipeline, CId}),
-                ok
-        end
-    end,
-    mypl_db_util:transaction(Fun).
-    
-
-%% @spec get_picklists() -> PicklistList|nothing_available
+get_picklists() ->
+    get_picklists([]).
+%% @spec get_picklists(Attributes) -> PicklistList|nothing_available
 %%      PicklistList = [{Id::string(), CId::string(), Destination::string(), Attributes, Parts::integer(),
 %%                      [{LineId::string(), Mui::string(), Location::string(),
 %%                        Quantity::integer(), Product::string(), Attributes}]}]
@@ -298,7 +184,9 @@ delete_pipeline(CId) ->
 %%
 %% The Picklist ends with a list of "Orderlines" consisting of the Location where to get the goods, a
 %% Quantity on how much to Pick and a String Representing the Produkt ID (SKU).
-get_picklists() ->
+%%
+%% The Attibutes given are set on the picks returned via mypl_db:update_pick/1.
+get_picklist(Attributes) when is_list(Attributes) ->
     % check if we have picks available
     case mypl_db_util:transaction(fun() -> mnesia:first(provpipeline) end) of
         '$end_of_table' ->
@@ -309,45 +197,109 @@ get_picklists() ->
                     nothing_available ->
                         nothing_available;
                     {ok, P} ->
-                        Id = "p" ++ P#pickpipeline.id,
                         [PPEntry] = mnesia:read({provpipeline, P#pickpipeline.provpipelineid}),
-                        % Volume for the Picklist
-                        Positions=lists:map(fun(PickId) ->
-                                                {ok, PickInfo} = mypl_db_query:pick_info(PickId),
-                                                  {proplists:get_value(quantity, PickInfo),
-                                                  proplists:get_value(product, PickInfo)}
-                                             end, P#pickpipeline.pickids),
-                        VolumeAttributes = mypl_volumes:volume_proplist(Positions),
-                        
-                        Picklist = #provisioninglist{id=Id, type=picklist,
-                                        provpipeline_id=PPEntry#provpipeline.id,
-                                        destination="AUSLAG",
-                                        attributes=VolumeAttributes ++ PPEntry#provpipeline.attributes,
-                                        parts=1 + lists:min([length(P#pickpipeline.retrievalids),1]),
-                                        provisionings=lists:map(fun(PickId) ->
-                                            {ok, PickInfo} = mypl_db_query:pick_info(PickId),
-                                            FromLocation = mypl_db_util:get_mui_location(proplists:get_value(from_unit, PickInfo)),
-                                            % Volume for the Posistion
-                                            mypl_volumes:volume_proplist([{proplists:get_value(quantity, PickInfo),
-                                                                           proplists:get_value(product, PickInfo)}]),
-                                            {PickId,
-                                             proplists:get_value(from_unit, PickInfo),
-                                             FromLocation#location.name,
-                                             proplists:get_value(quantity, PickInfo),
-                                             proplists:get_value(product, PickInfo),
-                                             []}
-                                            end, P#pickpipeline.pickids)},
-                        mnesia:write(Picklist),
-                        mnesia:write(#provpipeline_processing{id=Id, provpipelineid=PPEntry#provpipeline.id,
-                                                              pickids=P#pickpipeline.pickids, retrievalids=[]}),
-                        mnesia:write(PPEntry#provpipeline{provisioninglists=[Picklist#provisioninglist.id|PPEntry#provpipeline.provisioninglists]}),
-                        % fixme: this has to return a list of provisioninglists - has to be fixed in python too
-                        [format_provisioninglist(Picklist)]
+                        Id = "p" ++ P#pickpipeline.id,
+                        PickIds = P#pickpipeline.pickids,
+                        NumParts = 1 + lists:min([length(P#pickpipeline.retrievalids),1]),
+                        generate_picklist(PPEntry, Id, PickIds, Attributes, NumParts)
                 end
             end,
             mypl_db_util:transaction(Fun)
     end.
+    
 
+% helper function for get_picklist()
+generate_picklist(PPEntry, Id, PickIds, Attributes, NumParts) ->
+    % calculate volume for the Picklist and update pick attributes
+    Positions = lists:map(fun(PickId) ->
+                              ok = mypl_db:update_pick({attributes, PickId, [{kernel_published_at, calendar:universal_time()},
+                                                                             {kernel_provisioninglist_id, Id}|Attributes]}),
+                              {ok, PickInfo} = mypl_db_query:pick_info(PickId),
+                              {proplists:get_value(quantity, PickInfo),
+                               proplists:get_value(product, PickInfo)}
+                           end, PickIds),
+    VolumeAttributes = mypl_volumes:volume_proplist(Positions),
+    
+    % generate provisioninglist records
+    Picklist = #provisioninglist{id=Id, type=picklist,
+                    provpipeline_id=PPEntry#provpipeline.id,
+                    destination="AUSLAG",
+                    attributes=VolumeAttributes ++ Attributes,
+                    parts=NumParts,
+                    status=new,
+                    created_at=calendar:universal_time(),
+                    provisionings=lists:map(fun(PickId) ->
+                        {ok, PickInfo} = mypl_db_query:pick_info(PickId),
+                        FromLocation = mypl_db_util:get_mui_location(proplists:get_value(from_unit, PickInfo)),
+                        % Volume for the Posistion
+                        mypl_volumes:volume_proplist([{proplists:get_value(quantity, PickInfo),
+                                                       proplists:get_value(product, PickInfo)}]),
+                        {PickId,
+                         proplists:get_value(from_unit, PickInfo),
+                         FromLocation#location.name,
+                         proplists:get_value(quantity, PickInfo),
+                         proplists:get_value(product, PickInfo),
+                         []}
+                        end, PickIds)},
+    mnesia:write(Picklist),
+    mnesia:write(#provpipeline_processing{id=Id, provpipelineid=PPEntry#provpipeline.id,
+                                          pickids=PickIds, retrievalids=[]}),
+    mnesia:write(PPEntry#provpipeline{provisioninglists=[Picklist#provisioninglist.id|PPEntry#provpipeline.provisioninglists]}),
+    % fixme: this has to return a list of provisioninglists - has to be fixed in python too
+    Picklist.
+    
+
+get_picklists(Attributes) when is_list(Attributes) ->
+    Picklist = get_picklist(Attributes),
+    % this code is for batching several provisionings into one  - it is fairly specific tailored
+    % to provisionings consisting of a single position. This function can duplicate such a provisioning
+    % see if weight and volume are low enough to bundle this with an other pick.
+    Volume = proplists:get_value(volume, Picklist#provisioninglist.attributes),
+    Weight = proplists:get_value(weight, Picklist#provisioninglist.attributes),
+    case {Picklist#provisioninglist.provisionings, 
+          Volume > -1, Volume < (?MAXVOLUMEPERPICKLIST div 2),
+          Weight > -1, Weight < (?MAXWEIGHTPERPICKLIST div 2)} of
+        {[_], true, true, true, true} ->
+            Fun = fun() ->
+                erlang:display({"We could have aggregated", Volume, Weight, Picklist#provisioninglist.provisionings}),
+                [{_, Mui, FromLocation, Quantity, Product, Attributes}] = Picklist#provisioninglist.provisionings,
+                erlang:display({"XXX", Quantity, Product, Mui}),
+                Unit = mypl_db_util:mui_to_unit(Mui),
+                % check if enough is available on the Unit
+                case {(Unit#unit.quantity - Unit#unit.pick_quantity) > Quantity} of
+                    {true} ->
+                        % ... Yes We can try a double Pick
+                        Candidates = mypl_prov_special:provpipeline_find_by_product({Quantity, Product}),
+                        case Candidates of 
+                            [] ->
+                                % no potential double picks available
+                                ok;
+                            [PPEntry|_] ->
+                                % we can generate an additional pick for ppline entry
+                                io:format("DoublePicks: ~w~n", [PPEntry]),
+                                % convert a Provisioning to a Picklist
+                                {ok, PickId} = mypl_db:init_pick(Quantity, Mui, [{kernel_provpipeline_id, PPEntry#provpipeline.id},
+                                                                                 {kernel_allocated_at, calendar:universal_time()}]),
+                                % mark the order in the pipeline as beeing processed and save the Pick-/Retrievalids
+                                mnesia:write(PPEntry#provpipeline{status=processing,
+                                                                  attributes=[{kernel_retrievals, []},
+                                                                              {kernel_picks, [PickId]}
+                                                                              |PPEntry#provpipeline.attributes]}),
+                                Id = "p" ++ mypl_util:serial(),
+                                SecondPicklist = generate_picklist(PPEntry, Id, [PickId], Attributes, 1),
+                                [format_provisioninglist(Picklist), format_provisioninglist(SecondPicklist)]
+                        end;
+                    _ ->
+                        % no enough available on the unit, return the first picklist
+                        [format_provisioninglist(Picklist)]
+                end
+            end,
+            mypl_db_util:transaction(Fun);
+        _ ->
+            % no candidates for aggregation, return the first picklist
+            [format_provisioninglist(Picklist)]
+    end.
+    
 
 %% @doc formats a picklist entry according to the return value of get_picklists/0 and get_retrievallists/0
 %% @see get_picklists/0
@@ -360,9 +312,11 @@ format_provisioninglist(PList) ->
      PList#provisioninglist.provisionings}.
     
 
+get_retrievallists() ->
+    get_retrievallists([]).
 %% @doc this returns the same as get_picklist but uses retrievals, not picks.
 %% @see get_picklists/0
-get_retrievallists() ->
+get_retrievallists(Attributes) when is_list(Attributes) ->
     % check if we have picks available
     case mypl_db_util:transaction(fun() -> mnesia:first(provpipeline) end) of
         '$end_of_table' ->
@@ -378,16 +332,20 @@ get_retrievallists() ->
                         % Volume for the Picklist
                         Positions=lists:map(fun(RetrievalId) ->
                                                 {ok, MovementInfo} = mypl_db_query:movement_info(RetrievalId),
-                                                  {proplists:get_value(quantity, MovementInfo),
-                                                  proplists:get_value(product, MovementInfo)}
+                                                ok = mypl_db:update_movement({attributes, RetrievalId, [{kernel_published_at, calendar:universal_time()},
+                                                                                                        {kernel_provisioninglist_id, Id}|Attributes]}),
+                                                {proplists:get_value(quantity, MovementInfo),
+                                                 proplists:get_value(product, MovementInfo)}
                                              end, R#retrievalpipeline.retrievalids),
                         VolumeAttributes = mypl_volumes:volume_proplist(Positions),
                         
                         Retrievallist = #provisioninglist{id=Id, type=retrievallist,
                                             provpipeline_id=PPEntry#provpipeline.id,
                                             destination="AUSLAG",
-                                            attributes=VolumeAttributes ++ PPEntry#provpipeline.attributes,
+                                            attributes=VolumeAttributes ++ Attributes,
                                             parts=1 + lists:min([length(R#retrievalpipeline.pickids),1]),
+                                            status=new,
+                                            created_at=calendar:universal_time(),
                                             provisionings=lists:map(fun(RetrievalId) ->
                                                 {ok, MovementInfo} = mypl_db_query:movement_info(RetrievalId),
                                                 FromLocation = mypl_db_util:read_location(proplists:get_value(from_location, MovementInfo)),
@@ -475,15 +433,15 @@ refill_pipeline(Type) ->
     Candidates = [X || X <- mypl_db_util:transaction(fun() -> 
                                                  mnesia:match_object(#provpipeline{status = new, _ = '_'})
                                                end),
-                                          shouldprocess(X) /= no],
-    refill_pipeline(Type, sort_provpipeline(Candidates)).
+                                          mypl_prov_util:shouldprocess(X) /= no],
+    refill_pipeline(Type, mypl_prov_util:sort_provpipeline(Candidates)).
     
 
 refill_pipeline(_Type, []) -> no_fit;
 refill_pipeline(Type, Candidates) ->
     [Entry|CandidatesTail] = Candidates,
     Orderlines = [{Quantity, Product} || {Quantity, Product, _Attributes} <- Entry#provpipeline.orderlines],
-    case mypl_provisioning:find_provisioning_candidates_multi(Orderlines, sort_provpipeline_helper(Entry)) of
+    case mypl_provisioning:find_provisioning_candidates_multi(Orderlines, mypl_prov_util:sort_provpipeline_helper(Entry)) of
         {error, no_fit} ->
             % update number of tries
             mypl_db_util:transaction(fun() ->
@@ -499,9 +457,9 @@ refill_pipeline(Type, Candidates) ->
                 ->
                     % we have got a match - add to the two queues, remove from pipeline and we are done here
                     {ok, RetrievalIds, PickIds} = mypl_provisioning:init_provisionings_multi(Orderlines,
-                                                         [{provpipeline_id, Entry#provpipeline.id},
-                                                          {allocated_at, calendar:universal_time()}],
-                                                          sort_provpipeline_helper(Entry)),
+                                                         [{kernel_provpipeline_id, Entry#provpipeline.id},
+                                                          {kernel_allocated_at, calendar:universal_time()}],
+                                                          mypl_prov_util:sort_provpipeline_helper(Entry)),
                     Fun = fun() ->
                         case RetrievalIds of
                             [] -> ignore;
@@ -515,8 +473,11 @@ refill_pipeline(Type, Candidates) ->
                                                             provpipelineid=Entry#provpipeline.id,
                                                             pickids=PickIds, retrievalids=RetrievalIds})
                         end,
-                        % mark the order in the pipeline as  beeing processed
-                        mnesia:write(Entry#provpipeline{status=processing}),
+                        % mark the order in the pipeline as beeing processed and save the Pick-/Retrievalids
+                        mnesia:write(Entry#provpipeline{status=processing,
+                                                        attributes=[{kernel_retrievals, RetrievalIds},
+                                                                    {kernel_picks, PickIds}
+                                                                    |Entry#provpipeline.attributes]}),
                         ok
                     end,
                     mypl_db_util:transaction(Fun);
@@ -527,40 +488,8 @@ refill_pipeline(Type, Candidates) ->
     end.
     
 
-% @doc ensure that the requestracker is informed about the products we need
-flood_requestracker() ->
-    Candidates = [X || X <- mypl_db_util:transaction(fun() -> 
-                                                   mnesia:match_object(#provpipeline{status = new, _ = '_'})
-                                               end),
-                                          shouldprocess(X) /= no],
-    flood_requestracker(Candidates).
-
-flood_requestracker([]) -> ok;
-flood_requestracker([Entry|CandidatesTail]) ->
-    Orderlines = [{Quantity, Product} || {Quantity, Product, _Attributes} <- Entry#provpipeline.orderlines],
-    mypl_provisioning:find_provisioning_candidates_multi(Orderlines, sort_provpipeline_helper(Entry)),
-    flood_requestracker(CandidatesTail).
-    
-
-% @doc sort provpipeline records in order which they should be handled
-%
-% sorts by the attributes `versandtermin', `liefertermin' the priority cusotmer ID
-%% and the number of unsuccessfull tries
-sort_provpipeline(Records) ->
-    lists:sort(fun(A, B) -> sort_provpipeline_helper(A) < sort_provpipeline_helper(B) end, Records).
-
-% @private
-% creates a key for sorting
-sort_provpipeline_helper(Record) ->
-    {not (proplists:get_value(fixtermin, Record#provpipeline.attributes, false) and (shouldprocess(Record) =:= yes)),
-     proplists:get_value(versandtermin, Record#provpipeline.attributes, ""),
-     proplists:get_value(liefertermin,  Record#provpipeline.attributes, ""), 
-     100 - Record#provpipeline.priority, % higher priorities mean lower values mean beeing sorted first
-     Record#provpipeline.tries,
-     proplists:get_value(kernel_customer, Record#provpipeline.attributes, "99999")
-    }.
-    
-
+get_movementlist() ->
+    get_movementlist([]).
 %% @spec get_movementlist() -> MovementlistList|nothing_available
 %%      MovementlistList = [{Id::string(), CId::string(), Destination::string(), Attributes, Parts::integer(),
 %%                          [{LineId::string(), Location::string(), Product::string()}]}]
@@ -570,14 +499,9 @@ sort_provpipeline_helper(Record) ->
 %% This function is very simmilar to {@link get_picks/1} but returns a List of Retrievals. Occasionally the
 %% System decides to prefer that a internal Movement is done to optimize the Warehouse instead of a Retrieval
 %% for actually fullfilling an order. In such cases the `CId == ""'.
-%% @TODO: fixme
-get_movementlist() ->
-    mypl_movements:create_automatic_movements().
+get_movementlist(Attributes) when is_list(Attributes) ->
+    mypl_movements:create_automatic_movements(Attributes).
     
-%% spec commit_movements(Id::string()) -> ok
-%% TODO: fixme
-%commit_movementlist(Id) -> ok.
-
 commit_picklist(Id) ->
     commit_picklist(Id, [], []).
 
@@ -590,7 +514,7 @@ commit_picklist(Id) ->
 %% 
 %% Returns `provisioned' if the CId is finished (no additional Picks or Movements).
 %% @TODO:  save attributes
-commit_picklist(Id, Attributes, Lines) ->
+commit_picklist(Id, Attributes, Lines) when is_list(Attributes) ->
     commit_anything(Id, Attributes, Lines).
 
 commit_retrievallist(Id) -> commit_retrievallist(Id, [], []).
@@ -598,10 +522,10 @@ commit_retrievallist(Id) -> commit_retrievallist(Id, [], []).
 %%      Attributes = [{name, value}]
 %% @doc commit a Picklist you got from get_picks/0
 %% @TODO: fixme
-commit_retrievallist(Id, Attributes, Lines) ->
+commit_retrievallist(Id, Attributes, Lines) when is_list(Attributes) ->
     commit_anything(Id, Attributes, Lines).
 
-commit_anything(Id, _Attributes, _Lines) ->
+commit_anything(Id, _Attributes, _Lines) when is_list(_Attributes) ->
     Fun = fun() ->
         [Processing] = mnesia:read({provpipeline_processing, Id}),
         lists:map(fun(PId) ->
@@ -650,52 +574,6 @@ is_provisioned(CId) ->
     end.
     
 
-%% @spec mark_as_finished(CId) -> ok|unfinished
-%% 
-%% @doc marks an order as finished and processed indicationg that kernelE kan remove all state on this order.
-%% 
-%% Returns ok if successfull or unknown if this order is already marked as finished or was never known.
-mark_as_finished(CId) -> 
-    case is_provisioned(CId) of
-        unfinished ->
-            unfinished;
-        provisioned ->
-            % remove from the provpipeline
-            Fun = fun() ->
-                [PPEntry] = mnesia:read({provpipeline, CId}),
-                mypl_audit:archive(PPEntry, provpipeline_finished),
-                mnesia:delete({provpipeline, CId})
-            end,
-            mypl_db_util:transaction(Fun),
-            ok
-    end.
-    
-
-piplinearticles_helper2([], Dict) -> Dict;
-piplinearticles_helper2([Product|Tail], Dict) ->
-    piplinearticles_helper2(Tail, dict:update_counter(Product, 1, Dict)).
-    
-piplinearticles_helper1([], Dict) -> Dict;
-piplinearticles_helper1([Orderline|Tail], Dict) ->
-    piplinearticles_helper1(Tail, piplinearticles_helper2([Product || {_, Product, _} <- Orderline], Dict)).
-    
-%% @doc get a list of all articles in the provisioning pipeline
-pipelinearticles() ->
-    Orderlines = mypl_db_util:do_trans(qlc:q([X#provpipeline.orderlines || X <- mnesia:table(provpipeline),
-                                              X#provpipeline.status /= provisioned])),
-    ProductDict = piplinearticles_helper1(Orderlines, dict:new()),
-    lists:reverse(lists:sort(lists:map(fun({A, B}) -> {B, A} end, dict:to_list(ProductDict)))).
-    
-
-provpipeline_find_by_product({_Quantity, _Product}) ->
-    Candidates = [X || X <- mypl_db_util:transaction(fun() ->
-                                                   mnesia:match_object(#provpipeline{status = new, _ = '_'})
-                                               end),
-                       shouldprocess(X) /= no,
-                       length(X#provpipeline.orderlines) =:= 1],
-    Candidates.
-    
-
 % ~~ Unit tests
 -ifdef(EUNIT).
 -compile(export_all).
@@ -739,8 +617,8 @@ test_init() ->
     {ok, _} = mypl_db:store_at_location("010302", "mui6", 10, "a0005", 1200),
     [{"a0003",10,10,0,0},{"a0004",36,36,0,0},{"a0005",71,71,0,0}] = mypl_db_query:count_products(),
     % provpipeline empty?
-    [] = provpipeline_list_new(),
-    [] = provpipeline_list_prepared(),
+    [] = mypl_prov_query:provpipeline_list_new(),
+    [] = mypl_prov_query:provpipeline_list_prepared(),
     
     % fill it up!
     insert_pipeline([lieferschein1, [{10, "a0005", []}, {1,  "a0004", []}], 3, "kunde01", 0, 0,
@@ -760,7 +638,7 @@ test_init() ->
 %%% @hidden
 provpipeline_list_test() ->
     test_init(),
-    [] = provpipeline_list_prepared(),
+    [] = mypl_prov_query:provpipeline_list_prepared(),
     % lieferschein4 is first because it is the oldest
     [{lieferschein4,_,[{1,"a0005",[]},{1,"a0004",[]}]},
      % lieferschein1 is second because it is the second oldest
@@ -768,8 +646,8 @@ provpipeline_list_test() ->
      % lieferschein3 is as old as lieferschein2 but has a higher priority
      {lieferschein3,_,[{50,"a0005",[]},{16,"a0004",[]}]},
      % lieferschein2 is the youngest with the owest priority
-     {lieferschein2,_,[{10,"a0005",[]},{ 1,"a0004",[]}]}] = provpipeline_list_new(),
-    {lieferschein4,_,_} = provpipeline_info(lieferschein4),
+     {lieferschein2,_,[{10,"a0005",[]},{ 1,"a0004",[]}]}] = mypl_prov_query:provpipeline_list_new(),
+    {lieferschein4,_,_} = mypl_prov_query:provpipeline_info(lieferschein4),
     ok.
         
 
@@ -779,7 +657,7 @@ mypl_simple_test() ->
     [{P4id,lieferschein4,"AUSLAG",_,1,[{_,"mui4","010201",1,"a0004",[]},
                                        {_,"mui5","010301",1,"a0005",[]}]}] = P4,
     P1 = get_picklists(),
-    [{P1id,lieferschein1,"AUSLAG",_,2,[{"P00000249","mui4","010201",1,"a0004",[]}]}] = P1,
+    [{P1id,lieferschein1,"AUSLAG",_,2,[{_,"mui4","010201",1,"a0004",[]}]}] = P1,
     P3 = get_picklists(),
     [{P3id,lieferschein3,"AUSLAG",_,1,[{_,"mui4","010201",16,"a0004",[]},
                                        {_,"mui5","010301",50,"a0005",[]}]}] = P3,
@@ -788,25 +666,25 @@ mypl_simple_test() ->
                                        {_,"mui5","010301",10,"a0005",[]}]}] = P2,
     
     % at this time we should have one retrieval prepared
-    ?assertMatch([{retrievalpipeline,_,lieferschein1,_,_}], provpipeline_list_prepared()),
+    ?assertMatch([{retrievalpipeline,_,lieferschein1,_,_}], mypl_prov_query:provpipeline_list_prepared()),
     
     R1 = get_retrievallists(),
     [{R1id,lieferschein1,"AUSLAG",_,2,[{_,"mui6","010302",10,"a0005",_}]}] = R1,
     
-    [Id1,_Id2,_Id3,_Id4,_Id5] = provisioninglist_list(),
-    ?assertMatch({ok, _}, provisioninglist_info(Id1)),
+    [Id1,_Id2,_Id3,_Id4,_Id5] = mypl_prov_query:provisioninglist_list(),
+    ?assertMatch({ok, _}, mypl_prov_query:provisioninglist_info(Id1)),
     
     % TODO: test
     % update_pipeline({versandtermin, lieferschein1, "2007-10-01"}),
     
     % provpipeline should be empty now
-    ?assertMatch([], provpipeline_list_prepared()),
-    ?assertMatch([], provpipeline_list_new()),
+    ?assertMatch([], mypl_prov_query:provpipeline_list_prepared()),
+    ?assertMatch([], mypl_prov_query:provpipeline_list_new()),
     ?assertMatch([{lieferschein4,_,[{1,"a0005",[]},{1,"a0004",[]}]},
                   {lieferschein1,_,[{10,"a0005",[]},{1,"a0004",[]}]},
                   {lieferschein3,_,[{50,"a0005",[]},{16,"a0004",[]}]},
                   {lieferschein2,_,[{10,"a0005",[]},{1,"a0004",[]}]}],
-                 provpipeline_list_processing()),
+                 mypl_prov_query:provpipeline_list_processing()),
     % checks that goods are reserved for picking and retrieval
     ?assertMatch([{"a0003",10,10,0,0},{"a0004",36,17,19,0},{"a0005",71,0,61,10}],
                  mypl_db_query:count_products()),
@@ -819,10 +697,6 @@ mypl_simple_test() ->
     ?assertMatch(provisioned, commit_picklist(P2id)),
     ?assertMatch(provisioned, commit_picklist(P3id)),
     ?assertMatch(provisioned, commit_picklist(P4id)),
-    mark_as_finished(lieferschein1),
-    mark_as_finished(lieferschein2),
-    mark_as_finished(lieferschein3),
-    mark_as_finished(lieferschein4),
     
     % check that goods are removed from warehouse now
     ?assertMatch([{"a0003",10,10,0,0},{"a0004",17,17,0,0}], mypl_db_query:count_products()),
@@ -843,15 +717,15 @@ reinsert_test() ->
 
 delete_test() ->
     test_init(),
-    ok = delete_pipeline(lieferschein1),
+    ok = mypl_prov_special:delete_pipeline(lieferschein1),
     [{lieferschein4,_,[{1,"a0005",[]},{1,"a0004",[]}]},
      {lieferschein3,_,[{50,"a0005",[]},{16,"a0004",[]}]},
-     {lieferschein2,_,[{10,"a0005",[]},{1,"a0004",[]}]}] = provpipeline_list_new(),
+     {lieferschein2,_,[{10,"a0005",[]},{1,"a0004",[]}]}] = mypl_prov_query:provpipeline_list_new(),
     % can't delete because picks are all already open.
     _P1 = get_picklists(),
     _P2 = get_picklists(),
     _P3 = get_picklists(),
-    {error, _, _} = delete_pipeline(lieferschein4),
+    {error, _, _} = mypl_prov_special:delete_pipeline(lieferschein4),
     ok.
     
 

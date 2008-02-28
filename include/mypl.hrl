@@ -1,18 +1,17 @@
 % Record definitions
 
 % dies stellt einen Lagerplatz im Regal dar.
--record(location, {
-    name,             % platznummer
-    height,           % platzhöhe in mm
-    floorlevel,       % kann der platz ohne Stapler bedient werden?
-    allocated_by,     % liste der muis, die diesen platz belegen
-    reserved_for,     % liste der muis, die auf dem weg zu diesem platz sind
-    preference,       % plätze mit höherer preference werden bevorzugt befüllt, sollte zwischen 0-9 liegen
-    info,             % anmerkungen
-    attributes        % Liste von attributen: [
-                      % no_picks - von diesm Platz darf nicht komissioniert werden (z.B. EINLAG)
-                      %            keine picks und retrievals
-                      % ]
+-record(location, {name,             % platznummer
+                   height,           % platzhöhe in mm
+                   floorlevel,       % kann der platz ohne Stapler bedient werden?
+                   allocated_by,     % liste der muis, die diesen platz belegen
+                   reserved_for,     % liste der muis, die auf dem weg zu diesem platz sind
+                   preference,       % plätze mit höherer preference werden bevorzugt befüllt, sollte zwischen 0-9 liegen
+                   info,             % anmerkungen
+                   attributes        % Liste von attributen: [
+                                     % no_picks - von diesm Platz darf nicht komissioniert werden (z.B. EINLAG)
+                                     %            keine picks und retrievals
+                                     % ]
                    }).    
 
 
@@ -47,11 +46,10 @@
                }).
 
 % keeps IDs to detect dupes in store_at_location_multi
--record(multistorage, 
-    {id,
-    muis,
-    attributes,
-    created_at}).
+-record(multistorage, {id,
+                      muis,
+                      attributes,
+                      created_at}).
     
 
 % reservation of a location - usually for a movement
@@ -63,46 +61,41 @@
                 }).
 
 % keep information about changes in stock ("Korrekturbuchungen")
--record(correction, 
-    {id,
-    old_quantity,
-    product,
-    mui,
-    location,
-    change_quantity,
-    text,
-    attributes,
-    created_at}).
+-record(correction, {id,
+                    old_quantity,
+                    product,
+                    mui,
+                    location,
+                    change_quantity,
+                    text,
+                    attributes,
+                    created_at}).
     
 
 % orders to be provisioned
--record(provpipeline,
-            {id,
-             priority,          % the higher the number the higher the priority
-             orderlines,
-             weigth,
-             volume,
-             status,            % new, processing, provisioned
-             tries,             % how often we tried to find a match for that pick
-             provisioninglists, % retrievallists and picklists
-             attributes         % propertylist
-            }).
-
+-record(provpipeline, {id,
+                       priority,          % the higher the number the higher the priority, typically 1-9
+                       orderlines,
+                       weigth,
+                       volume,
+                       status,            % new, processing, provisioned
+                       tries,             % how often we tried to find a match for that pick
+                       provisioninglists, % retrievallists and picklists
+                       attributes         % propertylist
+                      }).
+    
 
 % list of the already given out provisioninglist entries
--record(provisioninglist,
-            {id,
-             type,
-             provpipeline_id,
-             destination,
-             attributes,
-             parts,
-             provisionings
-             % TODO:
-             % find a better way to store provisionings
-             % add created_at
-             % add status
-            }).
+-record(provisioninglist, {id,
+                           type,
+                           provpipeline_id,
+                           destination,
+                           attributes,
+                           parts,
+                           provisionings,
+                           status,
+                           created_at
+                          }).
 
 -record(pickpipeline,
             {id,

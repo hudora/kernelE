@@ -49,21 +49,21 @@ funcdefs = [
 ('mypl_provisioning', 'init_provisionings_multi', 'JsonList', ['async']),
 
 ('mypl_provpipeline', 'insert_pipeline', 'JsonList', []),
+('mypl_provpipeline', 'commit_picklist', 'CId', []),
+('mypl_provpipeline', 'commit_retrievallist', 'CId', []),
 ('mypl_provpipeline', 'get_picklists', '', ['async']),
 ('mypl_provpipeline', 'get_retrievallists', '', ['async']),
 ('mypl_provpipeline', 'get_movementlist', '', ['async']),
-('mypl_provpipeline', 'commit_picklist', 'CId', []),
-('mypl_provpipeline', 'commit_retrievallist', 'CId', []),
-('mypl_provpipeline', 'commit_movementlist', 'CId', []),
-('mypl_provpipeline', 'is_provisioned', 'CId', []),
-('mypl_provpipeline', 'provpipeline_info', 'CId', []),
-('mypl_provpipeline', 'provpipeline_list_new', '', ['async']),
-('mypl_provpipeline', 'provpipeline_list_processing', '', ['async']),
-('mypl_provpipeline', 'provpipeline_list_prepared', '', ['async']),
-('mypl_provpipeline', 'provpipeline_processing_list_all', '', ['async']),
-('mypl_provpipeline', 'provisioninglist_list', '', ['async']),
-('mypl_provpipeline', 'provisioninglist_info', 'CId', []),
-('mypl_provpipeline', 'delete_pipeline', 'CId', []),
+
+('mypl_prov_query', 'provpipeline_info', 'CId', []),
+('mypl_prov_query', 'provpipeline_list_new', '', ['async']),
+('mypl_prov_query', 'provpipeline_list_processing', '', ['async']),
+('mypl_prov_query', 'provpipeline_list_prepared', '', ['async']),
+('mypl_prov_query', 'provisioninglist_list', '', ['async']),
+('mypl_prov_query', 'provisioninglist_info', 'CId', []),
+
+('mypl_prov_special', 'delete_pipeline', 'CId', []),
+('mypl_prov_special', 'update_pipeline', 'JsonList', []),
 
 ('mypl_audit', 'get_articleaudit', 'Product', ['async']),
 ('mypl_audit', 'get_unitaudit', 'Mui', ['async']),
@@ -71,7 +71,7 @@ funcdefs = [
 ('mypl_audit', 'get_recent_from_archive', 'Type', ['async']),
 
 ('mypl_abcserver', 'get_abc', '', ['async']),
-('mypl_abcserver', 'get_abcclass', '', ['async']),
+('mypl_abcserver', 'get_abcclass', 'Product', ['async']),
 
 ('mypl_nveserver', 'make_oid', '', []),
 ('mypl_nveserver', 'make_nve', '', []),

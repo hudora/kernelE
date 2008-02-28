@@ -31,12 +31,16 @@
 -include_lib("stdlib/include/qlc.hrl").
 -include("include/mypl.hrl").
 
+% There should be at least MINFLOORFREE locations free at floorlevel
+-define(MINFLOORFREE, 10).
+
+
 -export([unwanted_location_units/0,
          get_floor_removal_unit/0, count_empty_floor_locations/0, 
          get_movementsuggestion_from_floorcleaner/0,
          get_movementsuggestion_from_unwanted_locations/0, 
          show_movementsuggestions/0,
-         create_automatic_movements/0, more_than_one_floorunit/0]).
+         create_automatic_movements/0, create_automatic_movements/1, more_than_one_floorunit/0]).
 -compile(export_all).
 
 unwanted_location_units_helper([]) -> [];
@@ -106,7 +110,7 @@ get_floor_removal_products() ->
     Penner = ordsets:from_list(mypl_abcserver:get_penner()),
     Doppelboden = ordsets:from_list(more_than_one_floorunit()),
     Einzelboden = ordsets:from_list([Product || {Quantity, Product} <- floorunits(), Quantity =:= 1]),
-    InPipeline = lists:sort([Y || {_X, Y} <- mypl_provpipeline:pipelinearticles()]),
+    InPipeline = lists:sort([Y || {_X, Y} <- mypl_prov_query:pipelinearticles()]),
     Alle = ordsets:union([A, B, C]),
     Boden = ordsets:union([Einzelboden, Doppelboden]),
     % @TODO: create a way to find open orders
@@ -188,9 +192,11 @@ get_floor_removal_unit2([Product|CandidateProducts]) ->
     end.
     
 
+%% @doc Cont the number of Enpty, non Priority 1 Locations at floorlevel.
 count_empty_floor_locations() ->
     Fun = fun() ->
-        length([X || X <- mypl_db_util:find_empty_location(1950), X#location.floorlevel =:= true])
+        length([X || X <- mypl_db_util:find_empty_location(1950), X#location.floorlevel =:= true,
+                                                                  X#location.preference > 1 ])
     end,
     mypl_db_util:transaction(Fun).
     
@@ -200,7 +206,7 @@ count_empty_floor_locations() ->
 %% see the configuration option minimum_free_floor
 get_movementsuggestion_from_floorcleaner() ->
     Empty = count_empty_floor_locations(),
-    MinEmpty = 15, % A minimum of 15 locations must be free at floorlevel
+    MinEmpty = ?MINFLOORFREE, % A minimum of 15 locations must be free at floorlevel
     if
         Empty < MinEmpty ->
             case get_floor_removal_unit() of
@@ -331,12 +337,14 @@ show_movementsuggestions() ->
     ].
     
 
+init_automovements() ->
+    init_automovements([]).
 %% @doc generate movements
 %% 
 %% the movements are generated either based on the results from
 %% {@link get_movementsuggestion_from_floorcleaner/0}, {@link get_movementsuggestion_from_requesttracker/0} or if this yields nor results based on
 %% {@link get_movementsuggestion_from_abc/0}.
-init_automovements() ->
+init_automovements(Attributes) ->
     case get_movementsuggestion_from_unwanted_locations() of
         [] ->
            case get_movementsuggestion_from_floorcleaner() of
@@ -355,13 +363,14 @@ init_automovements() ->
                             %end;
                             {ok, []};
                         L3 ->
-                            {ok, init_movements(L3, [{mypl_notify_requesttracker}, {reason, requesttracker}])}
+                            {ok, init_movements(L3, [{mypl_notify_requesttracker},
+                                                     {reason, requesttracker}|Attributes])}
                     end;
                 L2 ->
-                    {ok, init_movements(L2, [{reason, floorcleaner}])}
+                    {ok, init_movements(L2, [{reason, floorcleaner}|Attributes])}
             end;
         L1 ->
-            {ok, init_movements(L1, [{reason, unwanted_locations}])}
+            {ok, init_movements(L1, [{reason, unwanted_locations}|Attributes])}
     end.
     
 
@@ -379,11 +388,13 @@ init_movements(L, Attributes) when is_list(L), is_list(Attributes) ->
     mypl_db_util:transaction(Fun).
     
 
+create_automatic_movements() ->
+    create_automatic_movements([]).
 %% @doc create one or more movements which make the warehouse a better place ...
 %% 
 %% ... by cleaning it up and optimizing.
-create_automatic_movements() ->
-    init_automovements().
+create_automatic_movements(Attributes) ->
+    init_automovements(Attributes).
 
 
 % ~~ Unit tests

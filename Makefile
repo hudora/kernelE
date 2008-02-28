@@ -119,6 +119,6 @@ ebin/mypl_server.beam: src/mypl_server.erl include/auto_genserverapi.hrl
 ebin/mypl_tcp_session.beam: src/mypl_tcp_session.erl include/auto_tcpapi.hrl
 	${CMD_ERLC} ${BUILDOPT} -o ebin $<
 
-ebin/%.beam : src/%.erl
+ebin/%.beam : src/%.erl include/mypl.hrl
 	${CMD_ERLC} ${BUILDOPT} -o ebin $<
 

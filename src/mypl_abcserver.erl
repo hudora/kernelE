@@ -38,7 +38,7 @@
 
 
 %% API
--export([run_me_once/0, start_link/0, feed/3, get_abc/0, get_penner/0, get_class/1]).
+-export([run_me_once/0, start_link/0, feed/3, get_abc/0, get_penner/0, get_abcclass/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -83,7 +83,7 @@ get_penner() ->
     
 
 %% @doc retuns the class for a specific product
-get_class(Product) ->
+get_abcclass(Product) ->
     gen_server:call(?SERVER, {get_class, Product}).
     
 

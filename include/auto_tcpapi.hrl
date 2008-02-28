@@ -161,15 +161,6 @@ handle_command("insert_pipeline", _Parameters, State) ->
     % implementation for insert_pipeline,
     {ok, NewJsonList, _} = rfc4627:decode(_Parameters),
     {noreply, reply(220, rfc4627:encode(mypl_server:insert_pipeline(NewJsonList)), reset_buffers(State))};
-handle_command("get_picklists", _Parameters, State) ->
-    % implementation for get_picklists,
-    {noreply, reply(220, rfc4627:encode(mypl_server:get_picklists()), reset_buffers(State))};
-handle_command("get_retrievallists", _Parameters, State) ->
-    % implementation for get_retrievallists,
-    {noreply, reply(220, rfc4627:encode(mypl_server:get_retrievallists()), reset_buffers(State))};
-handle_command("get_movementlist", _Parameters, State) ->
-    % implementation for get_movementlist,
-    {noreply, reply(220, rfc4627:encode(mypl_server:get_movementlist()), reset_buffers(State))};
 handle_command("commit_picklist", _Parameters, State) ->
     % implementation for commit_picklist,
     Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
@@ -182,18 +173,15 @@ handle_command("commit_retrievallist", _Parameters, State) ->
     [CId] = Tokens,
     NewCId = convertString(CId),
     {noreply, reply(220, rfc4627:encode(mypl_server:commit_retrievallist(NewCId)), reset_buffers(State))};
-handle_command("commit_movementlist", _Parameters, State) ->
-    % implementation for commit_movementlist,
-    Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
-    [CId] = Tokens,
-    NewCId = convertString(CId),
-    {noreply, reply(220, rfc4627:encode(mypl_server:commit_movementlist(NewCId)), reset_buffers(State))};
-handle_command("is_provisioned", _Parameters, State) ->
-    % implementation for is_provisioned,
-    Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
-    [CId] = Tokens,
-    NewCId = convertString(CId),
-    {noreply, reply(220, rfc4627:encode(mypl_server:is_provisioned(NewCId)), reset_buffers(State))};
+handle_command("get_picklists", _Parameters, State) ->
+    % implementation for get_picklists,
+    {noreply, reply(220, rfc4627:encode(mypl_server:get_picklists()), reset_buffers(State))};
+handle_command("get_retrievallists", _Parameters, State) ->
+    % implementation for get_retrievallists,
+    {noreply, reply(220, rfc4627:encode(mypl_server:get_retrievallists()), reset_buffers(State))};
+handle_command("get_movementlist", _Parameters, State) ->
+    % implementation for get_movementlist,
+    {noreply, reply(220, rfc4627:encode(mypl_server:get_movementlist()), reset_buffers(State))};
 handle_command("provpipeline_info", _Parameters, State) ->
     % implementation for provpipeline_info,
     Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
@@ -224,6 +212,10 @@ handle_command("delete_pipeline", _Parameters, State) ->
     [CId] = Tokens,
     NewCId = convertString(CId),
     {noreply, reply(220, rfc4627:encode(mypl_server:delete_pipeline(NewCId)), reset_buffers(State))};
+handle_command("update_pipeline", _Parameters, State) ->
+    % implementation for update_pipeline,
+    {ok, NewJsonList, _} = rfc4627:decode(_Parameters),
+    {noreply, reply(220, rfc4627:encode(mypl_server:update_pipeline(NewJsonList)), reset_buffers(State))};
 handle_command("get_articleaudit", _Parameters, State) ->
     % implementation for get_articleaudit,
     Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
@@ -253,7 +245,10 @@ handle_command("get_abc", _Parameters, State) ->
     {noreply, reply(220, rfc4627:encode(mypl_server:get_abc()), reset_buffers(State))};
 handle_command("get_abcclass", _Parameters, State) ->
     % implementation for get_abcclass,
-    {noreply, reply(220, rfc4627:encode(mypl_server:get_abcclass()), reset_buffers(State))};
+    Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
+    [Product] = Tokens,
+    NewProduct = convertString(Product),
+    {noreply, reply(220, rfc4627:encode(mypl_server:get_abcclass(NewProduct)), reset_buffers(State))};
 handle_command("make_oid", _Parameters, State) ->
     % implementation for make_oid,
     {noreply, reply(220, rfc4627:encode(mypl_server:make_oid()), reset_buffers(State))};
@@ -316,13 +311,11 @@ find_provisioning_candidates Quantity,Product
 find_provisioning_candidates_multi JsonList
 init_provisionings_multi JsonList
 insert_pipeline JsonList
+commit_picklist CId
+commit_retrievallist CId
 get_picklists 
 get_retrievallists 
 get_movementlist 
-commit_picklist CId
-commit_retrievallist CId
-commit_movementlist CId
-is_provisioned CId
 provpipeline_info CId
 provpipeline_list_new 
 provpipeline_list_processing 
@@ -330,12 +323,13 @@ provpipeline_list_prepared
 provisioninglist_list 
 provisioninglist_info CId
 delete_pipeline CId
+update_pipeline JsonList
 get_articleaudit Product
 get_unitaudit Mui
 get_articlecorrection Product
 get_recent_from_archive Type
 get_abc 
-get_abcclass 
+get_abcclass Product
 make_oid 
 make_nve 
 dump_requests 

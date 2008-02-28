@@ -153,7 +153,7 @@ best_location_helper(Unit) ->
     Candidates = [X || X <- find_empty_location(Unit#unit.height), X#location.preference > 0],
     if
         % for Units on EINLAG we do no distance calculations but base on ABC classification
-        "EINLAG" =:= Unit#unit.location -> Class = mypl_abcserver:get_class(Unit#unit.product);
+        "EINLAG" =:= Unit#unit.location -> Class = mypl_abcserver:get_abcclass(Unit#unit.product);
         true -> Class = unknown
     end,
     % order by heigth, so we prefer lower locations (and in addition order by preference)

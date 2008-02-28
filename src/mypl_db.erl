@@ -16,10 +16,12 @@
 -include_lib("stdlib/include/qlc.hrl").
 -include("include/mypl.hrl").
 
--export([init_table_info/2, run_me_once/0, init_location/6, init_location/5,store_at_location/5, update_unit/1, retrieve/1,
- init_movement/2, init_movement/3, init_movement_to_good_location/1, commit_movement/1, rollback_movement/1,
+-export([init_table_info/2, run_me_once/0, init_location/6, init_location/5,
+ store_at_location/5, store_at_location_multi/1, update_unit/1, retrieve/1,
+ init_movement/2, init_movement/3, init_movement_to_good_location/1,
+ commit_movement/1, rollback_movement/1, update_movement/1,
  commit_retrieval/1, rollback_retrieval/1,
- init_pick/2, init_pick/3, commit_pick/1, rollback_pick/1,
+ init_pick/2, init_pick/3, commit_pick/1, rollback_pick/1, update_pick/1,
  backup/0,
  correction/6, correction/1]).
 
@@ -89,7 +91,7 @@ run_me_once() ->
                                     [id,created_at,archived_by,type,body_id,body])
                                     })
     end,
-
+    
     init_location("EINLAG", 3000, true,  0, [{no_picks}]),
     init_location("AUSLAG", 3000, true,  0, [{no_picks}]),
     init_location("FEHLER", 3000, true,  0, [{no_picks}]),
@@ -506,7 +508,16 @@ rollback_movement(MovementId) ->
     end,
     {atomic, Ret} = mnesia:transaction(Fun),
     {ok, Ret}.
+    
 
+update_movement({attributes, MovementId, Attributes}) when is_list(Attributes) ->
+    Fun = fun() ->
+        [Movement] = mnesia:read({movement, MovementId}),
+        mnesia:write(Movement#movement{attributes=Attributes})
+    end,
+    mypl_db_util:transaction(Fun),
+    ok.
+    
 
 %% @see commit_movement/1
 %% @see retrieve/1
@@ -640,6 +651,15 @@ rollback_pick(PickId) ->
     end,
     {atomic, Ret} = mnesia:transaction(Fun),
     {ok, Ret}.
+    
+
+update_pick({attributes, PickId, Attributes}) when is_list(Attributes) ->
+    Fun = fun() ->
+        [Pick] = mnesia:read({pick, PickId}),
+        mnesia:write(Pick#pick{attributes=Attributes})
+    end,
+    mypl_db_util:transaction(Fun),
+    ok.
     
 
 %% @private
@@ -906,6 +926,28 @@ mypl_correction_test() ->
     ?assertMatch({error, missmatch, {15, "a0001", 13, "a0001", "mui1"}}, correction(id4, "mui1", 15, "a0001", -2, [])),
     % wrong product
     ?assertMatch({error, missmatch, _}, correction(id5, "mui1", 13, "a2222", -2, [])),
+    ok.
+    
+
+mypl_update_movement_test() ->
+    test_init(),
+    {ok, Mui} = store_at_location("EINLAG", "mui1", 5, "a0001", 1200),
+    {ok, Movement1} = init_movement(Mui, "010101"),
+    ok = update_movement({attributes, Movement1, [{foo, bar}]}),
+    {ok, Properties} = mypl_db_query:movement_info(Movement1),
+    Attributes = proplists:get_value(attributes, Properties),
+    ?assertMatch(bar, proplists:get_value(foo, Attributes)),
+    ok.
+    
+
+mypl_update_pick_test() ->
+    test_init(),
+    {ok, Mui} = store_at_location("EINLAG", "mui1", 5, "a0001", 1200),
+    {ok, Pick1} = init_pick(2, Mui),
+    ok = update_pick({attributes, Pick1, [{foo, bar}]}),
+    {ok, Properties} = mypl_db_query:pick_info(Pick1),
+    Attributes = proplists:get_value(attributes, Properties),
+    ?assertMatch(bar, proplists:get_value(foo, Attributes)),
     ok.
     
 
