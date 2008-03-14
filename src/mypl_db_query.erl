@@ -139,7 +139,7 @@ unit_list() ->
 %% @doc gets a tuple with information concerning a unit
 unit_info(Mui) -> 
     Fun = fun() ->
-        case mypl_db_util:mui_to_unit_trans(Mui) of
+        case mypl_db_util:mui_to_unit_archive_trans(Mui) of
             {error, Reason, Info} ->
                 {error, Reason, Info};
             Unit ->
@@ -151,17 +151,17 @@ unit_info(Mui) ->
                 end,
                 PickIds  = mypl_db_util:do(qlc:q([X#pick.id || X <- mnesia:table(pick), X#pick.from_unit =:= Mui])),
                 {ok,
-                 {{mui ,           Unit#unit.mui},
+                 [{mui ,           Unit#unit.mui},
                   {quantity,       Unit#unit.quantity},
                   {product,        Unit#unit.product},
                   {height,         Unit#unit.height},
                   {pick_quantity,  Unit#unit.pick_quantity},
                   {location,       Unit#unit.location},
                   {created_at,     Unit#unit.created_at},
-                  {attributes,     []},
+                  {attributes,     Unit#unit.attributes},
                   {movements,      Movements},
                   {picks,          PickIds}
-                 }
+                 ]
                 }
         end
     end,

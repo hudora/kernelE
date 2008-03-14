@@ -79,6 +79,8 @@ funcdefs = [
 ('mypl_requesttracker', 'dump_requests', '', []),
 
 ('mypl_volumes', 'feed_eap', 'Product, Prod_ve1, Prod_exportpackage, Export_pallet, Prod_x, Prod_y, Prod_z, Prod_g, Ve1_x, Ve1_y, Ve1_z, Ve1_g, Export_x, Export_y, Export_z, Export_g', []),
+
+('mypl_statistics', 'statistics', '', []),
 ]
 
 

@@ -279,6 +279,9 @@ handle_command("feed_eap", _Parameters, State) ->
     NewExport_z = convertPositiveInteger(Export_z),
     NewExport_g = convertPositiveInteger(Export_g),
     {noreply, reply(220, rfc4627:encode(mypl_server:feed_eap(NewProduct,NewProd_ve1,NewProd_exportpackage,NewExport_pallet,NewProd_x,NewProd_y,NewProd_z,NewProd_g,NewVe1_x,NewVe1_y,NewVe1_z,NewVe1_g,NewExport_x,NewExport_y,NewExport_z,NewExport_g)), reset_buffers(State))};
+handle_command("statistics", _Parameters, State) ->
+    % implementation for statistics,
+    {noreply, reply(220, rfc4627:encode(mypl_server:statistics()), reset_buffers(State))};
 
 handle_command("help", _Parameters, State) -> {noreply, reply(220, "Help follows:
 backup 
@@ -333,7 +336,8 @@ get_abcclass Product
 make_oid 
 make_nve 
 dump_requests 
-feed_eap Product,Prod_ve1,Prod_exportpackage,Export_pallet,Prod_x,Prod_y,Prod_z,Prod_g,Ve1_x,Ve1_y,Ve1_z,Ve1_g,Export_x,Export_y,Export_z,Export_g", reset_buffers(State))};
+feed_eap Product,Prod_ve1,Prod_exportpackage,Export_pallet,Prod_x,Prod_y,Prod_z,Prod_g,Ve1_x,Ve1_y,Ve1_z,Ve1_g,Export_x,Export_y,Export_z,Export_g
+statistics ", reset_buffers(State))};
 handle_command("quit", _ClientDomain, State) -> {stop, normal, reply(201, "Goodbye", reset_buffers(State))};
 handle_command(Command, _Parameters, State) -> {noreply, reply(500, "Unsupported command " ++ Command, State)}.
 

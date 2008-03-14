@@ -54,6 +54,7 @@
                     created_at
                    }).
 
+% @TODO remove auditbuffer
 % archiviert units, movements und picks
 -record(auditbuffer, {id,           % eindeutiger Bezeichner
                       body
@@ -74,6 +75,7 @@
 
 run_me_once() ->
     % Tables kept in RAM with disk based backing
+    % @TODO: remove auditbuffer
     mypl_db:init_table_info(mnesia:create_table(auditbuffer,      [{disc_copies, [node()]}, {attributes, record_info(fields, auditbuffer)}]), auditbuffer),
     % Disk only Tables
     mypl_db:init_table_info(mnesia:create_table(archive,          [{disc_only_copies, [node()]}, {attributes, record_info(fields, archive)}]), archive),
@@ -153,12 +155,12 @@ get_unitaudit_helper(Uaudit) ->
 %% Transaction can be an movementID or an pickID.
 articleaudit(Quantity, Product, Text, Mui, Transaction, References) ->
     Fun = fun() ->
-            mnesia:write(#auditbuffer{id=mypl_util:oid(),
-                                      body=#articleaudit{id="a" ++ mypl_util:oid(), quantity=Quantity, product=Product,
-                                                         text=Text, mui=Mui, transaction=Transaction,
-                                                         references=References, created_at=calendar:universal_time()}})
+            mnesia:write_dirty(#articleaudit{id="a" ++ mypl_util:oid(), quantity=Quantity, product=Product,
+                                             text=Text, mui=Mui, transaction=Transaction,
+                                             references=References, created_at=calendar:universal_time()})
           end,
     mnesia:transaction(Fun).
+    
 
 %% @private
 %% @spec articleaudit(integer(), product(), string(), muiID(), all()) -> {ok, atomic}
@@ -171,27 +173,26 @@ articleaudit(Quantity, Product, Text, Mui, Transaction) ->
 %% @doc dump information about changes of stock
 articleaudit(Quantity, Product, Text, Mui) ->
     articleaudit(Quantity, Product, Text, Mui, undefined).
-
+    
 
 unitaudit_mui(Mui, Text) ->
     Fun = fun() ->
-            mnesia:write(#auditbuffer{id=mypl_util:oid(),
-                                      body=#unitaudit{id="A" ++ mypl_util:oid(),
-                                                      mui=Mui, text=Text, created_at=calendar:universal_time()}})
+            mnesia:write_dirty(#unitaudit{id="A" ++ mypl_util:oid(),
+                                          mui=Mui, text=Text, created_at=calendar:universal_time()})
           end,
     mnesia:transaction(Fun).
+    
 
 %% @private
 %% @spec unitaudit(unitRecord(), string(), string(), externalReferences()) -> {ok, atomic}
 %% @doc to be called whenever Units are moved in the warehouse.
 unitaudit(Unit, Text, Transaction, References) ->
     Fun = fun() ->
-            mnesia:write(#auditbuffer{id=mypl_util:oid(),
-                                      body=#unitaudit{id="A" ++ mypl_util:oid(),
-                                                      mui=Unit#unit.mui, quantity=Unit#unit.quantity, product=Unit#unit.product,
-                                                      text=Text, transaction=Transaction,
-                                                      references=References, created_at=calendar:universal_time()}})
-          end,
+        mnesia:write_dirty(#unitaudit{id="A" ++ mypl_util:oid(),
+                                      mui=Unit#unit.mui, quantity=Unit#unit.quantity, product=Unit#unit.product,
+                                      text=Text, transaction=Transaction,
+                                      references=References, created_at=calendar:universal_time()})
+    end,
     mnesia:transaction(Fun).
 
 %% @spec unitaudit(unitRecord(), string(), string()) -> {ok, atomic}
@@ -208,15 +209,16 @@ unitaudit(Unit, Text) ->
 %% @doc archives an Unit, Movement, Pick when it is deleted.
 archive(Object, Archivaltype) ->
     Fun = fun() ->
-        mnesia:write(#auditbuffer{id=mypl_util:oid(),
-                                  body=#archive{id="R" ++ mypl_util:oid(),
-                                                body=Object, archived_by=Archivaltype,
-                                                created_at=mypl_util:timestamp(),
-                                                type=element(1, Object),
-                                                body_id=element(2, Object)}})
+        mnesia:dirty_write(#archive{id="R" ++ mypl_util:oid() ++ element(2, Object),
+                                    body=Object, archived_by=Archivaltype,
+                                    created_at=mypl_util:timestamp(),
+                                    type=element(1, Object),
+                                    body_id=element(2, Object)})
     end,
     {atomic, _} = mnesia:transaction(Fun),
     ok.
+    
+
 
 %% @doc retrives the entry with type and id from the archive
 get_from_archive(Type, Id) ->
@@ -234,6 +236,7 @@ get_recent_from_archive(Type) ->
     get_recent_from_archive(erlang:list_to_atom(Type)).
     
 
+% @TODO: remove auditbuffer
 %% TODO: chage from dirty to transaction based
 %% @doc transfer data from temporary audit table to it's final destination
 transfer_buffers() ->

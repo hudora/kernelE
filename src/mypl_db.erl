@@ -441,6 +441,36 @@ init_movement_to_good_location(Mui) ->
     Ret.
     
 
+%% @doc This is used by commit_movement and commit_retrieval
+%%
+%% Needs to be called within a transaction
+commit_movement_backend(Movement) ->
+    % get unit for Mui & get current location of mui
+    Unit = mypl_db_util:mui_to_unit(Movement#movement.mui),
+    Source = mypl_db_util:get_mui_location(Movement#movement.mui),
+    From = Movement#movement.from_location,
+    From = Source#location.name,
+    % check destination exists
+    Destination = mypl_db_util:read_location(Movement#movement.to_location),
+    % change locationdata
+    teleport(Unit, Source, Destination),
+    mypl_audit:archive(Movement#movement{attributes=Movement#movement.attributes
+                                         ++ [{committed_at, mypl_util:timestamp()}]},
+                       commit_movement),
+    ok = mnesia:delete({movement, Movement#movement.id}),
+    mypl_audit:unitaudit(Unit, "Umlagerung von " ++ Source#location.name ++ " nach "
+                  ++ Destination#location.name ++ " comitted", Movement#movement.id),
+    
+    ok = mnesia:delete({reservation, (Movement#movement.to_location ++ "-" ++ Movement#movement.mui)}),
+    case (lists:member({mypl_notify_requesttracker}, Movement#movement.attributes) 
+          andalso Movement#movement.to_location /= "AUSLAG") of
+        true ->
+            mypl_requesttracker:movement_done(Unit#unit.quantity, Unit#unit.product);
+        _ -> []
+    end,
+    {ok, Destination#location.name}.
+    
+
 %% @spec commit_movement(movementID()) -> locationName()
 %% @see rollback_movement/1
 %% @doc finish a movement
@@ -451,33 +481,15 @@ init_movement_to_good_location(Mui) ->
 commit_movement(MovementId) ->
     Fun = fun() ->
         [Movement] = mnesia:read({movement, MovementId}),
-        % get unit for Mui & get current location of mui
-        Unit = mypl_db_util:mui_to_unit(Movement#movement.mui),
-        Source = mypl_db_util:get_mui_location(Movement#movement.mui),
-        From = Movement#movement.from_location,
-        From = Source#location.name,
-        % check destination exists
-        Destination = mypl_db_util:read_location(Movement#movement.to_location),
-        % change locationdata
-        teleport(Unit, Source, Destination),
-        mypl_audit:archive(Movement#movement{attributes=Movement#movement.attributes
-                                             ++ [{committed_at, mypl_util:timestamp()}]},
-                           commit_movement),
-        ok = mnesia:delete({movement, MovementId}),
-        mypl_audit:unitaudit(Unit, "Umlagerung von " ++ Source#location.name ++ " nach "
-                      ++ Destination#location.name ++ " comitted", Movement#movement.id),
-        
-        ok = mnesia:delete({reservation, (Movement#movement.to_location ++ "-" ++ Movement#movement.mui)}),
-        case (lists:member({mypl_notify_requesttracker}, Movement#movement.attributes) 
-              andalso Movement#movement.to_location /= "AUSLAG") of
-            true ->
-                mypl_requesttracker:movement_done(Unit#unit.quantity, Unit#unit.product);
-            _ -> []
-        end,
-        Destination#location.name
+        %%% check we don't commit a retrieval as a movement leaving goods lying arround on AUSLAG
+        case proplists:get_value(kernel_type, Movement#movement.attributes) of
+            retrieval ->
+                {error, retrieval_is_no_movement, [Movement]};
+            _ ->
+                commit_movement_backend(Movement)
+        end
     end,
-    {atomic, Ret} = mnesia:transaction(Fun),
-    {ok, Ret}.
+    mypl_db_util:transaction(Fun).
     
 
 %% @spec rollback_movement(movementID()) -> locationName()
@@ -527,17 +539,18 @@ commit_retrieval(MovementId) ->
         [Movement] = mnesia:read({movement, MovementId}),
         % get unit for Mui & get current location of mui
         Unit = mypl_db_util:mui_to_unit(Movement#movement.mui),
-        {ok, _ } = commit_movement(MovementId),
+        {ok, _ } = commit_movement_backend(Movement),
         {ok, {_, _}} = retrieve(Unit#unit.mui)
     end,
-    {atomic, Ret} = mnesia:transaction(Fun),
-    {ok, Ret}.
+    mypl_db_util:transaction(Fun).
     
 
 %% @see rollback_movement/1
 %% @doc alias for rollback_movement/1
 rollback_retrieval(MovementId) ->
     rollback_movement(MovementId).
+
+
 
 init_pick(Quantity, Mui) ->
     init_pick(Quantity, Mui, []).
@@ -695,51 +708,57 @@ correction([Uid, Mui, OldQuantity, Product, ChangeQuantity, Attributes]) ->
 %%                      {ok, integer(), muID()}|{error, reason, term()}
 %%           Attributes = [{name, value}]
 %% @doc changes the quantity on an unit after stocktaking
+%% Uid is a arbitary unique  ID for this correction. The caller must provide ot old quantity and the product
+%% to aivoid misbookings
 correction(Uid, Mui, OldQuantity, Product, ChangeQuantity, Attributes) when is_list(Attributes)->
     Fun = fun() ->
         case mnesia:read({correction, Uid}) of
             [] ->
                 % Id does not exist, we can go ahead
-                Unit = mypl_db_util:mui_to_unit(Mui),
-                case {Unit#unit.quantity, Unit#unit.product} of
-                    {OldQuantity, Product} ->
-                        % the quantity is as expected, and the Product matcheswe can go ahead
-                        NewUnit = Unit#unit{quantity=Unit#unit.quantity + ChangeQuantity},
-                        if
-                            NewUnit#unit.quantity < 0 ->
-                                % this really shouldn't happen
-                                error_logger:error_msg("Negative amount on unit during correction: ~w ~w ~w ~s",
-                                                       [ChangeQuantity, Uid, Unit#unit.mui]),
-                                {error, not_enough_goods, {NewUnit#unit.quantity, Product, Uid, Mui}};
-                            true ->
-                                % update Unit
-                                ok = mnesia:write(NewUnit),
+                case mypl_db_util:mui_to_unit(Mui) of
+                    {error, T, M} ->
+                        {error, T, M};
+                    Unit ->
+                        case {Unit#unit.quantity, Unit#unit.product} of
+                            {OldQuantity, Product} ->
+                                % the quantity is as expected, and the Product matcheswe can go ahead
+                                NewUnit = Unit#unit{quantity=Unit#unit.quantity + ChangeQuantity},
                                 if
-                                    NewUnit#unit.quantity =:= 0 ->
-                                        % disband unit since it is empty now
-                                        disband_unit(NewUnit);
+                                    NewUnit#unit.quantity < 0 ->
+                                        % this really shouldn't happen
+                                        error_logger:error_msg("Negative amount on unit during correction: ~w ~w ~w ~s",
+                                                               [ChangeQuantity, Uid, Unit#unit.mui]),
+                                        {error, not_enough_goods, {NewUnit#unit.quantity, Product, Uid, Mui}};
                                     true ->
-                                        ok
-                                end,
-                                % all fixed now - log correction
-                                ok = mnesia:write(#correction{id=Uid, old_quantity=OldQuantity, product=Product,
-                                                              change_quantity=ChangeQuantity, mui=Mui,
-                                                              location=Unit#unit.location, attributes=Attributes,
-                                                              text="Korrekturbuchung",
-                                                              created_at=calendar:universal_time()}),
-                                mypl_audit:articleaudit(ChangeQuantity, Product,
-                                                        "Korrekturbuchung auf " ++ Unit#unit.mui,
-                                                        Unit#unit.mui, Uid),
-                                mypl_audit:unitaudit(Unit, "Korrekturbuchung von " 
-                                                     ++ integer_to_list(ChangeQuantity) 
-                                                     ++ " Neuer Bestand " ++ integer_to_list(NewUnit#unit.quantity),
-                                                     Uid),
-                                {ok, {NewUnit#unit.quantity, NewUnit#unit.mui}}
-                        end;
-                    _ ->
-                        error_logger:error_msg("Product or Quantity mismatch during correction ~w ~s, ~w ~s ~s",
-                                                       [OldQuantity, Product, Unit#unit.quantity, Unit#unit.product, Mui]),
-                        {error, missmatch, {OldQuantity, Product, Unit#unit.quantity, Unit#unit.product, Mui}}
+                                        % update Unit
+                                        ok = mnesia:write(NewUnit),
+                                        if
+                                            NewUnit#unit.quantity =:= 0 ->
+                                                % disband unit since it is empty now
+                                                disband_unit(NewUnit);
+                                            true ->
+                                                ok
+                                        end,
+                                        % all fixed now - log correction
+                                        ok = mnesia:write(#correction{id=Uid, old_quantity=OldQuantity, product=Product,
+                                                                      change_quantity=ChangeQuantity, mui=Mui,
+                                                                      location=Unit#unit.location, attributes=Attributes,
+                                                                      text="Korrekturbuchung",
+                                                                      created_at=calendar:universal_time()}),
+                                        mypl_audit:articleaudit(ChangeQuantity, Product,
+                                                                "Korrekturbuchung auf " ++ Unit#unit.mui,
+                                                                Unit#unit.mui, Uid),
+                                        mypl_audit:unitaudit(Unit, "Korrekturbuchung von " 
+                                                             ++ integer_to_list(ChangeQuantity) 
+                                                             ++ " Neuer Bestand " ++ integer_to_list(NewUnit#unit.quantity),
+                                                             Uid),
+                                        {ok, {NewUnit#unit.quantity, NewUnit#unit.mui}}
+                                end;
+                            _ ->
+                                error_logger:error_msg("Product or Quantity mismatch during correction ~w ~s, ~w ~s ~s",
+                                                               [OldQuantity, Product, Unit#unit.quantity, Unit#unit.product, Mui]),
+                                {error, missmatch, {OldQuantity, Product, Unit#unit.quantity, Unit#unit.product, Mui}}
+                    end
                 end;
             Corrections ->
                 error_logger:error_msg("Duplicate correction ~w ~s ~w, ~w",
@@ -796,16 +815,16 @@ mypl_simple_movement_test() ->
     {ok, Mui} = store_at_location("EINLAG", Mui, 5, "a0001", 1200),
     
     % simple test for unit_info
-    {ok, _} = mypl_db_query:unit_info(Mui),
+    ?assertMatch({ok, _}, mypl_db_query:unit_info(Mui)),
     
     % start movement to "010101".
     {ok, Movement1} = init_movement(Mui, "010101"),
     
-    [Movement1] = mypl_db_query:movement_list(),
-    {ok, _} = mypl_db_query:movement_info(Movement1),
+    ?assertMatch([Movement1], mypl_db_query:movement_list()),
+    ?assertMatch({ok, _}, mypl_db_query:movement_info(Movement1)),
     
     % finish movement
-    {ok,"010101"} = commit_movement(Movement1),
+    ?assertMatch({ok,"010101"}, commit_movement(Movement1)),
     % check that Unit now is on the new Location
     %Location1 = mypl_db_util:get_mui_location(Mui),
     %?assert(Location1#location.name == "010101"),
@@ -813,7 +832,7 @@ mypl_simple_movement_test() ->
     % now move it to the best location the system can find for this Unit
     {ok, Movement2} = init_movement_to_good_location(Mui),
     % finish movement & check that Unit now is on the new Location - 010103 is best because it is lowest (1200mm)
-    {ok, "010103"} = commit_movement(Movement2),
+    ?assertMatch({ok, "010103"}, commit_movement(Movement2)),
     
     % now try again to move to a "good" location - with lot's of checks
     {ok, Movement3} = init_movement_to_good_location(Mui),
@@ -821,11 +840,11 @@ mypl_simple_movement_test() ->
     % Location2 = mypl_db_util:get_mui_location(Mui),
     
     % try to initiate an other movement on that Mui - shouldn't be possible
-    {error, not_movable, _} = init_movement(Mui, "010101"),
+    ?assertMatch({error, not_movable, _}, init_movement(Mui, "010101")),
     % Location2 = mypl_db_util:get_mui_location(Mui),
     
     % we rollback the whole thing ... so the unit should still be in it's old location
-    {ok, "010103"} = rollback_movement(Movement3),
+    ?assertMatch({ok, "010103"}, rollback_movement(Movement3)),
     
     % check issues with two units
     Mui2 = "14601-" ++ mypl_util:generate_mui(),
@@ -837,8 +856,9 @@ mypl_simple_movement_test() ->
     commit_movement(Movement4),
     
     % remove Muis from warehouse
-    {ok, {5, "a0001"}} = retrieve(Mui),
-    {ok, {6, "a0001"}} = retrieve(Mui2).
+    ?assertMatch({ok, {5, "a0001"}}, retrieve(Mui)),
+    ?assertMatch({ok, {6, "a0001"}}, retrieve(Mui2)),
+    ok.
     
 
 %%% @hidden
@@ -847,47 +867,53 @@ mypl_simple_pick_test() ->
     % generate a MUI for testing
     Mui = "a0002-" ++ mypl_util:generate_mui(),
     % generate and Store Unit of 5*14601 (1200mm high) on "010101"
-    {ok, Mui} = store_at_location("010101", Mui, 70, "a0002", 1950),
+    ?assertMatch({ok, Mui}, store_at_location("010101", Mui, 70, "a0002", 1950)),
     % start picking.
     {ok, Pick1} = init_pick(30, Mui),
     
-    [Pick1] = mypl_db_query:pick_list(),
-    {ok, _} = mypl_db_query:pick_info(Pick1),
+    ?assertMatch([Pick1], mypl_db_query:pick_list()),
+    ?assertMatch({ok, _}, mypl_db_query:pick_info(Pick1)),
     
     %% try to initiate an movement on that Mui - shouldn't be possible with open picks
-    {error, not_movable, _} = init_movement_to_good_location(Mui),
+    ?assertMatch({error, not_movable, _}, init_movement_to_good_location(Mui)),
     % because of the open pick the unit shouldn't be movable
     %no = mypl_db_util:transaction(mypl_db_util:unit_movable(mypl_db_util:mui_to_unit_trans(Mui))),
     % commit it.
-    {ok, {30, "a0002"}} = commit_pick(Pick1),
+    ?assertMatch({ok, {30, "a0002"}}, commit_pick(Pick1)),
     % now ot should be movable again
     %yes = mypl_db_util:transaction(mypl_db_util:unit_movable(mypl_db_util:mui_to_unit_trans(Mui))),
      
     % start picking.
     {ok, Pick2} = init_pick(25, Mui),
     % commit it.
-    {ok, {25, "a0002"}} = commit_pick(Pick2),
+    ?assertMatch({ok, {25, "a0002"}}, commit_pick(Pick2)),
     
     % try to get to much
-    {error, not_enough_goods, _} = init_pick(25, Mui),
+    ?assertMatch({error, not_enough_goods, _}, init_pick(25, Mui)),
     
     % try to get to much
     {ok, Pick4} = init_pick(15, Mui),
-    {ok, {15, "a0002"}} = rollback_pick(Pick4),
+    ?assertMatch({ok, {15, "a0002"}}, rollback_pick(Pick4)),
     
     % check if enough is left on unit
-    {ok, {15, "a0002"}} = retrieve(Mui).
+    ?assertMatch({ok, {15, "a0002"}}, retrieve(Mui)),
+    ok.
     
 
 mypl_disbanding_test() ->
     test_init(),
+    Mui = "XXX-" ++ mypl_util:oid(),
     % generate a MUI for testing
-    ?assertMatch({ok, "mui1"}, store_at_location("010101", "mui1", 1, "a0002", 1950)),
-    {ok, Pick1} = init_pick(1, "mui1"),
+    ?assertMatch({ok, Mui}, store_at_location("010101", Mui, 1, "a0002", 1950)),
+    {ok, Pick1} = init_pick(1, Mui),
     % since the pick empties the unit this should lead to disbanding
     ?assertMatch({ok, {1, "a0002"}}, commit_pick(Pick1)),
     % now mui1 should be gone
-    ?assertMatch({error, unknown_mui, {"mui1"}}, mypl_db_query:unit_info("mui1")),
+    ?assertMatch({error, _, _}, mypl_db_util:mui_to_unit_trans(Mui)),
+    Unit = mypl_db_util:mui_to_unit_archive_trans(Mui),
+    ?assertMatch(unit, element(1, Unit)),
+    % ... but unit info should still work
+    ?assertMatch({ok, _}, mypl_db_query:unit_info(Mui)),
     
     ?assertMatch({ok, "mui2"}, store_at_location("010101", "mui2", 1, "a0003", 1950)),
     ?assertMatch({ok, _Movement2}, init_movement_to_good_location("mui2")),
@@ -912,7 +938,6 @@ store_at_location_multi_test() ->
 
 mypl_correction_test() ->
     test_init(),
-    % generate and Store Unit of 5*14601 (1200mm high) on "EINLAG"
     ?assertMatch({ok, "mui1"}, store_at_location("EINLAG", "mui1", 15, "a0001", 1200)),
     ?assertMatch({ok, "mui2"}, store_at_location("EINLAG", "mui2", 99, "a0002", 1200)),
     ?assertMatch({ok, {14, "mui1"}}, correction(id1, "mui1", 15, "a0001", -1, [])),
@@ -926,6 +951,32 @@ mypl_correction_test() ->
     ?assertMatch({error, missmatch, {15, "a0001", 13, "a0001", "mui1"}}, correction(id4, "mui1", 15, "a0001", -2, [])),
     % wrong product
     ?assertMatch({error, missmatch, _}, correction(id5, "mui1", 13, "a2222", -2, [])),
+    ok.
+    
+% Test Bugfix for Case 3463
+correction_impossible_for_archived_units_f3463_test() ->
+    test_init(),
+    ?assertMatch({ok, "mui1"}, store_at_location("EINLAG", "mui1", 15, "a0001", 1200)),
+    ?assertMatch({ok, {15, "a0001"}}, retrieve("mui1")),
+    ?assertMatch({error,unknown_mui,{"mui1"}}, correction(id6, "mui1", 15, "a0001", -2, [])),
+    ?assertMatch({error,unknown_mui,{"mui1"}}, correction(id7, "mui1", 15, "a0001", -2, [])),
+    ok.
+    
+
+do_not_commit_retrievals_as_movements_f3463_test() ->
+    test_init(),
+    % generate a MUI for testing
+    Mui = "a0001-" ++ mypl_util:oid(),
+    ?assertMatch({ok, Mui}, store_at_location("EINLAG", Mui, 5, "a0001", 1200)),
+    {ok, Movement1} = init_movement(Mui, "010101", [{kernel_type, retrieval}]),
+    
+    % This shouldn't work because retrievals can't be commited by commit_movement()
+    ?assertMatch({error,retrieval_is_no_movement, _}, commit_movement(Movement1)),
+    % ... but by commit_retrieval()
+    ?assertMatch({ok,{5,"a0001"}}, commit_retrieval(Movement1)),
+    {ok, Info} = mypl_db_query:unit_info(Mui),
+    Attributes = proplists:get_value(attributes, Info),
+    ?assertMatch(archived, proplists:get_value(status, Attributes)),
     ok.
     
 

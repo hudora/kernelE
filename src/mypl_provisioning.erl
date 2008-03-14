@@ -402,7 +402,7 @@ init_provisionings_multi(L, Attributes, Priority) ->
             Fun = fun() ->
                 {ok, lists:map(fun(Mui) -> 
                                    {ok, MovementId} = mypl_db:init_movement(Mui, "AUSLAG", 
-                                                          [{type, retrieval}] ++ Attributes),
+                                                          [{kernel_type, retrieval}] ++ Attributes),
                                    MovementId
                                end, Retrievals),
                      lists:map(fun({Quantity, Mui}) -> 
