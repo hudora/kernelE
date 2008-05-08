@@ -249,7 +249,7 @@ generate_picklist(PPEntry, Id, PickIds, Attributes, NumParts) ->
     Picklist.
     
 
-get_picklists(Attributes) when is_list(Attributes) ->
+broken_get_picklists(Attributes) when is_list(Attributes) ->
     Picklist = get_picklist(Attributes),
     % this code is for batching several provisionings into one  - it is fairly specific tailored
     % to provisionings consisting of a single position. This function can duplicate such a provisioning
@@ -261,9 +261,7 @@ get_picklists(Attributes) when is_list(Attributes) ->
           Weight > -1, Weight < (?MAXWEIGHTPERPICKLIST div 2)} of
         {[_], true, true, true, true} ->
             Fun = fun() ->
-                erlang:display({"We could have aggregated", Volume, Weight, Picklist#provisioninglist.provisionings}),
                 [{_, Mui, FromLocation, Quantity, Product, Attributes}] = Picklist#provisioninglist.provisionings,
-                erlang:display({"XXX", Quantity, Product, Mui}),
                 Unit = mypl_db_util:mui_to_unit(Mui),
                 % check if enough is available on the Unit
                 case {(Unit#unit.quantity - Unit#unit.pick_quantity) > Quantity} of
@@ -273,7 +271,7 @@ get_picklists(Attributes) when is_list(Attributes) ->
                         case Candidates of 
                             [] ->
                                 % no potential double picks available
-                                ok;
+                                [format_provisioninglist(Picklist)];
                             [PPEntry|_] ->
                                 % we can generate an additional pick for ppline entry
                                 io:format("DoublePicks: ~w~n", [PPEntry]),
@@ -300,6 +298,10 @@ get_picklists(Attributes) when is_list(Attributes) ->
             [format_provisioninglist(Picklist)]
     end.
     
+get_picklists(Attributes) when is_list(Attributes) ->
+    Picklist = get_picklist(Attributes),
+    [format_provisioninglist(Picklist)].
+
 
 %% @doc formats a picklist entry according to the return value of get_picklists/0 and get_retrievallists/0
 %% @see get_picklists/0

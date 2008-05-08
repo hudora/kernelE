@@ -142,6 +142,12 @@ handle_command("pick_info", _Parameters, State) ->
     [PickId] = Tokens,
     NewPickId = convertString(PickId),
     {noreply, reply(220, rfc4627:encode(mypl_server:pick_info(NewPickId)), reset_buffers(State))};
+handle_command("find_empty_location_nice", _Parameters, State) ->
+    % implementation for find_empty_location_nice,
+    Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
+    [Height] = Tokens,
+    NewHeight = convertPositiveInteger(Height),
+    {noreply, reply(220, rfc4627:encode(mypl_server:find_empty_location_nice(NewHeight)), reset_buffers(State))};
 handle_command("find_provisioning_candidates", _Parameters, State) ->
     % implementation for find_provisioning_candidates,
     Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
@@ -282,6 +288,9 @@ handle_command("feed_eap", _Parameters, State) ->
 handle_command("statistics", _Parameters, State) ->
     % implementation for statistics,
     {noreply, reply(220, rfc4627:encode(mypl_server:statistics()), reset_buffers(State))};
+handle_command("bewegungen", _Parameters, State) ->
+    % implementation for bewegungen,
+    {noreply, reply(220, rfc4627:encode(mypl_server:bewegungen()), reset_buffers(State))};
 
 handle_command("help", _Parameters, State) -> {noreply, reply(220, "Help follows:
 backup 
@@ -310,6 +319,7 @@ movement_list
 movement_info MovementId
 pick_list 
 pick_info PickId
+find_empty_location_nice Height
 find_provisioning_candidates Quantity,Product
 find_provisioning_candidates_multi JsonList
 init_provisionings_multi JsonList
@@ -337,7 +347,8 @@ make_oid
 make_nve 
 dump_requests 
 feed_eap Product,Prod_ve1,Prod_exportpackage,Export_pallet,Prod_x,Prod_y,Prod_z,Prod_g,Ve1_x,Ve1_y,Ve1_z,Ve1_g,Export_x,Export_y,Export_z,Export_g
-statistics ", reset_buffers(State))};
+statistics 
+bewegungen ", reset_buffers(State))};
 handle_command("quit", _ClientDomain, State) -> {stop, normal, reply(201, "Goodbye", reset_buffers(State))};
 handle_command(Command, _Parameters, State) -> {noreply, reply(500, "Unsupported command " ++ Command, State)}.
 
