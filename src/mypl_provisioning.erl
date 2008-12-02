@@ -43,8 +43,8 @@ find_pick_candidates_helper2(Quantity, Units) when is_integer(Quantity), is_list
             % Preferences are: From the smallest unit to the largest unit (regardless of open picks)
             % this hopfully cleans out the warehouse as fast as possible
             Quantities = mypl_util:combine_until_fit(Quantity, 
-                                                     lists:sort([X#unit.quantity 
-                                                                 - X#unit.pick_quantity || X <- Units])),
+                            lists:sort([X#unit.quantity - X#unit.pick_quantity || X <- Units,
+                                        X#unit.quantity - X#unit.pick_quantity > 0])),
             % Quantities is now something along the lines of [{5,5},{6,6},{4,7}]
             % convert it to [{5,Mui1},{6,Mui2},{4,Mui3}]
             Muis = [X#unit.mui || X <- find_oldest_units_of([Y || {_, Y} <- Quantities], Units)],
@@ -113,10 +113,13 @@ find_pick_candidates(Quantity, Product) when is_integer(Quantity), Quantity >= 0
     
 
 % @private
-%% returns a list of all units which can be picked (no no_picks attribute on location)
+%% returns a list of all units which can be picked (no no_picks attribute on location
+%% and not already fully allocated for other picks)
 %% todo? - move to mypl_db_query?
 find_pickable_units(Product) ->
-    [X || X <- mnesia:match_object(#unit{product = Product, _ = '_'}), unit_pickable_helper(X)].
+    [X || X <- mnesia:match_object(#unit{product = Product, _ = '_'}), 
+          X#unit.quantity - X#unit.pick_quantity > 0,
+          unit_pickable_helper(X)].
     
 
 %% @private
@@ -125,7 +128,7 @@ find_pickable_units(Product) ->
 %% expects to be called within a transaction
 unit_pickable_helper(Unit) ->
      Loc = mypl_db_util:get_mui_location(Unit#unit.mui),
-     % TODO: scheck florlevel
+     % TODO: check florlevel
      (not(lists:member({no_picks}, Loc#location.attributes))) and (mypl_db_util:unit_moving(Unit) =:= no).
      
 

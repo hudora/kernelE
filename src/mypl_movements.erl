@@ -32,7 +32,7 @@
 -include("include/mypl.hrl").
 
 % There should be at least MINFLOORFREE locations free at floorlevel
--define(MINFLOORFREE, 10).
+-define(MINFLOORFREE, 3).
 
 
 -export([unwanted_location_units/0,
@@ -345,9 +345,9 @@ init_automovements() ->
 %% {@link get_movementsuggestion_from_floorcleaner/0}, {@link get_movementsuggestion_from_requesttracker/0} or if this yields nor results based on
 %% {@link get_movementsuggestion_from_abc/0}.
 init_automovements(Attributes) ->
-    case get_movementsuggestion_from_unwanted_locations() of
+    case get_movementsuggestion_from_floorcleaner() of
         [] ->
-           case get_movementsuggestion_from_floorcleaner() of
+            case get_movementsuggestion_from_unwanted_locations() of
                 [] ->
                     case get_movementsuggestion_from_requesttracker() of
                         [] ->

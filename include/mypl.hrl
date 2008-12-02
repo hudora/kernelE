@@ -24,7 +24,7 @@
                location,        % Zeiger auf den Location name
                attributes,
                created_at
-               }). % TBD
+               }).
 
 
 -record(movement, {id,
@@ -42,7 +42,6 @@
                from_unit,       % unit von der gepickt werden soll
                created_at,
                attributes
-               %% attributes - please add
                }).
 
 % keeps IDs to detect dupes in store_at_location_multi

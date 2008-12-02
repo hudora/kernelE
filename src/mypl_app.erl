@@ -11,10 +11,11 @@ start(_Type, Args) ->
     % check database integrity - also warms up caches
     % this gets to slow
     % mypl_integrity:selftest(),
+    application:start(psql),
     % start supervisor
     mypl_sup:start_link(Args).
     % fill requestracker at startup
     % mypl_provpipeline:flood_requestracker().
-    
+
 stop(_State) ->
     ok.

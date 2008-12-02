@@ -61,7 +61,7 @@ run_me_once() ->
     mypl_volumes:run_me_once(),
     
     ok = mnesia:wait_for_tables([location, unit, movement, pick, reservation, multistorage, correction,
-                                 articleaudit, unitaudit], 30000),
+                                 articleaudit, unitaudit], 50000),
     
     % upgrade tables where needed
     Fields1 = record_info(fields, pick),
@@ -598,37 +598,45 @@ commit_pick(PickId) ->
     Fun = fun() ->
         % get Pick for PickId
         [Pick] = mnesia:read({pick, PickId}),
-        Unit = mypl_db_util:mui_to_unit(Pick#pick.from_unit),
-        NewUnit = Unit#unit{quantity=Unit#unit.quantity - Pick#pick.quantity,
-                            pick_quantity=Unit#unit.pick_quantity - Pick#pick.quantity},
+        % hack to fix picks with quantity = 0 (where do they come from?)
         if
-            NewUnit#unit.quantity < 0 ->
-                % this really shouldn't happen
-                error_logger:error_msg("Negative amount on unit: ~w ~s ~s",
-                                       [Pick#pick.quantity, PickId, Unit#unit.mui]),
-                {error, not_enough_goods, {Pick#pick.quantity, PickId, Unit#unit.mui}};
-            true ->
-                % update Unit
-                ok = mnesia:write(NewUnit),
-                mypl_audit:archive(Pick#pick{attributes=Pick#pick.attributes
-                                             ++ [{committed_at, mypl_util:timestamp()}]},
-                                   commit_pick),
+            Pick#pick.quantity =:= 0 ->
                 ok = mnesia:delete({pick, PickId}),
-                mypl_audit:articleaudit(-1 * Pick#pick.quantity, Pick#pick.product,
-                                        "Pick auf " ++ Unit#unit.mui, Unit#unit.mui, PickId),
-                mypl_audit:unitaudit(Unit, "Pick von " ++ integer_to_list(Pick#pick.quantity) 
-                                     ++ " committed. neuer Bestand " ++ integer_to_list(NewUnit#unit.quantity),
-                                     PickId),
+                ?WARNING("deleted empty Pick '~w'", [PickId]),
+                ok;
+            true ->
+                Unit = mypl_db_util:mui_to_unit(Pick#pick.from_unit),
+                NewUnit = Unit#unit{quantity=Unit#unit.quantity - Pick#pick.quantity,
+                                    pick_quantity=Unit#unit.pick_quantity - Pick#pick.quantity},
                 if
-                    NewUnit#unit.quantity =:= 0 ->
-                        % disband unit since it is empty now
-                        disband_unit(NewUnit);
-                    true -> 
-                        ok
-                end,
-                mypl_abcserver:feed(pick, Pick, Unit#unit.location),
-            {Pick#pick.quantity, Pick#pick.product}
-        end
+                    NewUnit#unit.quantity < 0 ->
+                        % this really shouldn't happen
+                        error_logger:error_msg("Negative amount on unit: ~w ~s ~s",
+                                               [Pick#pick.quantity, PickId, Unit#unit.mui]),
+                        {error, not_enough_goods, {Pick#pick.quantity, PickId, Unit#unit.mui}};
+                    true ->
+                        % update Unit
+                        ok = mnesia:write(NewUnit),
+                        mypl_audit:archive(Pick#pick{attributes=Pick#pick.attributes
+                                                     ++ [{committed_at, mypl_util:timestamp()}]},
+                                           commit_pick),
+                        ok = mnesia:delete({pick, PickId}),
+                        mypl_audit:articleaudit(-1 * Pick#pick.quantity, Pick#pick.product,
+                                                "Pick auf " ++ Unit#unit.mui, Unit#unit.mui, PickId),
+                        mypl_audit:unitaudit(Unit, "Pick von " ++ integer_to_list(Pick#pick.quantity) 
+                                             ++ " committed. neuer Bestand " ++ integer_to_list(NewUnit#unit.quantity),
+                                             PickId),
+                        if
+                            NewUnit#unit.quantity =:= 0 ->
+                                % disband unit since it is empty now
+                                disband_unit(NewUnit);
+                            true -> 
+                                ok
+                        end,
+                        mypl_abcserver:feed(pick, Pick, Unit#unit.location),
+                    {Pick#pick.quantity, Pick#pick.product}
+                end
+            end
     end,
     {atomic, Ret} = mnesia:transaction(Fun),
     {ok, Ret}.
