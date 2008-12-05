@@ -3,7 +3,7 @@
 # Dies ist eigentlich eine suimulationsengine
 import sys, pickle, gzip, datetime, time
 sys.path.extend(['./python', './test'])
-from kernelE import Kerneladapter
+from mypl.kernel import Kerneladapter
 from load_softm import load_platzbestand
 
 THEDATE = "20071125"

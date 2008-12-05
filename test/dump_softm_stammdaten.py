@@ -1,7 +1,7 @@
 # Speichert die SoftM Platzstammdaten.
 import sys, pickle, gzip, datetime
 sys.path.extend(['../..', './python'])
-from kernelE import Kerneladapter
+from mypl.kernel import Kerneladapter
 from mofts.client import as400
 
 hoehenmapping = {'00': 2100, '03': 1800, '04': 1450, '05': 1150, '06': 1050}

@@ -1,7 +1,7 @@
 # spielt von dump_softm.py gespeicherte bestaende ins myPL.
 import sys, pickle, gzip, socket
 sys.path.extend(['./python'])
-from kernelE import Kerneladapter
+from mypl.kernel import Kerneladapter
 
 def load_platzbestand(platzbestand):
     k = Kerneladapter()
