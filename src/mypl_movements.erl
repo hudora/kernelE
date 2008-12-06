@@ -327,7 +327,7 @@ get_abc_units() ->
 get_movementsuggestion_from_abc() ->
     Empty = count_empty_floor_locations(),
     % A minimum of X locations must be free at floorlevel
-    MinEmpty = mypl_util:get_config(floorcleaner_start, ?ABCMOVEMENT_START_DEFAULT), 
+    MinEmpty = mypl_util:get_config(abcmovement_start, ?ABCMOVEMENT_START_DEFAULT), 
     if
         Empty > MinEmpty ->
             Fun = fun() ->

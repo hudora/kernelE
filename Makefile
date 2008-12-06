@@ -62,7 +62,7 @@ clean :
 # Development targets
 
 .PHONY : dev
-dev: devbuild regression checks doc
+dev: devbuild regression check doc
 
 .PHONY : devbuild
 devbuild: BUILDOPT = +debug_info -DEUNIT -DLOG_DEBUG -Wall
@@ -83,8 +83,8 @@ regression: devbuild
 		-s init stop
 
 
-.PHONY : checks
-checks: xref dialyzer
+.PHONY : check
+check: xref dialyzer
 
 .PHONY : xref
 xref:
