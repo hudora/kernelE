@@ -5,8 +5,18 @@
 -module(mypl_util).
 
 %% API
--export([serial/0, oid/0, generate_mui/0, timestamp/0, combine_until_fit/2,
+-export([get_config/2, serial/0, oid/0, generate_mui/0, timestamp/0, proplist_cleanup/1, combine_until_fit/2,
          choose/2, choose/3, nearest/2, nearest/3, spawn_and_register/2, log/5]).
+
+%% @spec get_config(atom(), val()) -> val()
+%% @doc Get some configuration value from the applications environment.
+get_config(Name, Default) ->
+    case application:get_env(Name) of
+        undefined ->
+            Default;
+        Value ->
+            Value
+    end.
 
 %% @spec oid() -> string()
 %% @doc generate unique object ID
@@ -53,6 +63,30 @@ timestamp() ->
     {_, _, MS} = erlang:now(),
     {Date, Time, MS}.
     
+
+%% doc converts
+%% [{tries,0},
+%%  {kernel_customer," "14529"},
+%%  ["auftragsnummer", 647105],
+%%  ["liefertermin", "2007-12-03"]]
+%% to
+%% [{tries,0},
+%%  {kernel_customer, <<"14529">>},
+%%  {auftragsnummer, 647105},
+%%  {liefertermin, <<"2007-12-03">>}]
+%% mainly for fixing data gotten via json
+proplist_cleanup(L) ->
+    lists:map(fun([Name, Value]) when is_atom(Name) -> 
+                   proplist_cleanup_helper({Name, Value});
+                 ([Name, Value]) when is_list(Name) -> 
+                   proplist_cleanup_helper({erlang:list_to_atom(Name), Value});
+                 ({Name, Value}) -> 
+                   proplist_cleanup_helper({Name, Value}) end, L).
+
+proplist_cleanup_helper({Name, Value}) when is_list(Value) ->
+    {Name, list_to_binary(Value)};
+proplist_cleanup_helper({Name, Value}) ->    
+    {Name, Value}.
 
 %% @spec combine_until_fit(Quantity::integer(), [Value::integer()]) -> [{Takefrom::integer(), Value::integer()}]
 %% @doc Takes from Values until Quantity is reached.
@@ -293,6 +327,15 @@ timing() ->
     
 
 %%% @hidden
+
+get_config_test() ->
+    123 = get_config(foobarda, 1234).
+
+proplist_cleanup_test() ->
+    [{tries,0}, {kernel_customer, <<"14529">>}, {auftragsnummer, 647105},
+        {liefertermin, <<"2007-12-03">>}] = proplist_cleanup([{tries,0}, {kernel_customer, "14529"},
+        ["auftragsnummer", 647105], ["liefertermin", "2007-12-03"]]).
+
 permutator_test() ->
     [[1,1,1,1],[1,1,2],[1,3],[2,2],[4]] = choose([1,1,1,1,2,2,3,4], 4),
     [[2,4],[6]] = permutator([2,2,4,6], 6, 1),
@@ -329,6 +372,8 @@ combine_until_fit_test() ->
 
 %%% @hidden
 testrunner() ->
+    get_config_test(),
+    proplist_cleanup_test(),
     permutator_test(),
     nearest_test(),
     choose_test(),

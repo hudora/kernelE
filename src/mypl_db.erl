@@ -1,5 +1,5 @@
-%% @version 0.2
-%% @copyright 2007 HUDORA GmbH
+%% @version 0.3
+%% @copyright 2007, 2008 HUDORA GmbH
 %% @author Maximillian Dornseif <md@hudora.de>
 %% @doc myPL/kernel-E storage Engine
 %%
@@ -245,30 +245,36 @@ store_at_location(Location, Unit) when Unit#unit.quantity > 0 ->
     Ret.
     
 
-%% @spec store_at_location(locationName(), muID(), integer(), string(), heigthMM()) -> {ok, locationName()}
+% legacy emulation function
+store_at_location(Locname, Mui, Quantity, Product, Height) ->
+store_at_location(Locname, Mui, Quantity, Product, Height, []).
+
+%% @spec store_at_location(locationName(), muID(), integer(), string(), heigthMM(), attributes()) -> {ok, locationName()}
 %% @doc create a new Unit and insert it into the warehouse
 %%
 %% On errors it might also return {error, unknown_location} or {error, duplicate_mui}.
-store_at_location(Locname, Mui, Quantity, Product, Height) when Quantity > 0 andalso is_list(Mui)->
+store_at_location(Locname, Mui, Quantity, Product, Height, Attributes)
+  when Quantity > 0 andalso is_list(Mui) andalso is_list(Attributes) ->
     Fun = fun() ->
         % check that location exists
         Location = mypl_db_util:read_location(Locname),
         Unit = #unit{mui=Mui, quantity=Quantity, product=Product, height=Height, pick_quantity=0,
-                     attributes=[], created_at=mypl_util:timestamp()},
+                     attributes=Attributes, created_at=mypl_util:timestamp()},
         mypl_audit:unitaudit(Unit, "Erzeugt auf " ++ Location#location.name),
         store_at_location(Location, Unit)
     end,
     mypl_db_util:transaction(Fun).
     
 
-%% @spec store_at_location_multi(Id, locationName(), Elements) -> {ok, [muID()]}|duplicate_id
+%% @spec store_at_location_multi(Id, locationName(), Elements, Attributes) -> {ok, [muID()]}|duplicate_id
 %%          Elements = [{Quantity::integer(), Product::string(), heightMM()}]
 %% @doc creates several units within a single transaction.
 %%
 %% `Id' must be unique. If you call store_at_location_multi/3 more than once with the same Id,
 %% successive calls return duplicate_id instead a list of NVEs.
+%% See http://blogs.23.nu/disLEXia/2007/12/antville-16699/ for some rationale behind this function.
 %% returns {ok, [Mui]}.
-store_at_location_multi(Id, Locname, Elements) ->
+store_at_location_multi(Id, Locname, Elements, Attributes) ->
     Fun = fun() ->
         % check for dupes
         case mnesia:read({multistorage, Id}) of
@@ -277,16 +283,16 @@ store_at_location_multi(Id, Locname, Elements) ->
             [] ->
                 % insert the data
                 Muis = lists:map(fun({Quantity, Product, Height}) ->
-                                    Mui = mypl_nveserver:make_nve(),
-                                    {ok, _} = store_at_location(Locname, Mui, Quantity, Product, Height),
-                                    Mui;
-                                % we have to catch lists instead of tuples for json compatibility
-                                ([Quantity, Product, Height]) ->
-                                    Mui = mypl_nveserver:make_nve(),
-                                    {ok, _} = store_at_location(Locname, Mui, Quantity, Product, Height),
-                                    Mui
-                                 end, Elements),
-                mnesia:write(#multistorage{id=Id, muis=Muis, attributes=[], 
+                        Mui = mypl_nveserver:make_nve(),
+                        {ok, _} = store_at_location(Locname, Mui, Quantity, Product, Height, Attributes),
+                        Mui;
+                    % we have to catch lists instead of tuples for json compatibility
+                    ([Quantity, Product, Height]) ->
+                        Mui = mypl_nveserver:make_nve(),
+                        {ok, _} = store_at_location(Locname, Mui, Quantity, Product, Height, Attributes),
+                        Mui
+                     end, Elements),
+                mnesia:write(#multistorage{id=Id, muis=Muis, attributes=Attributes, 
                                             created_at=calendar:universal_time()}),
                 {ok, Muis}
         end
@@ -294,24 +300,28 @@ store_at_location_multi(Id, Locname, Elements) ->
     mypl_db_util:transaction(Fun).
     
 
-store_at_location_multi({Id, Locname, Elements}) ->
-    store_at_location_multi(Id, Locname, Elements);
-store_at_location_multi([Id, Locname, Elements]) ->
-    store_at_location_multi(Id, Locname, Elements).
+%% these are for messed up json data
+store_at_location_multi({Id, Locname, Elements, Attributes}) ->
+    store_at_location_multi(Id, Locname, Elements, Attributes);
+store_at_location_multi([Id, Locname, Elements, Attributes]) ->
+    store_at_location_multi(Id, Locname, Elements, Attributes).
     
 
-%% TODO: doc
-update_unit(["height", Mui, Height]) ->
-    update_unit({height, Mui, Height});
+%% @spec update_unit({height, muID(), heigthMM}) -> ok
+%% @doc changes the heigth of an unit. This will influence choice of storage location.
 update_unit({height, Mui, Height}) ->
     Fun = fun() ->
         Unit = mypl_db_util:mui_to_unit(Mui),
         NewUnit = Unit#unit{height = Height},
         ok = mnesia:write(NewUnit),
-        mypl_audit:unitaudit(NewUnit, "Hoehe geanedert")
+        mypl_audit:unitaudit(NewUnit, "Hoehe geanedert"),
+        ok
     end,
-    mypl_db_util:transaction(Fun).
-    
+    mypl_db_util:transaction(Fun);
+
+% tis is for JSON compability
+update_unit(["height", Mui, Height]) ->
+    update_unit({height, Mui, Height}).
 
 %% @spec retrieve(muID()) -> {ok, {Quantity::integer(), Product::string()}}
 %% @doc remove a Unit and the goods on it from the warehouse
@@ -355,7 +365,7 @@ retrieve(Mui) ->
 
 %% @doc Disbands (deletes) an unit.
 %%
-%% Expects to be caled within an transaction.
+%% Expects to be called within an transaction.
 %% Checks that there are no goods on the unit and no open movements/picks
 disband_unit(Unit) ->
     case {
@@ -556,7 +566,7 @@ init_pick(Quantity, Mui) ->
     init_pick(Quantity, Mui, []).
 
 
-%% @spec init_pick(integer(), muID()) -> {ok, pickID()}
+%% @spec init_pick(integer(), muID(), attributes()) -> {ok, pickID()}
 %% @see commit_pick/1
 %% @doc start a new pick removing Quantity Products from Mui
 init_pick(Quantity, Mui, Attributes) when is_integer(Quantity) ->
@@ -932,15 +942,15 @@ mypl_disbanding_test() ->
 
 store_at_location_multi_test() ->
     Elements1 = [{7, "a0006", 1200}, {11, "a0007", 1000}],
-    {ok, [_Mui1, _Mui2]} = store_at_location_multi(id1, "EINLAG", Elements1),
+    {ok, [_Mui1, _Mui2]} = store_at_location_multi(id1, "EINLAG", Elements1, []),
     % if called again with the same id, no new units should be insered
-    duplicate_id = store_at_location_multi(id1, "EINLAG", Elements1),
+    duplicate_id = store_at_location_multi(id1, "EINLAG", Elements1, []),
     
     % check if this also works with lists instead of tuple - to help with Json
     Elements2 = [[7, "a0006", 1200], [11, "a0007", 1000]],
-    {ok, [_Mui3, _Mui4]} = store_at_location_multi([id2, "EINLAG", Elements2]),
+    {ok, [_Mui3, _Mui4]} = store_at_location_multi([id2, "EINLAG", Elements2, []]),
     % if called again with the same id, no new units should be insered
-    duplicate_id = store_at_location_multi({id2, "EINLAG", Elements2}),
+    duplicate_id = store_at_location_multi({id2, "EINLAG", Elements2, []}),
     ok.
     
 

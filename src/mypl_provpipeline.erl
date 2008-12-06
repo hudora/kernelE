@@ -133,7 +133,7 @@ insert_pipeline([CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes
 insert_pipeline_helper(CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes) ->
     PPline = #provpipeline{id=CId, priority=Priority, weigth=Weigth, volume=Volume,
                            attributes=[{kernel_customer, Customer}
-                                      ] ++ proplistlist_to_proplisttuple(Attributes),
+                                      ] ++ mypl_util:proplist_cleanup(Attributes),
                            provisioninglists=[], tries=0, status=new,
                            % normalize on tuples instead of lists
                            % TODO: normalize attributes to tuple
@@ -145,29 +145,11 @@ insert_pipeline_helper(CId, Orderlines, Priority, Customer, Weigth, Volume, Attr
     ok.
     
 
-%% @doc converts
-%% [{tries,0},
-%%  {kernel_customer,"14529"},
-%%  ["auftragsnummer",647105],
-%%  ["liefertermin","2007-12-03"]]
-%% to
-%% [{tries,0},
-%%  {kernel_customer,"14529"},
-%%  {"auftragsnummer",647105},
-%%  {"liefertermin","2007-12-03"}]
-%% mainly for fixing data gotten via json
-proplistlist_to_proplisttuple(L) ->
-    lists:map(fun({Name, Value}) -> 
-                  {Name, Value};
-                 ([Name, Value]) when is_atom(Name) -> 
-                  {Name, Value};
-                 ([Name, Value]) when is_list(Name) -> 
-                  {erlang:list_to_atom(Name), Value} end, L).
-    
-
+%% @spec get_picklists() -> PicklistList|nothing_available
 get_picklists() ->
     get_picklists([]).
-%% @spec get_picklists(Attributes) -> PicklistList|nothing_available
+
+%% @spec get_picklist(Attributes) -> PicklistList|nothing_available
 %%      PicklistList = [{Id::string(), CId::string(), Destination::string(), Attributes, Parts::integer(),
 %%                      [{LineId::string(), Mui::string(), Location::string(),
 %%                        Quantity::integer(), Product::string(), Attributes}]}]
@@ -492,7 +474,7 @@ refill_pipeline(Type, Candidates) ->
 
 get_movementlist() ->
     get_movementlist([]).
-%% @spec get_movementlist() -> MovementlistList|nothing_available
+%% @spec get_movementlist(attributes()) -> MovementlistList|nothing_available
 %%      MovementlistList = [{Id::string(), CId::string(), Destination::string(), Attributes, Parts::integer(),
 %%                          [{LineId::string(), Location::string(), Product::string()}]}]
 %% @see get_picks/0

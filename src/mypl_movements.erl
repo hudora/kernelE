@@ -12,6 +12,7 @@
 %%
 %% Strategies for choosing a move:
 %% <ul>
+%% <li>Any mofes to clean up something, remove goods from unwanted locations etc.</li>
 %% <li>Goods where recently needed but not available. (Available via {@link mypl_requesttracker}) are
 %%     moved to floorlevel. The current implementation never moves more than one Unit at a time.
 %%     (To floorlevel)</li>
@@ -24,6 +25,14 @@
 %% <li>Unify products on multiple units onto a single unit - CURRENTLY UNIMPLEMENTED. Possibly only if
 %%     are not going to pick from them in near future because this would make unifying useless.</li>
 %% </ul>
+%%
+%% Configuration variables:
+%% <ul>
+%% <li>FLOORCLEANER_START - if there are <em>less</em> than FLOORCLEANER_START free locations at floor level
+%%     start moving units to the upper level. Set to 0 to disable the floorcleaner.</li>
+%% <li>ABCMOVEMENT_START - if there are <em>more</em> than ABCMOVEMENT_START free locations start moving down
+%%     high demand goods. Set to 99999 to disable.</li>
+%% </ul>
 %% @end
 
 -module(mypl_movements).
@@ -32,7 +41,8 @@
 -include("include/mypl.hrl").
 
 % There should be at least MINFLOORFREE locations free at floorlevel
--define(MINFLOORFREE, 3).
+-define(FLOORCLEANER_START_DEFAULT, 5).
+-define(ABCMOVEMENT_START_DEFAULT, 100).
 
 
 -export([unwanted_location_units/0,
@@ -42,6 +52,7 @@
          show_movementsuggestions/0,
          create_automatic_movements/0, create_automatic_movements/1, more_than_one_floorunit/0]).
 -compile(export_all).
+
 
 unwanted_location_units_helper([]) -> [];
 unwanted_location_units_helper([Location|Tail]) ->
@@ -192,7 +203,7 @@ get_floor_removal_unit2([Product|CandidateProducts]) ->
     end.
     
 
-%% @doc Cont the number of Enpty, non Priority 1 Locations at floorlevel.
+%% @doc Cont the number of Empty, non Priority 1 Locations at floorlevel.
 count_empty_floor_locations() ->
     Fun = fun() ->
         length([X || X <- mypl_db_util:find_empty_location(1950), X#location.floorlevel =:= true,
@@ -206,7 +217,8 @@ count_empty_floor_locations() ->
 %% see the configuration option minimum_free_floor
 get_movementsuggestion_from_floorcleaner() ->
     Empty = count_empty_floor_locations(),
-    MinEmpty = ?MINFLOORFREE, % A minimum of 15 locations must be free at floorlevel
+    % A minimum of X locations must be free at floorlevel
+    MinEmpty = mypl_util:get_config(floorcleaner_start, ?FLOORCLEANER_START_DEFAULT), 
     if
         Empty < MinEmpty ->
             case get_floor_removal_unit() of
@@ -256,8 +268,8 @@ get_movementsuggestion_from_requesttracker(Tries) ->
                                                         end, mypl_db_util:find_movable_units(Product))),
                 Units = collect_requesed_units(Quantity, Candidates, []),
                 Locations = mypl_db_util:best_locations(floorlevel, Units),
-                lists:zip([X#unit.mui || X <- Units], [X#location.name || X <- Locations])
-                %% TODO: sort by something reasonable : age?
+                % sorting results in lowest unit_ids beeing first
+                lists:sort(lists:zip([X#unit.mui || X <- Units], [X#location.name || X <- Locations]))
             end,
             case mypl_db_util:transaction(Fun) of
                 [] ->
@@ -268,8 +280,10 @@ get_movementsuggestion_from_requesttracker(Tries) ->
     end.
 
 get_movementsuggestion_from_requesttracker() ->
-    get_movementsuggestion_from_requesttracker(17).
-
+    % we do 7 tries since get_movementsuggestion_from_requesttracker() might return []
+    % if there are currently no movable units of an product.
+    get_movementsuggestion_from_requesttracker(7).
+    
 
 % [] == no units at floorlevel 
 % TODO: instead check "no units at floorlevel not having any open movements or open picks"
@@ -311,18 +325,25 @@ get_abc_units() ->
 %% This is done by consulting {@link mypl_abcserver:get_abc/0} and checking for all products which
 %% are classified as "A" but have no unit at floorlevel
 get_movementsuggestion_from_abc() ->
-    Fun = fun() ->
-        case get_abc_units() of
-            [] ->
-                [];
-            [Unit|_] ->
-                % @TODO: better handle situations where no floorlevel locations are available
-                [Location] = mypl_db_util:best_locations(floorlevel, [Unit]),
-                [{Unit#unit.mui, Location#location.name}]
-        end
-    end,
-    mypl_db_util:transaction(Fun).
-    
+    Empty = count_empty_floor_locations(),
+    % A minimum of X locations must be free at floorlevel
+    MinEmpty = mypl_util:get_config(floorcleaner_start, ?ABCMOVEMENT_START_DEFAULT), 
+    if
+        Empty > MinEmpty ->
+            Fun = fun() ->
+                case get_abc_units() of
+                    [] ->
+                        [];
+                    [Unit|_] ->
+                        [Location] = mypl_db_util:best_locations(floorlevel, [Unit]),
+                        [{Unit#unit.mui, Location#location.name}]
+                end
+            end,
+            mypl_db_util:transaction(Fun);
+        true ->
+            []
+    end.
+
 
 %% @doc displays all movementsuggestions
 show_movementsuggestions() ->
@@ -351,6 +372,7 @@ init_automovements(Attributes) ->
                 [] ->
                     case get_movementsuggestion_from_requesttracker() of
                         [] ->
+                            % TODO: reactivate ABC movements
                             %case get_movementsuggestion_from_abc() of
                             %    % TODO: dalyzer says:
                             %    % mypl_movements.erl:137: The variable L2 can never match since previous clauses completely covered the type []
@@ -374,7 +396,7 @@ init_automovements(Attributes) ->
     end.
     
 
-%% @spec init_movements([{Mui, Destination}]) -> [mypl_db:movementID()]
+%% @spec init_movements([{Mui, Destination}], attributes()) -> [mypl_db:movementID()]
 %% @see mypl_db:init_movement/2
 %% @doc call init_movement/2 for several movements at once
 init_movements(L, Attributes) when is_list(L), is_list(Attributes) ->
