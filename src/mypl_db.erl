@@ -95,6 +95,7 @@ run_me_once() ->
     init_location("EINLAG", 3000, true,  0, [{no_picks}]),
     init_location("AUSLAG", 3000, true,  0, [{no_picks}]),
     init_location("FEHLER", 3000, true,  0, [{no_picks}]),
+    init_location("FNDLNG", 3000, true,  0, [{no_picks}]),
     init_location("K01",    3000, true,  0, []),
     init_location("K02",    3000, true,  0, []),
     init_location("K03",    3000, true,  0, []),

@@ -6,6 +6,8 @@
 -export([start/2, stop/1]).
 
 start(_Type, Args) ->
+    % try to make mnesia start faster
+    application:set_env (mnesia, no_table_loaders, 20),
     % init database tables
     mypl_db:run_me_once(),
     % check database integrity - also warms up caches

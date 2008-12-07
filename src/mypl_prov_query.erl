@@ -37,10 +37,6 @@ provpipeline_list_new() ->
                                                        X#provpipeline.status =:= new])))].
     
 
-%% 
-provpipeline_list_prepared() ->
-    mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(pickpipeline)])) ++
-    mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(retrievalpipeline)])).
     
 
 %% processing
@@ -48,6 +44,10 @@ provpipeline_list_processing() ->
     [format_pipeline_record(X) || X <- mypl_prov_util:sort_provpipeline(mypl_db_util:do_trans(
                                            qlc:q([X || X <- mnesia:table(provpipeline),
                                                        X#provpipeline.status =:= processing])))].
+
+provpipeline_list_prepared() ->
+    mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(pickpipeline)])) ++
+    mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(retrievalpipeline)])).
     
 
 %% @doc return information on a provpipeline entry
@@ -90,6 +90,8 @@ provisioninglist_info(Id) ->
                   {destination,      Plist#provisioninglist.destination},
                   {parts,            Plist#provisioninglist.parts},
                   {attributes,       Plist#provisioninglist.attributes},
+                  {status,           Plist#provisioninglist.status},
+                  {created_at,       Plist#provisioninglist.created_at},
                   {provisioning_ids, [element(1, X) || X <- Plist#provisioninglist.provisionings]}
                  ]}
         end
@@ -108,6 +110,7 @@ piplinearticles_helper1([Orderline|Tail], Dict) ->
 %% @doc get a list of all articles in the provisioning pipeline and in how many orders they exist
 pipelinearticles() ->
     Orderlines = mypl_db_util:do_trans(qlc:q([X#provpipeline.orderlines || X <- mnesia:table(provpipeline),
-                                              X#provpipeline.status /= provisioned])),
+                                              X#provpipeline.status /= provisioned,
+                                              X#provpipeline.status /= deleted])),
     ProductDict = piplinearticles_helper1(Orderlines, dict:new()),
     lists:reverse(lists:sort(lists:map(fun({A, B}) -> {B, A} end, dict:to_list(ProductDict)))).

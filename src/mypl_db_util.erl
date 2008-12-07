@@ -23,7 +23,7 @@
 
 %% API
 -export([do/1, do_trans/1, transaction/1, get_mui_location/1,
-         mui_to_unit/1, mui_to_unit_archive_trans/1, mui_to_unit_trans/1,
+         mui_to_unit/1, mui_to_unit_archive/1, mui_to_unit_archive_trans/1, mui_to_unit_trans/1,
          unit_picks/1, unit_movement/1, unit_moving/1, unit_movable/1,
          find_empty_location/1, find_empty_location_nice/1, best_location/1, best_locations/2,
          read_location/1, find_movable_units/1]).
@@ -87,23 +87,27 @@ mui_to_unit(Mui) ->
 %% if needed pulls the unit from the archive
 mui_to_unit_archive_trans(Mui) ->
     Fun = fun() ->
-        case mui_to_unit(Mui) of
-            {error, _, _} ->
-                % not found in the active database - check archive
-                case mypl_audit:get_from_archive(unit, Mui) of
-                    [] ->
-                        error_logger:error_msg({unknown_mui, Mui}),
-                        {error, unknown_mui, {Mui}};
-                    [Unit] ->
-                        Unit#unit{attributes=Unit#unit.attributes ++ [{status, archived}]};
-                    Wrong ->
-                        {error, unknown_mui, {Mui, Wrong}}
-                end;
-            Unit ->
-                Unit
-        end
+        mui_to_unit_archive(Mui)
     end,
     mypl_db_util:transaction(Fun).
+
+%% if needed pulls the unit from the archive
+mui_to_unit_archive(Mui) ->
+    case mui_to_unit(Mui) of
+        {error, _, _} ->
+            % not found in the active database - check archive
+            case mypl_audit:get_from_archive(unit, Mui) of
+                [] ->
+                    error_logger:error_msg({unknown_mui, Mui}),
+                    {error, unknown_mui, {Mui}};
+                [Unit] ->
+                    Unit#unit{attributes=Unit#unit.attributes ++ [{status, archived}]};
+                Wrong ->
+                    {error, unknown_mui, {Mui, Wrong}}
+            end;
+        Unit ->
+            Unit
+    end.
     
 
 %% @doc this calles mui_to_unit/1 with a sorrunding transaction

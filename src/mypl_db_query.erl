@@ -231,7 +231,8 @@ movement_info(MovementId) ->
     
 
 movement_info_helper(Movement) ->
-    Unit = mypl_db_util:mui_to_unit(Movement#movement.mui),
+    % TODO: this breaks if the unit in't available anymore.
+    Unit = mypl_db_util:mui_to_unit_archive(Movement#movement.mui),
     Quantity = Unit#unit.quantity,
     Product = Unit#unit.product,
     [{id ,            Movement#movement.id},
@@ -277,7 +278,7 @@ pick_info(PickId) ->
     
 
 pick_info_helper(Pick) -> 
-    Unit = mypl_db_util:mui_to_unit(Pick#pick.from_unit),
+    Unit = mypl_db_util:mui_to_unit_archive(Pick#pick.from_unit),
     [{id ,           Pick#pick.id},
      {from_unit,     Pick#pick.from_unit},
      {from_location, Unit#unit.location},

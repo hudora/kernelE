@@ -472,7 +472,7 @@ transfer_archive(Key, Pg) ->
 
                     end;
                 {provpipeline, 10} ->
-                    erlang:display({yyy4, Record#archive.id}),
+                    erlang:display({yyy4, Record}),
                     Body = Record#archive.body,
                     %{{PY, PMon, PD}, {PH, PMin, PS}, PMS} = Body#provpipeline.created_at,
                     {{AY, AMon, AD}, {AH, AMin, AS}, AMS} = Record#archive.created_at,

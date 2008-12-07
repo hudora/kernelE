@@ -179,7 +179,7 @@ run_me_once() ->
     % Tables kept in RAM with disk based backing
     mypl_db:init_table_info(mnesia:create_table(abc_pick_detail,  [{disc_copies, [node()]}, {attributes, record_info(fields, abc_pick_detail)}]), abc_pick_detail),
     % the audit tables are kept ONLY on disk (slow!)
-    mypl_db:init_table_info(mnesia:create_table(abc_pick_summary, [{disc_only_copies, [node()]}, {attributes, record_info(fields, abc_pick_summary)}]), abc_pick_summary),
+    mypl_db:init_table_info(mnesia:create_table(abc_pick_summary, [{disc_copies, [node()]}, {attributes, record_info(fields, abc_pick_summary)}]), abc_pick_summary),
     mnesia:add_table_index(abc_pick_summary, #abc_pick_summary.date).
     
 

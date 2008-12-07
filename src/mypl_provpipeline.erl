@@ -44,7 +44,7 @@
          get_picklists/0, get_retrievallists/0, get_movementlist/0,
          % mark work as done
          commit_picklist/1, commit_retrievallist/1,
-         
+         delete_provisioninglist/1,
          is_provisioned/1, run_me_once/0]).
 
 run_me_once() ->
@@ -509,9 +509,35 @@ commit_retrievallist(Id) -> commit_retrievallist(Id, [], []).
 commit_retrievallist(Id, Attributes, Lines) when is_list(Attributes) ->
     commit_anything(Id, Attributes, Lines).
 
+% never call if something consists of picklists AND retrievallists
+delete_provisioninglist(Id) ->
+    Fun = fun() ->
+        [Processing] = mnesia:read({provpipeline_processing, Id}),
+        % commit all related pick and retrieval ids
+        lists:map(fun(PId) ->
+                      {ok, _} = mypl_db:rollback_pick(PId)
+                  end,
+                  Processing#provpipeline_processing.pickids),
+        lists:map(fun(RId) ->
+                      {ok, _} = mypl_db:rollback_retrieval(RId)
+                  end,
+                  Processing#provpipeline_processing.retrievalids),
+        mnesia:delete({provpipeline_processing, Id}),        
+        
+        % mark in provpipeline as done
+        % todo mark provisioninglist as done
+        [PPEntry] = mnesia:read({provpipeline, Processing#provpipeline_processing.provpipelineid}),
+        mnesia:write(PPEntry#provpipeline{status=deleted,
+                         attributes=[{kernel_provisioned_at,
+                                      calendar:universal_time()}|PPEntry#provpipeline.attributes]})
+    end,
+    mypl_db_util:transaction(Fun).
+    
+
 commit_anything(Id, _Attributes, _Lines) when is_list(_Attributes) ->
     Fun = fun() ->
         [Processing] = mnesia:read({provpipeline_processing, Id}),
+        % commit all related pick and retrieval ids
         lists:map(fun(PId) ->
                       {ok, _} = mypl_db:commit_pick(PId)
                   end,
@@ -532,6 +558,7 @@ commit_anything(Id, _Attributes, _Lines) when is_list(_Attributes) ->
             [] ->
                 Ret = provisioned,
                 % mark in provpipeline as done
+                % todo mark provisioninglist as done
                 [PPEntry] = mnesia:read({provpipeline, Processing#provpipeline_processing.provpipelineid}),
                 mnesia:write(PPEntry#provpipeline{status=provisioned,
                                  attributes=[{kernel_provisioned_at,

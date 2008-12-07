@@ -236,9 +236,9 @@ init_state() ->
             % we restart 1000 after the last checkpoint to ensure nothing is lost between checkpoints
             State#state{nvepos=State#state.nvepos+1000, oidpos=State#state.oidpos+1000, generated_count=0};
         _Data ->
-            error_logger:warning_msg("cannot read nveserver checkpoint file ~s during startup, starting at 0.",
+            error_logger:warning_msg("cannot read nveserver checkpoint file ~s during startup, starting at 200000.",
                                      [FileName]),
-            #state{nvepos=0, oidpos=0, generated_count=0}
+            #state{nvepos=200000, oidpos=200000, generated_count=200000}
     end.
 
 %% @doc write current state to disk
