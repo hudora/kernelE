@@ -33,7 +33,7 @@ sort_provpipeline_helper(Record) ->
           and (shouldprocess(Record) =:= yes)),
      proplists:get_value(versandtermin, Record#provpipeline.attributes, ""),
      proplists:get_value(liefertermin,  Record#provpipeline.attributes, ""), 
-     100 - Record#provpipeline.priority, % higher priorities mean lower values mean beeing sorted first
+     Record#provpipeline.priority,
      Record#provpipeline.tries,
      proplists:get_value(kernel_customer, Record#provpipeline.attributes, "99999")
     }.
