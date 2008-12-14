@@ -11,7 +11,6 @@
                         mypl_util,
                         mypl_requesttracker,
                         mypl_abcserver,
-                        mypl_oracle,
                         mypl_nveserver,
                         mypl_tcp_session,
                         generic_tcp_server]},

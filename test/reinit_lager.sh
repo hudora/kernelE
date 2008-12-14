@@ -2,7 +2,7 @@
 # brings the myPL to a well defined state
 # seems not to work ... to slow?
 # rm -Rf Mnesia.mypl_test@*
-erl -pa ./ebin ./vendor/eunit/ebin -sname mypl_test -noinput \
+erl -pa ./ebin -sname mypl_test -noinput \
     -s mnesia clear_table movement \
     -s mnesia clear_table location \
     -s mnesia clear_table unit \

@@ -6,7 +6,7 @@ CMD_ERLC     = erlc +smp -Ivendor -Iinclude
 CMD_DIALYZER = dialyzer
 APPNAME      = myPL
 
-ERLPATH=-pa ebin -pa vendor/eunit/ebin -pa erlang-psql-driver/eunit/ebin
+ERLPATH=-pa ebin -pa erlang-psql-driver/ebin
 
 #DOCOPT={todo, true}, {private, true}
 DOCOPT={todo, true}
@@ -100,7 +100,6 @@ dialyzer: devbuild
 
 .PHONY : vendor_build
 vendor_build:
-	@sh -c "(cd vendor/eunit; make subdirs)"
 	@sh -c "(cd vendor/erlang-psql-driver; make)"
 	@sh -c "cp ./vendor/erlang-psql-driver/ebin/psql.app ./ebin"
 	@sh -c "cp ./vendor/erlang-psql-driver/ebin/*.beam ./ebin"
