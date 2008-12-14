@@ -1,33 +1,41 @@
 %% @version 0.2
-%%% File    : mypl_util
-%%% Author  : Maximillian Dornseif
+%%% Author  : Christian Klein
 %%% Created :  Created by Maximillian Dornseif on 2007-10-03.
+%% @doc mypl_distance - Abstandsberechnung zwischen Lagerplätzen
+%% siehe https://cybernetics.hudora.biz/projects/wiki/LagerBegriffe für die verwendeten Begriffe
+%% Originally coded by Christian Klein in October 2007. Translated into Erlang by Maximillian Dornseif
+
 -module(mypl_distance).
 
-
--define(ZOOM, 5).  %% win size
--define(WSZ, 700).  %% win size
--define(BSZ, 9).    %% board size
 
 %% API
 -export([distance/2]).
 -compile(export_all).
 
+%% @reformat a location name so it soerts the way we like it
+-spec get_row(mypl_db:locationName()) -> mypl_db:locationName().
 get_row("EINLAG") -> "98EINLAG";
 get_row("AUSLAG") -> "00AUSLAG";
 get_row("FEHLER") -> "98FEHLER";
 get_row("VERSAN") -> "98VERSAN";
 get_row([$K,_,_]) -> "00K";
-get_row([H|T]) when H > $9 -> "99" ++ [H|T];
-get_row([A,B,_,_,_,_]) -> [A,B];
+% alpha names are prefixed with "99"
+get_row([H|T]) when H > $9 -> [$9,$9,H|T];
+get_row([A,B,_,_,_,_]) when A =< $9 andalso A >= $0 andalso B =< $9 andalso B >= $0-> [A,B];
+% when in doubt: prefix with 99
 get_row(X) -> "99" ++ X.
 
+%% @doc get the row number of a location as an integer
+-spec get_rownum(mypl_db:locationName()) -> 0..99.
 get_rownum(Loc) ->
     get_rownum_helper(get_row(Loc)).
 
+-spec get_rownum_helper(mypl_db:locationName()) -> 0..99.
 get_rownum_helper([H1|[H2|_T]]) ->
     list_to_integer([H1, H2]).
 
+%% @doc get the column number of a location as an integer
+-spec get_colnum(mypl_db:locationName()) -> 0..99.
 get_colnum("EINLAG") -> 0;
 get_colnum("AUSLAG") -> 50;
 get_colnum("FEHLER") -> 10;
@@ -35,23 +43,37 @@ get_colnum([$K|Num]) -> list_to_integer(Num);
 get_colnum([H|_T]) when H > $9 -> 20;
 get_colnum([_,_,H1,H2,_,_]) -> list_to_integer([H1, H2]).
 
+%% @doc get the aisle number of an integer
+-spec get_aisle(mypl_db:locationName()) -> pos_integer().
 get_aisle(Loc) ->
     get_rownum(Loc) div 2.
 
+%% @doc are two locations in the same aisle?
+-spec same_aisle(mypl_db:locationName(),mypl_db:locationName()) -> bool().
 same_aisle(Loc1, Loc2) ->
     get_aisle(Loc1) =:= get_aisle(Loc2).
 
+%% @doc distance between two columns
+-spec column_distance(mypl_db:locationName(),mypl_db:locationName()) -> pos_integer().
 column_distance(Loc1, Loc2) ->
     abs(get_colnum(Loc1) - get_colnum(Loc2)).
 
+%% @doc distance to the two corridors
+%-spec distance_to_corridors(mypl_db:locationName()) -> [integer(),integer()].
 distance_to_corridors(Loc) ->
     [column_distance(Loc, "001200"),
      column_distance(Loc, "004400")].
 
+%% @doc calculate the distance between two locations if you have to use the corridor.
+-spec distance_path_via_corridor(mypl_db:locationName(),integer(),mypl_db:locationName(),integer()) -> 
+    integer().
 distance_path_via_corridor(Loc1, CorrD1, Loc2, CorrD2) ->
     % distance is Loc1 -> Corridor, + Corridor -> Loc2 + Distance in corridor (1 aisle = 2 rows)
     CorrD1 + CorrD2 + (abs(get_aisle(Loc1) - get_aisle(Loc2)) * 2).
 
+%% @doc calculates the distance between two aisles in something reesembling meters
+%% for changing rows there is a penalty of 5 and for changing columns a penalty of 10 added.
+-spec distance(mypl_db:locationName(),mypl_db:locationName()) -> pos_integer().
 distance(Loc1, Loc2) ->
     Row1 = get_rownum(Loc1),
     Row2 = get_rownum(Loc2),

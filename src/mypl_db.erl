@@ -25,6 +25,38 @@
  backup/0,
  correction/6, correction/1]).
 
+-type locationName() :: nonempty_string().
+%%% @type locationName() = string().
+%%%     Unique, human readable name of an location.
+%%%
+-type muID() :: nonempty_string().
+%%% @type muID() = string().
+%%%     MovableUnitID, unique id of an Unit. Often an SSCC/NVE.
+%%%
+-type movementID() :: nonempty_string().
+%%% @type movementID() = string().
+%%%     MoventID, unique id of an movement.
+%%%
+-type pickID() :: nonempty_string().
+%%% @type pickID() = string().
+%%%     PickID, unique id of an pick.
+%%%
+-type heigthMM() :: integer().
+%%% @type heigthMM() = integer().
+%%%     Heigth of an Unit or Location im mm. If unsure it is suggested that you choose 1950.
+%%%
+-type quantity() :: pos_integer().
+-type content() :: nonempty_string().
+%%% @type content() = string().
+%%%     Opaque ID for an product. Artikelnummer/Item Number/SKU or EAN.
+%%%
+-type attributes() :: [{atom()}|{atom()|binary(),integer()|float()|atom(),string()|binary()}].
+%%% @type locationRecord() = tuple().
+%%%     A record describing a Location.
+%%%
+%%% @type unitRecord() = tuple().
+%%%     A record describing a Unit.
+
 
 init_table_info(Status, TableName) ->
     case Status of
@@ -38,6 +70,7 @@ init_table_info(Status, TableName) ->
     Status.
     
 %% @doc should be run before mnesia is started for the first time.
+-spec run_me_once() -> 'ok'.
 run_me_once() ->
     % ?WARNING("run_me_once() called", []),
     mnesia:create_schema([node()]),
@@ -119,10 +152,12 @@ run_me_once() ->
     ok.
     
 
+%% @doc backup the whole database
+-spec backup() -> 'ok'.
 backup() ->
     Tables = [location, unit, movement, pick, reservation, abc_pick_detail, archive, articleaudit,
               auditbuffer, pickpipeline, provisioninglist, provpipeline, provpipeline_processing,
-              retrievalpipeline, unitaudit],
+              retrievalpipeline, unitaudit, multistorage],
     Day = calendar:day_of_the_week(date()),
     BkName = "Backup-tag-" ++ integer_to_list(Day),
     CPargs = [{name, BkName},
@@ -133,45 +168,25 @@ backup() ->
     File = filename:absname_join(Dir, BkName),
     mnesia:activate_checkpoint(CPargs),
     mnesia:backup_checkpoint(BkName,File),
-    mnesia:deactivate_checkpoint(BkName).
+    mnesia:deactivate_checkpoint(BkName),
+    ok.
     
 
-%%% @type locationName() = string().
-%%%     Unique, human readable name of an location.
-
-%%% @type muID() = string().
-%%%     MovableUnitID, unique id of an Unit. Often an SSCC/NVE.
-
-%%% @type movementID() = string().
-%%%     MoventID, unique id of an movement.
-
-%%% @type pickID() = string().
-%%%     PickID, unique id of an pick.
-
-%%% @type heigthMM() = integer().
-%%%     Heigth of an Unit or Location im mm. If unsure it is suggested that you choose 1950.
-
-%%% @type product() = string().
-%%%     Opaque ID for an product. Artikelnummer/Item Number/SKU or EAN.
-
-%%% @type locationRecord() = tuple().
-%%%     A record describing a Location.
-
-%%% @type unitRecord() = tuple().
-%%%     A record describing a Unit.
 
 
 %%%%
 %%%% main myPL API - location data
 %%%%
 
-%% @spec init_location(locationName(), heigthMM(), boolean(), integer(), string(), Attributes)  -> term()
+%% @spec init_location(, , , integer(), string(), Attributes)  -> term()
 %%           Attributes = [{name, value}]
 %% @doc creates a new Location or updates an existing one.
 %% 
 %% Locations can be created at any time - even when the myPL bristles with activity..
 %% There is no way of deleting Locations. Set their preference to 0 and let them rot.
-%% returns {ok, created|updated}
+%% returns {ok, created|updated
+-spec init_location(locationName(),heigthMM(),bool(),0..9,string()|binary(),attributes()) ->
+    {'ok',#location{}} | {'error','unknown_attributes',any()}.
 init_location(Name, Height, Floorlevel, Preference, Info, Attributes)
     when is_integer(Height), is_boolean(Floorlevel), is_integer(Preference), 
          Preference >= 0, Preference < 10, is_list(Attributes) ->
@@ -205,6 +220,8 @@ init_location(Name, Height, Floorlevel, Preference, Info, Attributes)
     
 
 %% @deprecated
+-spec init_location(locationName(),heigthMM(),bool(),0..9,attributes()) ->
+    {'ok',#location{}} | {'error','unknown_attributes',{[any(),...]}}.
 init_location(Name, Height, Floorlevel, Preference, Attributes) -> 
     init_location(Name, Height, Floorlevel, Preference, "", Attributes).
     
@@ -220,6 +237,7 @@ init_location(Name, Height, Floorlevel, Preference, Attributes) ->
 %%
 %% This is an private helper for {@link store_at_location/5} actually saving the Unit to the Location.
 %% On errors it might also return {error, duplicate_mui}.
+-spec store_at_location(#location{},#unit{}) -> {ok, muID()}|{'error', 'duplicate_mui', term()}.
 store_at_location(Location, Unit) when Unit#unit.quantity > 0 ->
     Fun = fun() ->
         % check no unit record with this mui exists
@@ -247,13 +265,15 @@ store_at_location(Location, Unit) when Unit#unit.quantity > 0 ->
     
 
 % legacy emulation function
+%% @deprecated
+-spec store_at_location(locationName(),muID(),quantity(),content(),heigthMM()) -> {ok, muID()} | {error, Reason::atom(), Details::any()}.
 store_at_location(Locname, Mui, Quantity, Product, Height) ->
 store_at_location(Locname, Mui, Quantity, Product, Height, []).
 
-%% @spec store_at_location(locationName(), muID(), integer(), string(), heigthMM(), attributes()) -> {ok, locationName()}
 %% @doc create a new Unit and insert it into the warehouse
 %%
 %% On errors it might also return {error, unknown_location} or {error, duplicate_mui}.
+-spec store_at_location(locationName(),muID(),quantity(),content(),heigthMM(),attributes()) -> {ok, muID()} | {error, Reason::atom(), Details::any()}.
 store_at_location(Locname, Mui, Quantity, Product, Height, Attributes)
   when Quantity > 0 andalso is_list(Mui) andalso is_list(Attributes) ->
     Fun = fun() ->
@@ -275,25 +295,29 @@ store_at_location(Locname, Mui, Quantity, Product, Height, Attributes)
 %% successive calls return duplicate_id instead a list of NVEs.
 %% See http://blogs.23.nu/disLEXia/2007/12/antville-16699/ for some rationale behind this function.
 %% returns {ok, [Mui]}.
+-spec store_at_location_multi(string()|binary(),locationName(),[{quantity(),content(),heigthMM()}],attributes()) ->
+    {ok,[muID()]}|{'error', 'duplicate_id', any()}.
 store_at_location_multi(Id, Locname, Elements, Attributes) ->
+    Id2 = mypl_util:ensure_binary(Id),
+    Attributes2 = mypl_util:proplist_cleanup(Attributes),
     Fun = fun() ->
         % check for dupes
-        case mnesia:read({multistorage, Id}) of
+        case mnesia:read({multistorage, Id2}) of
             [_Entry] ->
-                duplicate_id;
+                {error, duplicate_id, Id2};
             [] ->
                 % insert the data
                 Muis = lists:map(fun({Quantity, Product, Height}) ->
                         Mui = mypl_nveserver:make_nve(),
-                        {ok, _} = store_at_location(Locname, Mui, Quantity, Product, Height, Attributes),
+                        {ok, _} = store_at_location(Locname, Mui, Quantity, Product, Height, Attributes2),
                         Mui;
                     % we have to catch lists instead of tuples for json compatibility
                     ([Quantity, Product, Height]) ->
                         Mui = mypl_nveserver:make_nve(),
-                        {ok, _} = store_at_location(Locname, Mui, Quantity, Product, Height, Attributes),
+                        {ok, _} = store_at_location(Locname, Mui, Quantity, Product, Height, Attributes2),
                         Mui
                      end, Elements),
-                mnesia:write(#multistorage{id=Id, muis=Muis, attributes=Attributes, 
+                mnesia:write(#multistorage{id=Id2, muis=Muis, attributes=Attributes2, 
                                             created_at=calendar:universal_time()}),
                 {ok, Muis}
         end
@@ -308,8 +332,8 @@ store_at_location_multi([Id, Locname, Elements, Attributes]) ->
     store_at_location_multi(Id, Locname, Elements, Attributes).
     
 
-%% @spec update_unit({height, muID(), heigthMM}) -> ok
 %% @doc changes the heigth of an unit. This will influence choice of storage location.
+-spec update_unit({height,muID(),heigthMM()}) -> 'ok'.
 update_unit({height, Mui, Height}) ->
     Fun = fun() ->
         Unit = mypl_db_util:mui_to_unit(Mui),
@@ -319,16 +343,15 @@ update_unit({height, Mui, Height}) ->
         ok
     end,
     mypl_db_util:transaction(Fun);
-
-% tis is for JSON compability
+% this is for JSON compability
 update_unit(["height", Mui, Height]) ->
     update_unit({height, Mui, Height}).
 
-%% @spec retrieve(muID()) -> {ok, {Quantity::integer(), Product::string()}}
 %% @doc remove a Unit and the goods on it from the warehouse
 %%
 %% This actually makes goods vanish from the warehouse without further confirmation or committing.
 %% returns the name of the location from where the Unit was removed.
+-spec retrieve(muID()) -> {'ok', {quantity(), content()}}.
 retrieve(Mui) ->
     Fun = fun() ->
         Unit = mypl_db_util:mui_to_unit(Mui),
@@ -368,6 +391,8 @@ retrieve(Mui) ->
 %%
 %% Expects to be called within an transaction.
 %% Checks that there are no goods on the unit and no open movements/picks
+-spec disband_unit(#unit{}) -> {'ok', {0, content()}}
+                              |{'error', 'inconsistent_disband', {muID(), #unit{}, any()}}.
 disband_unit(Unit) ->
     case {
           mypl_db_util:unit_movable(Unit), % this means no open picks & movements
@@ -379,11 +404,6 @@ disband_unit(Unit) ->
     end.
 
 
-%%%%
-%%%% main myPL API - movement
-%%%%
-
-%% @spec init_movement(muID(), locationName(), [{term()}])-> movementID()
 %% @see commit_movement/1
 %% @doc start moving a unit from its current location to a new one while setting attributes.
 %%
@@ -393,6 +413,8 @@ disband_unit(Unit) ->
 %%   <dt>mypl_notify_requesttracker</dt> <dd>Upon committing the movement calls
 %% {@link mypl_requesttracker:movement_done/2}(Product).</dd>
 %% </dl>
+-spec init_movement(muID(), locationName(), attributes()) -> {'ok', movementID()}
+                                                            |{'error', 'not_movable', {muID()}}.
 init_movement(Mui, DestinationName, Attributes) when is_list(Attributes) ->
     Fun = fun() ->
         % get unit for Mui & get current location of mui
@@ -428,19 +450,20 @@ init_movement(Mui, DestinationName, Attributes) when is_list(Attributes) ->
     {atomic, Ret} = mnesia:transaction(Fun),
     Ret.
     
-%% @spec init_movement(muID(), locationName())-> movementID()
+%% @deprecated
 %% @see commit_movement/1
 %% @doc start moving a unit from its current location to a new one
+-spec init_movement(muID(),locationName()) -> {'ok', movementID()}|{'error', 'not_movable', {muID()}}.
 init_movement(Mui, DestinationName) ->
     init_movement(Mui, DestinationName, []).
     
 
-%% @spec init_movement_to_good_location(muID()) -> movementID()
 %% @see mypl_db_util:best_location/1
 %% @doc start moving a Unit to a location choosen automatically
 %%
 %% The system chooses the (hopfully) best fitting location for the Unit and then uses {@link init_movement/2}
 %% to initiate a movement of the Unit tu that Location.
+-spec init_movement_to_good_location(muID()) -> movementID().
 init_movement_to_good_location(Mui) ->
     % chooses the best location for an MUI and starts moving it there
     Fun = fun() ->
@@ -453,8 +476,9 @@ init_movement_to_good_location(Mui) ->
     
 
 %% @doc This is used by commit_movement and commit_retrieval
-%%
+%% @private
 %% Needs to be called within a transaction
+-spec commit_movement_backend(#movement{}) -> {'ok',locationName()}.
 commit_movement_backend(Movement) ->
     % get unit for Mui & get current location of mui
     Unit = mypl_db_util:mui_to_unit(Movement#movement.mui),
@@ -482,13 +506,13 @@ commit_movement_backend(Movement) ->
     {ok, Destination#location.name}.
     
 
-%% @spec commit_movement(movementID()) -> locationName()
 %% @see rollback_movement/1
 %% @doc finish a movement
 %%
 %% Commits a movement created previously by {@link init_movement/2}. This is by doing the actual
 %% bookkeping of storing the unit on the new location and removing all previous information on the
 %% formerly unfinished movement. Returns the name of the Location where the Unit is stored now.
+-spec commit_movement(movementID()) -> locationName().
 commit_movement(MovementId) ->
     Fun = fun() ->
         [Movement] = mnesia:read({movement, MovementId}),
@@ -503,12 +527,12 @@ commit_movement(MovementId) ->
     mypl_db_util:transaction(Fun).
     
 
-%% @spec rollback_movement(movementID()) -> locationName()
 %% @see commit_movement/1
 %% @doc rollback a movement
 %%
 %% This rolls back a movement returning the warehouse to a state as if {@link init_movement/2} had
 %% never been called. Returns the name of the Location where the Unit now is placed (again).
+-spec rollback_movement(movementID()) -> {'ok', locationName()}.
 rollback_movement(MovementId) ->
     Fun = fun() ->
         [Movement] = mnesia:read({movement, MovementId}),
@@ -533,9 +557,12 @@ rollback_movement(MovementId) ->
     {ok, Ret}.
     
 
+%% @doc update the attributes of a movement
+-spec update_movement({'attributes',movementID(),attributes()}) -> 'ok'.
 update_movement({attributes, MovementId, Attributes}) when is_list(Attributes) ->
     Fun = fun() ->
         [Movement] = mnesia:read({movement, MovementId}),
+        % TODO: this replaces the attributes. It would be better tu actually update them.
         mnesia:write(Movement#movement{attributes=Attributes})
     end,
     mypl_db_util:transaction(Fun),
@@ -545,6 +572,7 @@ update_movement({attributes, MovementId, Attributes}) when is_list(Attributes) -
 %% @see commit_movement/1
 %% @see retrieve/1
 %% @doc commit movement/1 and afterwards retrieve the mui
+-spec commit_retrieval(movementID()) -> {'ok', {quantity(), content()}}.
 commit_retrieval(MovementId) ->
     Fun = fun() ->
         [Movement] = mnesia:read({movement, MovementId}),
@@ -558,18 +586,19 @@ commit_retrieval(MovementId) ->
 
 %% @see rollback_movement/1
 %% @doc alias for rollback_movement/1
+-spec rollback_retrieval(movementID()) -> {'ok',locationName()}.
 rollback_retrieval(MovementId) ->
     rollback_movement(MovementId).
 
 
-
+%% @deprecated
+-spec init_pick(quantity(),content()) -> {'ok',pickID()}.
 init_pick(Quantity, Mui) ->
     init_pick(Quantity, Mui, []).
 
-
-%% @spec init_pick(integer(), muID(), attributes()) -> {ok, pickID()}
 %% @see commit_pick/1
 %% @doc start a new pick removing Quantity Products from Mui
+-spec init_pick(quantity(),muID(),attributes()) -> {'ok', pickID()}.
 init_pick(Quantity, Mui, Attributes) when is_integer(Quantity) ->
     Fun = fun() ->
         % get unit for Mui & get current location of mui
@@ -598,13 +627,13 @@ init_pick(Quantity, Mui, Attributes) when is_integer(Quantity) ->
     mypl_db_util:transaction(Fun).
     
 
-%% @spec commit_pick(pickID()) -> {ok, {Quantity::integer(), Product::string()}}
 %% @see rollback_pick/1
 %% @doc finish a a pick - this actually makes goods vanish from the warehouse!
 %%
 %% Commits a pick created previously by {@link init_pick/2}. This is by doing the actual
 %% bookkeping of removing the goods from the warehouse. Returns the name of the Location
 %% where the goods where removed from.
+-spec commit_pick(pickID()) -> {'ok',{quantity(),content()}}.
 commit_pick(PickId) ->
     Fun = fun() ->
         % get Pick for PickId
@@ -653,12 +682,12 @@ commit_pick(PickId) ->
     {ok, Ret}.
     
 
-%% @spec rollback_pick(pickId()) -> {ok, locationId()}
 %% @see init_pick/2
 %% @doc rollback a pick
 %%
 %% This rolls back a pick returning the warehouse to a state as if {@link init_pick/2} had
 %% never been called. Returns the name of the Location where the Unit now is (again) in it's original state.
+-spec rollback_pick(pickID()) -> {'ok', {quantity(),content()}}.
 rollback_pick(PickId) ->
     Fun = fun() ->
         % get Pick for PickId
@@ -685,6 +714,8 @@ rollback_pick(PickId) ->
     {ok, Ret}.
     
 
+%% @doc update attributes of a pick
+-spec update_pick({'attributes',pickID(),attributes()}) -> 'ok'.
 update_pick({attributes, PickId, Attributes}) when is_list(Attributes) ->
     Fun = fun() ->
         [Pick] = mnesia:read({pick, PickId}),
@@ -699,6 +730,7 @@ update_pick({attributes, PickId, Attributes}) when is_list(Attributes) ->
 %% @doc move a mui in the warehouse - internal use only
 %%
 %% this assumed to be called inside a mnesia transaction
+-spec teleport(#unit{},#location{allocated_by::[any()]},#location{}) -> 'ok'.
 teleport(Unit, Source, Destination) ->
     % check consistency
     case {% Unit is placed on Source
@@ -720,15 +752,15 @@ teleport(Unit, Source, Destination) ->
     end.
     
 
+%-spec correction([string()|binary(),muID(),quantity(),content(),quantity(),attributes()]) ->
+%    {'ok',integer(),muID()}|{'error',atom(),term()}.
 correction([Uid, Mui, OldQuantity, Product, ChangeQuantity, Attributes]) ->
     correction(Uid, Mui, OldQuantity, Product, ChangeQuantity, Attributes).
-%% @spec correction(Uid::sting(), Mui::muID(), OldQuantity::integer, Product::product(),
-%%                  ChangeQuantity::integer(), Attributes) -> 
-%%                      {ok, integer(), muID()}|{error, reason, term()}
-%%           Attributes = [{name, value}]
 %% @doc changes the quantity on an unit after stocktaking
 %% Uid is a arbitary unique  ID for this correction. The caller must provide ot old quantity and the product
 %% to aivoid misbookings
+-spec correction(string()|binary(),muID(),quantity(),content(),quantity(),attributes()) ->
+    {'ok', integer(), muID()}|{'error', atom(), term()}.
 correction(Uid, Mui, OldQuantity, Product, ChangeQuantity, Attributes) when is_list(Attributes)->
     Fun = fun() ->
         case mnesia:read({correction, Uid}) of

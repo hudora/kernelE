@@ -36,9 +36,9 @@
 -record(session, {socket, mode, data_buffer}).
 
 reply_line(Code, Text, false) ->
-    [integer_to_list(Code), " ", Text, "\r\n"];
-reply_line(Code, Text, true) ->
-    [integer_to_list(Code), "-", Text, "\r\n"].
+    [integer_to_list(Code), " ", Text, "\r\n"].
+%reply_line(Code, Text, true) ->
+%    [integer_to_list(Code), "-", Text, "\r\n"].
 
 reply(Code, Text, State = #session{socket = Socket}) ->
     gen_tcp:send(Socket, reply_line(Code, Text, false)),

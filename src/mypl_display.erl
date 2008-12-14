@@ -1,5 +1,5 @@
 %% @version 0.2
-%%% File    : mypl_util
+%%% File    : mypl_display - grafikfunktionalitaet
 %%% Author  : Maximillian Dornseif
 %%% Created :  Created by Maximillian Dornseif on 2007-10-03.
 -module(mypl_display).

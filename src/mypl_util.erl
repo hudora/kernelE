@@ -5,8 +5,8 @@
 -module(mypl_util).
 
 %% API
--export([get_config/2, serial/0, oid/0, generate_mui/0, timestamp/0, proplist_cleanup/1, combine_until_fit/2,
-         choose/2, choose/3, nearest/2, nearest/3, spawn_and_register/2, log/5]).
+-export([get_config/2, serial/0, oid/0, generate_mui/0, timestamp/0, ensure_binary/1, proplist_cleanup/1,
+         combine_until_fit/2, choose/2, choose/3, nearest/2, nearest/3, spawn_and_register/2, log/5]).
 
 %% @spec get_config(atom(), val()) -> val()
 %% @doc Get some configuration value from the applications environment.
@@ -63,6 +63,14 @@ timestamp() ->
     {_, _, MS} = erlang:now(),
     {Date, Time, MS}.
     
+
+%% @doc convert stringa and atoms to binary.
+ensure_binary(V) when is_list(V) ->
+    list_to_binary(V);
+ensure_binary(V) when is_atom(V) ->
+    ensure_binary(erlang:atom_to_list(V));
+ensure_binary(V) when is_binary(V) ->
+    V.
 
 %% doc converts
 %% [{tries,0},

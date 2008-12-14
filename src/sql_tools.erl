@@ -6,8 +6,9 @@
 
 -export([quote/1]).
 
-% Besed on http://code.google.com/p/erlsql/source/browse/trunk/src/erlsql.erl
+% based on http://code.google.com/p/erlsql/source/browse/trunk/src/erlsql.erl
 
+-spec quote(atom() | binary() | [any()] | integer()) -> binary() | [any(),...].
 quote(Atom) when is_atom(Atom) -> quote(atom_to_list(Atom));
 quote(Integer) when is_integer(Integer) -> quote(integer_to_list(Integer));
 quote(String) when is_list(String) ->
@@ -15,6 +16,7 @@ quote(String) when is_list(String) ->
 quote(Bin) when is_binary(Bin) ->
     list_to_binary(quote(binary_to_list(Bin))).
 
+-spec quote([any()],[any()]) -> [any()].
 quote([], Acc) ->
     Acc;
 quote([0 | Rest], Acc) ->

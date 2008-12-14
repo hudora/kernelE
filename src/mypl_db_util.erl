@@ -38,14 +38,15 @@ do_trans(Q) ->
     {atomic, Val} = mnesia:transaction(F),
     Val.
 
-transaction(Fun) ->
+-spec transaction(function()) -> any().
+transaction(Fun) when is_function(Fun)->
     {atomic, Ret} = mnesia:transaction(Fun),
     Ret.
 
 
 % @private
-%% @spec get_mui_location(muiID()) -> locationRecord()
 %% @doc finds the location where a unit is currently placed
+-spec get_mui_location(mypl_db:muID()) -> #location{allocated_by::[any()]}.
 get_mui_location(Mui) ->
     Unit = mui_to_unit(Mui),
     Unit#unit.location,
@@ -59,8 +60,11 @@ get_mui_location(Mui) ->
                     % we have to use a different process to escape the failing transaction
                     spawn(fun() -> mypl_integrity:orphaned_unit(Unit) end),
                     % exit wit an error
-                    erlang:error({internal_error, mui_without_location2, {"FEHLER! Unit behauptete auf '" ++ Unit#unit.location ++ "' zu stehen, aber die Location hatte keine entsprechenden Daten. Wurde auf FEHLER gebucht.",
-                                                                          Mui, Unit, Location}});
+                    erlang:error({internal_error, mui_without_location2, {"FEHLER! Unit behauptete auf '"
+                                  ++ Unit#unit.location
+                                  ++ "' zu stehen, aber die Location hatte keine entsprechenden Daten."
+                                  ++ " Wurde auf FEHLER gebucht.",
+                                  Mui, Unit, Location}});
                 [_] -> ok
             end,
             Location
@@ -68,37 +72,40 @@ get_mui_location(Mui) ->
     
 
 %% @private
-%% @spec mui_to_unit(muiID()) -> unitRecord()
 %% @doc returns the Unit identified by a Mui
-%%
 %% This expect to be called within a transaction
+-spec mui_to_unit(mypl_db:muiID()) -> #unit{}|{'error', 'unknown_mui', term()}.
 mui_to_unit(Mui) ->
     case mnesia:read({unit, Mui}) of
         [Unit] ->
             Unit;
         [] ->
-            error_logger:error_msg({unknown_mui, Mui}),
             {error, unknown_mui, {Mui}};
         Wrong ->
             {error, unknown_mui, {Mui, Wrong}}
     end.
     
 
-%% if needed pulls the unit from the archive
-mui_to_unit_archive_trans(Mui) ->
+%% @doc this calles mui_to_unit/1 with a sorrunding transaction
+-spec mui_to_unit_trans(mypl_db:muiID()) -> #unit{}|{'error', 'unknown_mui', term()}.
+mui_to_unit_trans(Mui) ->
     Fun = fun() ->
-        mui_to_unit_archive(Mui)
+        mui_to_unit(Mui)
     end,
     mypl_db_util:transaction(Fun).
+    
 
-%% if needed pulls the unit from the archive
+%% @private
+%% @doc like mui_to_unit() but pulls the unit from the archive if needed
+%% This expect to be called within a transaction
+-spec mui_to_unit_archive(mypl_db:muiID()) ->
+    #unit{}|{'error', 'unknown_mui', {mypl_db:muiID()}|{mypl_db:muiID(),_}}.
 mui_to_unit_archive(Mui) ->
     case mui_to_unit(Mui) of
         {error, _, _} ->
             % not found in the active database - check archive
             case mypl_audit:get_from_archive(unit, Mui) of
                 [] ->
-                    error_logger:error_msg({unknown_mui, Mui}),
                     {error, unknown_mui, {Mui}};
                 [Unit] ->
                     Unit#unit{attributes=Unit#unit.attributes ++ [{status, archived}]};
@@ -110,17 +117,20 @@ mui_to_unit_archive(Mui) ->
     end.
     
 
-%% @doc this calles mui_to_unit/1 with a sorrunding transaction
-mui_to_unit_trans(Mui) ->
+%% @private
+%% @doc like mui_to_unit_archive() but does not neet to be called from within a transaction
+-spec mui_to_unit_archive_trans(mypl_db:muiID()) -> #unit{}|{'error', 'unknown_mui', term()}.
+mui_to_unit_archive_trans(Mui) ->
     Fun = fun() ->
-        mui_to_unit(Mui)
+        mui_to_unit_archive(Mui)
     end,
     mypl_db_util:transaction(Fun).
-    
+
+
 
 %% @private
-%% @spec unit_movement (unitRecord()) -> mypl_db:movementRecort()
 %% @doc returns the movement record for a unit or false if unit is not moving.
+-spec unit_movement(#unit{}) -> false|#movement{}.
 unit_movement(Unit) ->
     case do(qlc:q([X || X <- mnesia:table(movement), X#movement.mui =:= Unit#unit.mui])) of
         [] ->
@@ -130,15 +140,8 @@ unit_movement(Unit) ->
     end.
     
 %% @private
-%% @spec unit_picks(unitRecord()) -> mypl_db:movementRecort()
-%% @doc returns the pick records for a unit.
-unit_picks(Unit) ->
-    do(qlc:q([X || X <- mnesia:table(pick), X#pick.from_unit =:= Unit#unit.mui])).
-    
-
-%% @private
-%% @spec unit_moving(unitRecord()) -> atom()
 %% @doc checks if a Unit can be moved, returns yes if so, else no
+-spec unit_moving(#unit{}) -> 'yes'|'no'.
 unit_moving(Unit) ->
     % check for no open movements
     case unit_movement(Unit) of
@@ -148,8 +151,15 @@ unit_moving(Unit) ->
     
 
 %% @private
-%% @spec unit_movable(unitRecord()) -> atom()
+%% @doc returns the pick records for a unit.
+-spec unit_picks(#unit{}) -> [#pick{}].
+unit_picks(Unit) ->
+    do(qlc:q([X || X <- mnesia:table(pick), X#pick.from_unit =:= Unit#unit.mui])).
+    
+
+%% @private
 %% @doc checks if a Unit can be moved, returns yes if so, else no
+-spec unit_movable(#unit{}) -> 'yes'|'no'.
 unit_movable(Unit) ->
     % Check if there is no other open movements and no open picks.
     if 
@@ -166,8 +176,11 @@ unit_movable(Unit) ->
     
 
 %% @doc returns a list of location ordered bo "goodness"
-%%
 %% In here there are major policy decisions encoded.
+%% Which means in this function there is a lot of the myPL specific know How encoded.
+%%
+%% Paletten, die auf EINLAG stehen, erhalten hier eine Sonderbehandlung.
+-spec best_location_helper(#unit{}) -> [#location{}].
 best_location_helper(Unit) ->
     % locations with preference == 0 are never considered
     Candidates = [X || X <- find_empty_location(Unit#unit.height), X#location.preference > 0],
@@ -218,9 +231,9 @@ best_location_helper(Unit) ->
     
 
 %% @private
-%% @spec best_location(unitRecord()) -> locationRecord()
 %% @see mypl_db:init_movement_to_good_location/1
 %% @doc finds the best location for an Unit
+-spec best_location(#unit{}) -> 'no_location_available' | #location{}.
 best_location(Unit) when is_record(Unit, unit) ->
     Locations = best_location_helper(Unit),
     case Locations of
@@ -232,6 +245,8 @@ best_location(Unit) when is_record(Unit, unit) ->
     end.
     
 
+%% @doc returns the "best" location to store a certain unit
+-spec best_location('floorlevel'|'higherlevel',#unit{},[[]|#location{}]) -> []|#location{}.
 best_location(floorlevel, Unit, Ignore) when is_record(Unit, unit) ->
     % order by heigth, so we prefer lower locations
     [H|_] = [X || X <- best_location_helper(Unit), X#location.floorlevel =:= true] -- Ignore,
@@ -244,6 +259,8 @@ best_location(higherlevel, Unit, Ignore) when is_record(Unit, unit) ->
     end.
 
 %% @doc suggest for each unit in units where it could be moved
+%% returns a list of locations.
+-spec best_locations('floorlevel'|'higherlevel',[#unit{}],[[]|#location{}]) -> [[]|#location{}].
 best_locations(floorlevel, [], _) -> [];
 best_locations(floorlevel, Units, Ignore) -> 
     [H|T] = Units,
@@ -255,6 +272,8 @@ best_locations(higherlevel, Units, Ignore) ->
     Best = best_location(higherlevel, H, Ignore),
     [Best|best_locations(higherlevel, T, [Best|Ignore])].
 
+%% @deprecated
+-spec best_locations('floorlevel'|'higherlevel',[#unit{}]) -> [[]|#location{}].
 best_locations(floorlevel, Units) -> 
     best_locations(floorlevel, Units, []);
 best_locations(higherlevel, Units) -> 
@@ -262,10 +281,9 @@ best_locations(higherlevel, Units) ->
 
 
 %% @private
-%% @spec read_location(string()) -> mypl_db:unitRecord()
-%% @doc reads a Unit record
-%%
+%% @doc reads a Location record
 %% expects to be called within a mnesia transaction
+-spec read_location(mypl_db:location()) -> unknown_location|#location{}.
 read_location(Locname) when is_list(Locname)->
     case mnesia:read({location, Locname}) of
         [] ->
@@ -279,8 +297,8 @@ read_location(Locname) when is_list(Locname)->
     
 
 %% @private
-%% find_movable_units(string()) -> [mypl_db:unitRecord()]
 %% @doc returns a list of all movable units for a product
+-spec find_movable_units(mypl_db:content()) -> [#unit{}].
 find_movable_units(Product) -> 
     Candidates = [X || X <- mnesia:match_object(#unit{product = Product, _ = '_'}), X#unit.pick_quantity =< 0],
     lists:filter(fun(X) -> mypl_db_util:unit_movable(X) =:= yes end, Candidates).
@@ -289,10 +307,9 @@ find_movable_units(Product) ->
 %% TODO: this ignores Multi Unit Locations
 %% TODO: rename to find_empty_locationS
 %% @private
-%% @spec find_empty_location(heightMM()) -> List
-%%      List = [locationRecord()]
 %% @doc This generates a list of locations where a Unit of Heigth mm can be stored. The list is ordered
 %% so that locations at the beginning of the list are preferable to the ones at the end of the list.
+-spec find_empty_location(mypl_db:heigthMM()) -> [#location{}].
 find_empty_location(Height) ->
     lists:reverse(lists:keysort(#location.preference, 
                                 lists:keysort(#location.name,
@@ -303,15 +320,13 @@ find_empty_location(Height) ->
                                                X#location.preference > 0]))))).
 
 
+%% @deprecated
+-spec find_empty_location_nice(mypl_db:heigthMM()) -> mypl_db:location().
 find_empty_location_nice(Height) ->
     Fun = fun() ->
         [X#location.name || X <- find_empty_location(Height)]
     end,
     mypl_db_util:transaction(Fun).
-
-
-%find_empty_floor_location(Height) ->
-%    lists:filter(fun(X) -> X#location.floorlevel =:= true end, find_empty_location(Height)).
 
 
 % ~~ Unit tests

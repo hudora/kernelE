@@ -1,11 +1,5 @@
 %% @version 0.2
-%%%-------------------------------------------------------------------
-%%% File    : mypl_nveserver
-%%% Author  : Maximillian Dornseif
-%%% Description : 
-%%%
 %%% Created :  Created by Maximillian Dornseif on 2007-10-25.
-%%%-------------------------------------------------------------------
 -module(mypl_nveserver).
 
 -behaviour(gen_server).
@@ -30,6 +24,9 @@
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
+%% @doc return a NVE/SSCC out of the hudora number range
+%% http://de.wikipedia.org/wiki/Nummer_der_Versandeinheit
+-spec make_nve() -> string().
 make_nve() ->
     % start the server if it is not already running
     case whereis(?SERVER) of
@@ -38,6 +35,8 @@ make_nve() ->
     end,
     gen_server:call(?SERVER, {make_nve}).
 
+%% @doc return a unique Identifier.
+-spec make_oid() -> string().
 make_oid() ->
     % start the server if it is not already running
     case whereis(?SERVER) of
@@ -59,8 +58,8 @@ make_oid() ->
 %%--------------------------------------------------------------------
 init([]) ->
     State = init_state(),
-    % checkpoint at least every 60 seconds
-    timer:apply_interval(60000,  gen_server, cast, [?SERVER, {write_checkpoint}]),
+    % checkpoint at least every 70 seconds
+    timer:apply_interval(70000,  gen_server, cast, [?SERVER, {write_checkpoint}]),
     {ok, State}.
     
 
@@ -108,8 +107,9 @@ handle_info(_Info, State) ->
 %% cleaning up. When it returns, the gen_server terminates with Reason.
 %% The return value is ignored.
 %%--------------------------------------------------------------------
-terminate(_Reason, _State) ->
-    ok.
+-spec terminate(_,#state{}) -> #state{}.
+terminate(_Reason, State) ->
+    write_checkpoint(State).
 
 %%--------------------------------------------------------------------
 %% Func: code_change(OldVsn, State, Extra) -> {ok, NewState}
@@ -122,8 +122,10 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 
-% @doc calculate a EAN check digit
+%% @doc calculate a EAN check digit
+%% input is a string containing only digits, output is a single digit.
 % verify at http://www.gs1.org/productssolutions/barcodes/support/check_digit_calculator.html
+-spec ean_digit(nonempty_string()) -> nonempty_string().
 ean_digit(Nums) ->
     {_, Summe} = 
     lists:foldr(fun(X, {Factor, Summe}) -> 
@@ -144,15 +146,16 @@ ean_digit(Nums) ->
                      { 8, 7, 6, 5, 9, 3, 2, 1, 0, 4 },
                      { 9, 8, 7, 6, 5, 4, 3, 2, 1, 0 }}).
 -define(DIHEDRAL_INVERSE, {0, 4, 3, 2, 1, 5, 6, 7, 8, 9}).
--define(DIHEDRAL_P, { { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 },
-                      { 1, 5, 7, 6, 2, 8, 3, 0, 9, 4 },
-                      { 5, 8, 0, 3, 7, 9, 6, 1, 4, 2 },
-                      { 8, 9, 1, 6, 0, 4, 3, 5, 2, 7 },
-                      { 9, 4, 5, 3, 1, 2, 6, 8, 7, 0 },
-                      { 4, 2, 8, 6, 5, 7, 3, 9, 0, 1 },
-                      { 2, 7, 9, 3, 8, 0, 6, 4, 1, 5 },
-                      { 7, 0, 4, 6, 9, 1, 3, 2, 5, 8 }}).
+-define(DIHEDRAL_P, {{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 },
+                     { 1, 5, 7, 6, 2, 8, 3, 0, 9, 4 },
+                     { 5, 8, 0, 3, 7, 9, 6, 1, 4, 2 },
+                     { 8, 9, 1, 6, 0, 4, 3, 5, 2, 7 },
+                     { 9, 4, 5, 3, 1, 2, 6, 8, 7, 0 },
+                     { 4, 2, 8, 6, 5, 7, 3, 9, 0, 1 },
+                     { 2, 7, 9, 3, 8, 0, 6, 4, 1, 5 },
+                     { 7, 0, 4, 6, 9, 1, 3, 2, 5, 8 }}).
 
+-spec verhoeff_digit_helper(pos_integer(),{pos_integer(),non_neg_integer()}) -> {pos_integer(),0..9}.
 verhoeff_digit_helper(Char, {Pos, X}) ->
     Pval = element((Char-$0)+1, element(((Pos+1) rem 8)+1, ?DIHEDRAL_P)),
     XNew = element(Pval+1, element(X+1, ?DIHEDRAL_A)),
@@ -160,8 +163,9 @@ verhoeff_digit_helper(Char, {Pos, X}) ->
     
 
 %% @doc generate a Verhoeff Check Digit
-%% 
+%% input is a string containing only digits, output is a single digit.
 %% See http://en.wikipedia.org/wiki/Verhoeff_algorithm
+-spec verhoeff_digit(nonempty_string()) -> nonempty_string().
 verhoeff_digit(NumStr) ->
     % There are various (contradicting) implementation guidelines for the Verhoeff algorithm:
     % http://www.cs.utsa.edu/~wagner/pubs/DecimalDigits.pdf
@@ -177,12 +181,16 @@ verhoeff_digit(NumStr) ->
                         {0, 0}, lists:reverse(NumStr)),
     [$0 + element(X+1, ?DIHEDRAL_INVERSE)].
 
+
+-spec pad_helper(pos_integer(),string()) -> string().
 pad_helper(Howmuch, L) when Howmuch > 0 ->
     pad_helper(Howmuch - 1, [$0|L]);
 pad_helper(_Howmuch, L) -> L.
 
-
 %% @doc 0-pad a string
+%-spec pad(pos_integer(),string()) -> string().
+% currently we only pad to 7 or 8 characters
+-spec pad(7|8,string()) -> string().
 pad(Howmuch, L) ->
     pad_helper(Howmuch-length(L), L).
 
@@ -197,8 +205,7 @@ pad(Howmuch, L) ->
 %% "340059981000000012"
 %% 3> mypl_nveserver:make_nve().
 %% "340059981000000029"'''
-
-
+-spec make_nve(pos_integer()) -> nonempty_string().
 make_nve(Num) ->
     Prefix = "340059981",
     NveRaw = Prefix ++ pad(8, erlang:integer_to_list(Num)),
@@ -219,22 +226,24 @@ make_nve(Num) ->
 %% "00000029"
 %% 4> mypl_nveserver:make_oid().
 %% "00000038"'''
-
-
+-spec make_oid(pos_integer()) -> nonempty_string().
 make_oid(Num) ->
     NumStr = pad(7, erlang:integer_to_list(Num)),
     NumStr ++ verhoeff_digit(NumStr).
     
 
+%% @doc get filename for checkpoint file
+-spec checkpoint_file() -> nonempty_string().
 checkpoint_file() -> mnesia:system_info(directory) ++ "/nveserver_checkpoint".
+
 
 % reads state file from disk
 init_state() ->
     FileName = checkpoint_file(),
     case file:consult(FileName) of
         {ok, [{version1, State}]} -> 
-            % we restart 1000 after the last checkpoint to ensure nothing is lost between checkpoints
-            State#state{nvepos=State#state.nvepos+1000, oidpos=State#state.oidpos+1000, generated_count=0};
+            % we restart 200 after the last checkpoint to ensure nothing is lost between checkpoints
+            State#state{nvepos=State#state.nvepos+200, oidpos=State#state.oidpos+200, generated_count=0};
         _Data ->
             error_logger:warning_msg("cannot read nveserver checkpoint file ~s during startup, starting at 200000.",
                                      [FileName]),
@@ -242,36 +251,34 @@ init_state() ->
     end.
 
 %% @doc write current state to disk
+-spec write_checkpoint(#state{}) -> #state{}.
+write_checkpoint(State) when State#state.generated_count > 0 ->
+    FileName = checkpoint_file() ++ ".new",
+    Handle = case file:open(FileName, [write]) of
+                 {ok, Device} -> Device;
+                 {error, Reason} ->
+                     throw({error, {cannot_create_nveserver_checkpoint,
+                                    FileName, Reason}})
+             end,
+    try
+        ok = io:write(Handle, {version1, State}),
+        ok = io:put_chars(Handle, [$.])
+    after
+        ok = file:close(Handle),
+        file:rename(FileName, checkpoint_file() ++ ".new")
+    end,
+    State#state{generated_count=0};
 write_checkpoint(State) ->
-    if  % only save if we have generated new numbers sice last call
-        State#state.generated_count > 0 ->
-            FileName = checkpoint_file(),
-            Handle = case file:open(FileName, [write]) of
-                         {ok, Device} -> Device;
-                         {error, Reason} ->
-                             throw({error, {cannot_create_nveserver_checkpoint,
-                                            FileName, Reason}})
-                     end,
-            try
-                ok = io:write(Handle, {version1, State}),
-                ok = io:put_chars(Handle, [$.])
-            after
-                ok = file:close(Handle)
-            end,
-            State#state{generated_count=0};
-        true ->
-            State
-    end.
+    State.
 
-% @doc forces checkpoint to be written to disk at least once every 990 sec
+
+%% @doc forces checkpoint to be written to disk at least once every 70 numbers
+%% if more than 70 records have been created, save checkpoint to disk
+-spec check_checkpoint(#state{}) -> #state{}.
+check_checkpoint(State) when State#state.generated_count > 70 ->
+    write_checkpoint(State);
 check_checkpoint(State) ->
-    % if more than 990 records have been created, save checkpoint to disk
-    if
-        State#state.generated_count > 990 ->
-            write_checkpoint(State);
-        true ->
-            State
-    end.
+    State.
     
 
 % ~~ Unit tests

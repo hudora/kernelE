@@ -84,15 +84,16 @@ regression: devbuild
 
 
 .PHONY : check
-check: xref dialyzer
+check: dialyzer xref
 
 .PHONY : xref
-xref:
+xref: devbuild
 	${CMD_ERL} -noshell ${ERLPATH} -eval 'io:format("~p~n", [xref:d("ebin")]).' -s init stop
 
 .PHONY : dialyzer
-dialyzer:
-	${CMD_DIALYZER} ${ERLPATH} -I include --src -c src
+dialyzer: devbuild
+	#${CMD_DIALYZER} ${ERLPATH} -I include -Wunderspecs --src -c src
+	${CMD_DIALYZER} ${ERLPATH} -I include -Wunderspecs --src -c src
 
 
 # Sub-targets

@@ -39,6 +39,8 @@
          movement_list/0, movement_info/1, pick_list/0, pick_info/1]).
 
 % @private
+-spec count_product_helper([#unit{quantity::integer(),pick_quantity::integer()}],
+                           integer(),integer(),integer()) -> {integer(),integer(),integer(),integer()}.
 count_product_helper([], Fquantity, Pquantity, Mquantity) -> 
     {Fquantity, Fquantity - Pquantity - Mquantity, Pquantity, Mquantity};
 count_product_helper(Units, Fquantity, Pquantity, Mquantity) ->
@@ -50,12 +52,13 @@ count_product_helper(Units, Fquantity, Pquantity, Mquantity) ->
             count_product_helper(T, P#unit.quantity+Fquantity, P#unit.pick_quantity+Pquantity, P#unit.quantity+Mquantity)
     end.
 
-%% @spec count_product(Product) -> 
-%%     {{Full_quantity, Available_quantity, Pick_quantity, Movement_quantity}, [muID()]}
 %% @doc finds out what of a product is available. Besides the list of MUIs where the Product is stored
 %% four quantities Full_quantity, Available_quantity, Pick_quantity, Movement_quantity are returned.
 %% 
 %% E.g. count_product("10001") -> {{ 36, 19, 0, 17}, ["NVE031233412431234", "NVE0313443215435435"]}
+-spec count_product(mypl_db:content()) -> {{Full_quantity::integer(), Available_quantity::integer(),
+                                            Pick_quantity::integer(), Movement_quantity::integer()},
+                                            [[]|mypl_db:muID()]}.
 count_product(Product) ->
     Fun = fun() ->
         Units = mypl_db_util:do(qlc:q([X || X <- mnesia:table(unit), X#unit.product =:= Product])),
@@ -65,7 +68,9 @@ count_product(Product) ->
     
 
 % @private
-% count_products() -> [{product, quantities}, ...]
+-spec count_products_helper([#unit{quantity::integer(),pick_quantity::integer()}],
+                            Dict::term(), Dict::term(), Dict::term()) -> 
+                            [{mypl_db:content(),integer(),integer(),integer(),integer()}].
 count_products_helper([], Fdict, Pdict, Mdict) ->
     lists:map(fun({K, V}) -> {K,
                               V, % equals dict:fetch(K, Fdict)
@@ -91,6 +96,8 @@ count_products_helper(Units, Fdict, Pdict, Mdict) ->
 %% Full_quantity, Available_quantity, Pick_quantity, Movement_quantity for all Products.
 %%
 %% E.g. count_products() -> [{"10001",10,10,0,0},{"10002",36,1,18,17},{"10003",94,94,0,0}]
+-spec count_products() -> [[]|{mypl_db:content(), Full_quantity::integer(), Available_quantity::integer(),
+                               Pick_quantity::integer(), Movement_quantity::integer()}].
 count_products() ->
     Fun = fun() ->
         Units = mypl_db_util:do(qlc:q([X || X <- mnesia:table(unit)])),
@@ -101,6 +108,7 @@ count_products() ->
 
 %% @spec open_movements_for_product(string()) -> [mypl_db:movementID()]
 %% @doc returns a list of all open movements for a Product.
+-spec open_movements_for_product(mypl_db:content()) -> [[]|mypl_db:movementID()].
 open_movements_for_product(Product) ->
     {_, Muis} = count_product(Product),
     Fun = fun() ->
@@ -112,11 +120,13 @@ open_movements_for_product(Product) ->
     Ret.
     
 
-%% @doc get a list of all units at floorlevel or moving to floorlevel
+%% @doc get a list of all units at floorlevel or currently moving to floorlevel
+-spec find_floor_units_for_product(mypl_db:content()) -> [[]|#unit{}].
 find_floor_units_for_product(Product) ->
     [X || X <- mypl_db_util:do(qlc:q([X || X <- mnesia:table(unit),
                                            X#unit.product =:= Product, unit_floor_helper(X)]))].
 
+-spec unit_floor_helper(#unit{}) -> bool().
 unit_floor_helper(Unit) ->
     case mypl_db_util:unit_moving(Unit) of
         no ->
@@ -130,6 +140,7 @@ unit_floor_helper(Unit) ->
 
 %% @spec unit_list() -> [mypl_db:muiId()]
 %% @doc Get a list of all unit IDs
+-spec unit_list() -> [[]|mypl_db:muiID()].
 unit_list() ->
     {atomic, Ret} = mnesia:transaction(fun() -> mnesia:all_keys(unit) end),
     Ret.
@@ -137,6 +148,7 @@ unit_list() ->
 
 %% @spec unit_info(muiID()) -> tuple()
 %% @doc gets a tuple with information concerning a unit
+-spec unit_info(mypl_db:muiID()) -> {ok, mypl_db:attributes()}|{'error', any(), any()}.
 unit_info(Mui) -> 
     Fun = fun() ->
         case mypl_db_util:mui_to_unit_archive_trans(Mui) of
@@ -169,12 +181,14 @@ unit_info(Mui) ->
     
 
 %% @doc Get a list of all location names
+-spec location_list() -> [[]|mypl_db:locationName()].
 location_list() ->
     lists:sort(mypl_db_util:transaction(fun() -> mnesia:all_keys(location) end)).
     
 
 %% @spec location_info(locationName()) -> tuple()
 %% @doc gets a tuple with information concerning a location
+-spec location_info(mypl_db:locationName()) -> {ok, mypl_db:attributes()}|{'error', 'unknown_location'}.
 location_info(Locname) -> 
     Fun = fun() ->
         case mypl_db_util:read_location(Locname) of
@@ -197,18 +211,18 @@ location_info(Locname) ->
     Ret.
     
 
-%% @spec movement_list() -> [mypl_db:movementID()]
 %% @doc gets a List with all movement IDs
+-spec movement_list() -> [[]|mypl_db:movementID()].
 movement_list() ->
     lists:sort(mypl_db_util:transaction(fun() -> mnesia:all_keys(movement) end)).
     
 
-%% @spec movement_info(movementId()) -> {ok, [Attribute]}
+%% @spec movement_info() -> {ok, [Attribute]}
 %%      Attribute = {Name::string(), Value::term()}
 %% @doc gets a tuple with information concerning a movement.
 %%
 %% Attributes returned are id, mui, from_location, to_location, attributes, created_at, quantity and product.
-
+-spec movement_info(mypl_db:movementId()) -> {ok, mypl_db:attributes()}|{'error', 'unknown_movement', term()}.
 movement_info(MovementId) -> 
     Fun = fun() ->
         case mnesia:read({movement, MovementId}) of
@@ -230,6 +244,8 @@ movement_info(MovementId) ->
     Ret.
     
 
+-spec movement_info_helper(#movement{}) -> [{'attributes' | 'created_at' | 'from_location' | 'id' | 'mui' 
+                                            | 'product' | 'quantity' | 'to_location',_},...].
 movement_info_helper(Movement) ->
     % TODO: this breaks if the unit in't available anymore.
     Unit = mypl_db_util:mui_to_unit_archive(Movement#movement.mui),
@@ -246,16 +262,15 @@ movement_info_helper(Movement) ->
     ].
 
 
-%% @spec pick_list() -> [PickID]
 %% @doc gets a List with all pick_list IDs
+-spec pick_list() -> [[]|mypl_db:pickID()].
 pick_list() ->
     {atomic, Ret} = mnesia:transaction(fun() -> mnesia:all_keys(pick) end),
     Ret.
     
 
-%% @spec pick_info(pickId()) -> {ok, [Attribute]}
-%%      Attribute = {Name::string(), Value::term()}
 %% @doc gets a proplist with information concerning a pick
+-spec pick_info(mypl_db:pickID()) -> {ok, mypl_db:attributes()}|{'error', 'unknown_pick', term()}.
 pick_info(PickId) -> 
     Fun = fun() ->
         case mnesia:read({pick, PickId}) of
@@ -277,6 +292,8 @@ pick_info(PickId) ->
     Ret.
     
 
+-spec pick_info_helper(#pick{}) -> [{'attributes' | 'created_at' | 'from_location' | 'from_unit' | 'id'
+                                     | 'product' | 'quantity', _},...].
 pick_info_helper(Pick) -> 
     Unit = mypl_db_util:mui_to_unit_archive(Pick#pick.from_unit),
     [{id ,           Pick#pick.id},

@@ -6,7 +6,7 @@
 %% This module implements the actual way of selectiong goods for shippments. 
 %% The only function meant to be called directly by the user is {@link find_provisioning_candidates/2}.
 %%
-%% The actual selection process is documented in {@link find_pick_candidates/2}
+%% The actual selection process is documented in {@link find_pick_candidates/3}
 %% and {@link find_retrieval_candidates/2}.
 %% @end
 
@@ -79,7 +79,11 @@ find_pick_candidates_helper1(Quantity, Units) when is_integer(Quantity), is_list
 %% @spec find_pick_candidates(integer(), string(), [muiID()]) -> 
 %%     {ok, [{Quantity, mypl_db:unitRecord()}]}
 %% @doc Finds the Units best suitable to pick Quantity excluding certain MUIs
-%% @see find_pick_candidates/2
+%%
+%% We return only units which are at floorlevel and not moving. We prefer Units which already
+%% have open picks for them. If we find a direct match resulting
+%% in the disbandment of an unit we prefer to pick from that unit. Else we pick from the oldest Unit.
+%% Returns `{error, no_fit}' if nothing is found.
 find_pick_candidates(Quantity, Product, Exclude) when is_integer(Quantity), Quantity >= 0 ->
     Fun = fun() ->
         Candidates = find_pickable_units(Product) -- Exclude,
@@ -98,18 +102,6 @@ find_pick_candidates(Quantity, Product, Exclude) when is_integer(Quantity), Quan
         end
     end,
     mypl_db_util:transaction(Fun).
-    
-
-%% @spec find_pick_candidates(integer(), string()) -> 
-%%     {ok, [{Quantity, mypl_db:unitRecord()}]}
-%% @doc Finds the Units best suitable to pick Quantity
-%%
-%% We return only units which are at floorlevel and not moving. We prefer Units which already
-%% have open picks for them. If we find a direct match resulting
-%% in the disbandment of an unit we prefer to pick from that unit. Else we pick from the oldest Unit.
-%% Returns `{error, no_fit}' if nothing is found.
-find_pick_candidates(Quantity, Product) when is_integer(Quantity), Quantity >= 0 ->
-    find_pick_candidates(Quantity, Product, []).
     
 
 % @private
@@ -159,12 +151,12 @@ find_retrieval_candidates(Quantity, Product, Units) when is_integer(Quantity), Q
             if
                 FullQuantity < Quantity ->
                     % this really shouldn't happen. Something is deeply broken - or isn't it?
-                    error_logger:warning_msg("Not enough goods for Retrieval ~w x ~s (Available ~w of ~w)", [Quantity, Product, AvailableQuantity, FullQuantity]),
+                    error_logger:warning_msg("Not enough goods for Retrieval ~w x ~s (Available ~w of ~w)",
+                                             [Quantity, Product, AvailableQuantity, FullQuantity]),
                     {error, not_enough};
                 true ->
                     {error, not_enough}
-            end,
-            {error, not_enough};
+            end;
         true ->
             case find_retrieval_candidates_helper(Quantity, Units) of
                 {ok, NewUnits} ->
@@ -205,9 +197,6 @@ find_oldest_unit_of(Quantity, Units, Ignore) when is_integer(Quantity), is_list(
         [H|_] -> H
     end.
     
-%% @private
-find_oldest_unit_of(Quantity, Units) when is_integer(Quantity), is_list(Units) ->
-    find_oldest_unit_of(Quantity, Units, []).
 
 %% @private
 find_oldest_units_of([], _Units, _Ignore) -> [];
@@ -230,10 +219,10 @@ find_oldest_units_of(Quantities, Units) when is_list(Quantities), is_list(Units)
 %% @spec find_provisioning_candidates(integer(), string()) -> 
 %%       {ok, [mypl_db:muiID()], [{Quantiy::integer(), mypl_db:muiID()}]}
 %% @see find_retrieval_candidates/2
-%% @see find_pick_candidates/2
+%% @see find_pick_candidates/3
 %% @doc find a combination of retrievals and picks to fullfill a order
 %%
-%% By using find_retrieval_candidates/2 and find_pick_candidates/2 the best combination
+%% By using find_retrieval_candidates/2 and find_pick_candidates/3 the best combination
 %% to get a certain amound of goods out of the warehouse is analysed.
 %% Returns {error, no_fit} or {ok, retrievals, picks}
 find_provisioning_candidates(Quantity, Product) ->
@@ -470,22 +459,22 @@ mypl_simple_picking1_test() ->
     {ok, _} = mypl_db:store_at_location("010102", Mui4, 19, "a0004", 1200),
     {ok, _} = mypl_db:store_at_location("EINLAG", mypl_util:generate_mui(), 23, "a0005", 1200),
     {ok, _} = mypl_db:store_at_location("010103", Mui6, 71, "a0005", 1200),
-    {error,no_fit} = find_pick_candidates(6, "a0004"), % nothing available at floor level
+    {error,no_fit} = find_pick_candidates(6, "a0004", []), % nothing available at floor level
     
-    {fit, [{4, Mui2}]} = find_pick_candidates(4, "a0003"), % Mui1 on EINLAG is older but no_picks
+    {fit, [{4, Mui2}]} = find_pick_candidates(4, "a0003", []), % Mui1 on EINLAG is older but no_picks
     {ok, Movement1} = mypl_db:init_movement(Mui1, "010201"),
     mypl_db:commit_movement(Movement1),
-    {fit, [{4, Mui1}]} = find_pick_candidates(4, "a0003"), % Now Mui1 is not on EINLAG anymore
+    {fit, [{4, Mui1}]} = find_pick_candidates(4, "a0003", []), % Now Mui1 is not on EINLAG anymore
     
     {ok, Movement2} = mypl_db:init_movement(Mui1, "010301"),
-    {fit, [{4, Mui2}]} = find_pick_candidates(4, "a0003"), % Mui1 is moving so it can't be picked
+    {fit, [{4, Mui2}]} = find_pick_candidates(4, "a0003", []), % Mui1 is moving so it can't be picked
     mypl_db:commit_movement(Movement2),
     
-    {fit, [{4, Mui1}]} = find_pick_candidates(4, "a0003"), % Now Mui1 can be picked again
+    {fit, [{4, Mui1}]} = find_pick_candidates(4, "a0003", []), % Now Mui1 can be picked again
     
     {ok, Movement3} = mypl_db:init_movement(Mui1, "010302"),
     mypl_db:commit_movement(Movement3),
-    {fit, [{4, Mui2}]} = find_pick_candidates(4, "a0003"), % Mui1 is not floor level anymore so it can't be picked
+    {fit, [{4, Mui2}]} = find_pick_candidates(4, "a0003", []), % Mui1 is not floor level anymore so it can't be picked
     ok.
 
 %%% @hidden
@@ -497,28 +486,28 @@ mypl_simple_picking2_test() ->
     {ok, _} = mypl_db:store_at_location("010101", Mui1,  5, "a0006", 1200),
     {ok, _} = mypl_db:store_at_location("010101", Mui2,  7, "a0006", 1200),
     {ok, _} = mypl_db:store_at_location("010101", Mui3, 11, "a0006", 1200),
-    {fit, [{5, Mui1}]} = find_pick_candidates(5, "a0006"),
-    {fit, [{6, Mui2}]} = find_pick_candidates(6, "a0006"),
-    {fit, [{7, Mui2}]} = find_pick_candidates(7, "a0006"),
-    {fit, [{8, Mui3}]} = find_pick_candidates(8, "a0006"),
-    {fit, [{11, Mui3}]} = find_pick_candidates(11, "a0006"),
+    {fit, [{5, Mui1}]} = find_pick_candidates(5, "a0006", []),
+    {fit, [{6, Mui2}]} = find_pick_candidates(6, "a0006", []),
+    {fit, [{7, Mui2}]} = find_pick_candidates(7, "a0006", []),
+    {fit, [{8, Mui3}]} = find_pick_candidates(8, "a0006", []),
+    {fit, [{11, Mui3}]} = find_pick_candidates(11, "a0006", []),
     
     % exclusion of MUIs works
-    {fit, [{1, Mui1}]} = find_pick_candidates(1, "a0006"),
+    {fit, [{1, Mui1}]} = find_pick_candidates(1, "a0006", []),
     {fit, [{1, Mui2}]} = find_pick_candidates(1, "a0006", [Mui1]),
     
     % the next should be fulfilled by "picking empty" two units
-    {fit, [{5, Mui1}, {7, Mui2}]} = find_pick_candidates(12, "a0006"),
+    {fit, [{5, Mui1}, {7, Mui2}]} = find_pick_candidates(12, "a0006", []),
     % we can't fullfill this pick, but we can get close - do we actualy want this?
-    {error, no_fit} = find_pick_candidates(25, "a0006"),
+    {error, no_fit} = find_pick_candidates(25, "a0006", []),
     
     %% now let's see if units with open picks are preferred
     {ok, Pick1} = mypl_db:init_pick(7, Mui3),
-    {fit, [{4, Mui3}]} = find_pick_candidates(4, "a0006"),
+    {fit, [{4, Mui3}]} = find_pick_candidates(4, "a0006", []),
     %% not enough on Mui3, so wee need to pick from the others
-    {fit, [{5, Mui1}]} = find_pick_candidates(5, "a0006"),
-    {fit, [{6, Mui2}]} = find_pick_candidates(6, "a0006"),
-    {fit,[{4, Mui3}, {4, Mui1}]} = find_pick_candidates(8, "a0006"),
+    {fit, [{5, Mui1}]} = find_pick_candidates(5, "a0006", []),
+    {fit, [{6, Mui2}]} = find_pick_candidates(6, "a0006", []),
+    {fit,[{4, Mui3}, {4, Mui1}]} = find_pick_candidates(8, "a0006", []),
     mypl_db:rollback_pick(Pick1),
     ok.
     
@@ -534,9 +523,9 @@ mypl_simple_picking3_test() ->
     {ok, _} = mypl_db:store_at_location("010101", Mui3,  5, "a0007", 1200),
     % If we can use the pick to exactly empty an unit we prefer to do that instead of picking
     % from the oldest unit
-    {fit, [{5, Mui3}]} = find_pick_candidates(5, "a0007"),
+    {fit, [{5, Mui3}]} = find_pick_candidates(5, "a0007", []),
     % and what about two picks
-    {fit, [{5, Mui3}, {7, Mui2}]} = find_pick_candidates(12, "a0007"),
+    {fit, [{5, Mui3}, {7, Mui2}]} = find_pick_candidates(12, "a0007", []),
     ok.
     
 
