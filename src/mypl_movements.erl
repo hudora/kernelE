@@ -18,9 +18,9 @@
 %%     (To floorlevel)</li>
 %% <li>Goods which are classified A by {@link mypl_abcserver} and of which no unit is at floorlevel
 %%     (To floorlevel).</li>
-%% <li>Goods which will be needed in near future for picking (information gained from {@link mypl_oracle})
+%% <li>Goods which will be needed in near future for picking
 %%     and are not available at floorlevel. (To floorlevel) - CURRENTLY UNIMPLEMENTED.</li>
-%% <li>Goods which are NOT needed in the next few weeks (information gained from {@link mypl_oracle}) and
+%% <li>Goods which are NOT needed in the next few weeks and
 %%     are using up floorspace (To upper levels) - CURRENTLY UNIMPLEMENTED.</li>
 %% <li>Unify products on multiple units onto a single unit - CURRENTLY UNIMPLEMENTED. Possibly only if
 %%     are not going to pick from them in near future because this would make unifying useless.</li>

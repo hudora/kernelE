@@ -186,8 +186,6 @@ still lacking basic functionality.
 
 === Internal Modules ===
 
-{@link mypl_oracle} is to predict the future. If is there to give an educated guess about when which quantity of which product will needed by the warehouse. The user is expected to regulary (e.g. once a hour) seed {@link mypl_oracle} with information regarding orders in the next weeks and months. Details are still TBD.
-
 {@link mypl_movments} implements chosing movements to optimize the Warehouse. Functionality like cleanup and
 something along the lines of "Fixplatznachschub". The User is expected to regularly call
 {@link mypl_movments:create_automatic_movements/0} to see if the system has new suggestions. It is suggested that one forklift driver does nothing other than fulfilling the movements suggested by 
