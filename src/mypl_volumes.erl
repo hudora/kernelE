@@ -14,7 +14,7 @@
          volume_proplist/1]).
 
 -include_lib("stdlib/include/qlc.hrl").
--include("include/mypl.hrl").
+-include("mypl.hrl").
 
 %% @doc should be run before mnesia is started for the first time.
 run_me_once() ->

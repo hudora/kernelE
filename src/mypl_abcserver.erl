@@ -13,7 +13,7 @@
 
 -define(SERVER, mypl_abcserver).
 -include_lib("stdlib/include/qlc.hrl").
--include("include/mypl.hrl").
+-include("mypl.hrl").
 
 
 -record(abc_pick_detail, {id,           % eindeutiger Bezeichner

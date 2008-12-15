@@ -475,7 +475,8 @@ transfer_archive(Key, Pg) ->
                     erlang:display({yyy4, Record}),
                     Body = Record#archive.body,
                     %{{PY, PMon, PD}, {PH, PMin, PS}, PMS} = Body#provpipeline.created_at,
-                    {{AY, AMon, AD}, {AH, AMin, AS}, AMS} = Record#archive.created_at,
+                    % is the netxt line used for anything?
+                    {{_AY, _AMon, _AD}, {_AH, _AMin, _AS}, _AMS} = Record#archive.created_at,
                     Sql = "INSERT INTO provpipelinearchive (id,priority,orderlines,weigth,volume,status,tries,provisioninglists,ref)" ++
                           " VALUES (" ++ sql_tools:quote(Body#provpipeline.id) ++ "," 
                            ++ integer_to_list(Body#provpipeline.priority) ++ ","

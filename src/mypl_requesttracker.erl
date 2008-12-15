@@ -8,7 +8,7 @@
 -behaviour(gen_server).
 
 -include_lib("stdlib/include/qlc.hrl").
--include("include/mypl.hrl").
+-include("mypl.hrl").
 
 -define(SERVER, mypl_requesttracker).
 

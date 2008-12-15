@@ -38,7 +38,7 @@
 -module(mypl_movements).
 
 -include_lib("stdlib/include/qlc.hrl").
--include("include/mypl.hrl").
+-include("mypl.hrl").
 
 % There should be at least MINFLOORFREE locations free at floorlevel
 -define(FLOORCLEANER_START_DEFAULT, 5).

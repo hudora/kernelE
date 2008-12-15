@@ -13,7 +13,7 @@
 -module(mypl_provisioning).
 
 -include_lib("stdlib/include/qlc.hrl").
--include("include/mypl.hrl").
+-include("mypl.hrl").
 
 -export([find_provisioning_candidates/2,find_provisioning_candidates_multi/1,
          find_provisioning_candidates/3,find_provisioning_candidates_multi/2,

@@ -29,7 +29,7 @@
 -module(mypl_db_query).
 
 -include_lib("stdlib/include/qlc.hrl").
--include("include/mypl.hrl").
+-include("mypl.hrl").
 
 -import(mypl_db_util).
 
@@ -217,8 +217,6 @@ movement_list() ->
     lists:sort(mypl_db_util:transaction(fun() -> mnesia:all_keys(movement) end)).
     
 
-%% @spec movement_info() -> {ok, [Attribute]}
-%%      Attribute = {Name::string(), Value::term()}
 %% @doc gets a tuple with information concerning a movement.
 %%
 %% Attributes returned are id, mui, from_location, to_location, attributes, created_at, quantity and product.

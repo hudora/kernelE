@@ -12,7 +12,7 @@
 -export([distance/2]).
 -compile(export_all).
 
-%% @reformat a location name so it soerts the way we like it
+%% @doc reformat a location name so it sorts the way we like it
 -spec get_row(mypl_db:locationName()) -> mypl_db:locationName().
 get_row("EINLAG") -> "98EINLAG";
 get_row("AUSLAG") -> "00AUSLAG";

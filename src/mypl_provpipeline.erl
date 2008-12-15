@@ -243,7 +243,7 @@ broken_get_picklists(Attributes) when is_list(Attributes) ->
           Weight > -1, Weight < (?MAXWEIGHTPERPICKLIST div 2)} of
         {[_], true, true, true, true} ->
             Fun = fun() ->
-                [{_, Mui, FromLocation, Quantity, Product, Attributes}] = Picklist#provisioninglist.provisionings,
+                [{_, Mui, _FromLocation, Quantity, Product, Attributes}] = Picklist#provisioninglist.provisionings,
                 Unit = mypl_db_util:mui_to_unit(Mui),
                 % check if enough is available on the Unit
                 case {(Unit#unit.quantity - Unit#unit.pick_quantity) > Quantity} of

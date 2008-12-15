@@ -3,7 +3,7 @@
 -export([statistics/0, bewegungen/0, bewegungen2/0]).
 
 -include_lib("stdlib/include/qlc.hrl").
--include("include/mypl.hrl").
+-include("mypl.hrl").
 
 bewegungen_helper([], Dict) -> Dict;
 bewegungen_helper([Record|Tail], Dict) ->

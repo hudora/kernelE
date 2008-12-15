@@ -14,7 +14,7 @@
 -module(mypl_db).
 
 -include_lib("stdlib/include/qlc.hrl").
--include("include/mypl.hrl").
+-include("mypl.hrl").
 
 -export([init_table_info/2, run_me_once/0, init_location/6, init_location/5,
  store_at_location/5, store_at_location_multi/1, update_unit/1, retrieve/1,
@@ -74,7 +74,6 @@ init_table_info(Status, TableName) ->
 run_me_once() ->
     % ?WARNING("run_me_once() called", []),
     mnesia:create_schema([node()]),
-    mnesia:start(),
     % the main tables are kept in RAM with a disk copy for fallback
     init_table_info(mnesia:create_table(location,         [{disc_copies, [node()]}, {attributes, record_info(fields, location)}]), location),
     init_table_info(mnesia:create_table(unit,             [{disc_copies, [node()]}, {attributes, record_info(fields, unit)}]), unit),
@@ -172,14 +171,10 @@ backup() ->
     ok.
     
 
-
-
 %%%%
 %%%% main myPL API - location data
 %%%%
 
-%% @spec init_location(, , , integer(), string(), Attributes)  -> term()
-%%           Attributes = [{name, value}]
 %% @doc creates a new Location or updates an existing one.
 %% 
 %% Locations can be created at any time - even when the myPL bristles with activity..
