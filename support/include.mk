@@ -44,3 +44,4 @@ $(EBIN_DIR)/%.$(EMULATOR): %.erl
 $(DOC_DIR)/%.html: %.erl
 	$(ERL) -noshell -run edoc file $< -run init stop
 	mv *.html $(DOC_DIR)
+

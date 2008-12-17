@@ -1,3 +1,10 @@
+% bester Lagerplatz, dient zur Platzierung von A-Artikeln
+-define(BESTLOCATION, "061301").
+% schlechtester Lagerplatz, dient zur Platzierung von C-Artikeln
+-define(WORSTLOCATION, "194503").
+
+
+
 % Record definitions
 
 % dies stellt einen Lagerplatz im Regal dar.

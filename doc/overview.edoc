@@ -7,6 +7,7 @@
 @author Nicole Dornseif
 @author Tobias Nockher
 @author Lars Ronge
+@author Christian Klein
 
 @doc
 == Introduction ==
@@ -48,18 +49,20 @@ Some more obscure terms are:
 <dt>retrieval</dt>
 <dd>Subset of movements: We use the term "retrieval" for movements out of the Warehouse ("Auslagerung").</dd>
 
-<dt>provisionings</dt>
-<dd>We use the term "provisionings" to describe picks and/or retrievals. Usually the operator is only interested in provisionings and not if they are implemented by picks or retrievals.</dd>
-
 <dt>disbanding</dt>
-<dd>If we pich from an unit until it is empty, the unit disappears. We call this "disbanding".</dd>
+<dd>If we pick from an unit until it is empty, the unit disappears. We call this "disbanding".</dd>
 
 <dt>MUI</dt>
-<dd>The ID of an Unit.</dd>
+<dd>The ID of an Unit. Sometimes also called NVE or SSCC.</dd>
 
-<dt>Product</dt>
+<dt>Product or Content</dt>
 <dd>An unique String identifying a Product/Article. Ususally an "Artikelnummer""/<a href="http://en.wikipedia.org/wiki/Stock_Keeping_Unit">SKU</a></dd>
 </dl>
+
+<dt>provisioninglists</dt>
+<dd>"Komissionierbeleg". One or more picks or retievals to grouped together to fullfill a single order. Usually a Provisioninglist is printed on a sheet of paper.</dd>
+
+
 
 
 == Features ==
