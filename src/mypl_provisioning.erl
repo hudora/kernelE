@@ -59,8 +59,8 @@ find_pick_candidates_helper2(Quantity, Units) when is_integer(Quantity), is_list
 %% Returns `{error, no_fit}' if nothing is found.
 %% To be called within a transaction.
 find_pick_candidates_helper1(Quantity, Units) when is_integer(Quantity), is_list(Units), Quantity >= 0 ->
-    % sort candidates - oldes are picked first
-    Sorted = lists:keysort(#unit.created_at, Units),
+    % sort candidates - oldest and nearest to the front are picked first
+    Sorted = mypl_db_util:sort_units_by_age_and_distance(?BESTLOCATION, Units),
     % prefer candidates already having open picks
     Candidates = [X || X <- Sorted, X#unit.pick_quantity > 0] ++ [X || X <- Sorted, X#unit.pick_quantity =< 0],
     % check for a direct fit

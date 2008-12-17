@@ -24,7 +24,7 @@
 %% API
 -export([do/1, do_trans/1, transaction/1, get_mui_location/1,
          mui_to_unit/1, mui_to_unit_archive/1, mui_to_unit_archive_trans/1, mui_to_unit_trans/1,
-         unit_picks/1, unit_movement/1, unit_moving/1, unit_movable/1,
+         unit_picks/1, unit_movement/1, unit_moving/1, unit_movable/1, sort_units_by_age/1,
          find_empty_location/1, find_empty_location_nice/1, best_location/1, best_locations/2,
          read_location/1, find_movable_units/1]).
 
@@ -175,6 +175,26 @@ unit_movable(Unit) ->
     end.
     
 
+%% @doc Sort units by age but ignore differences of just a few days
+%% the secondary sorting criteria ist quantity
+sort_units_by_age(Units) ->
+    lists:sort(fun(A, B) ->
+                  {{A1, A2, _}, _, _} = A#unit.created_at,
+                  {{B1, B2, _}, _, _} = B#unit.created_at,
+                  {A1, A2, A#unit.quantity} < {B1, B2, B#unit.quantity}
+               end, Units).
+    
+
+%% @doc Sort units by age but ignore differences of just a few days
+sort_units_by_age_and_distance(Locname, Units) ->
+    lists:sort(fun(A, B) ->
+                  {{A1, A2, _}, _, _} = A#unit.created_at,
+                  {{B1, B2, _}, _, _} = B#unit.created_at,
+                  {A1, A2, mypl_distance:distance(Locname, A#unit.location), A#unit.quantity}
+                      < {B1, B2, mypl_distance:distance(Locname, B#unit.location), B#unit.quantity}
+               end, Units).
+    
+
 %% @doc returns a list of location ordered bo "goodness"
 %% In here there are major policy decisions encoded.
 %% Which means in this function there is a lot of the myPL specific know How encoded.
@@ -197,14 +217,14 @@ best_location_helper(Unit) ->
                             % for Units on EINLAG we do no distance calculations but base on ABC classification
                             case Class of
                                 a -> % order by distance from front - divide by 20 to get groups/bins of distances
-                                    AdistanceClass = mypl_distance:distance("061301", A#location.name) div ?DISTANCESCALINGFACTOR,
-                                    BdistanceClass = mypl_distance:distance("061301", B#location.name) div ?DISTANCESCALINGFACTOR;
-                                b -> % products of class B are placed "randomly"
+                                    AdistanceClass = mypl_distance:distance(?BESTLOCATION, A#location.name) div ?DISTANCESCALINGFACTOR,
+                                    BdistanceClass = mypl_distance:distance(?BESTLOCATION, B#location.name) div ?DISTANCESCALINGFACTOR;
+                                c ->  % order by distance from back - divide by 10 to get groups/bins of distances
+                                    AdistanceClass = mypl_distance:distance(?WORSTLOCATION, A#location.name) div ?DISTANCESCALINGFACTOR,
+                                    BdistanceClass = mypl_distance:distance(?WORSTLOCATION, B#location.name) div ?DISTANCESCALINGFACTOR;
+                                _ -> % products of class B and "penner" are placed "randomly"
                                     AdistanceClass = 0,
-                                    BdistanceClass = 0;
-                                _ ->  % order by distance from back - divide by 10 to get groups/bins of distances
-                                    AdistanceClass = mypl_distance:distance("194001", A#location.name) div ?DISTANCESCALINGFACTOR,
-                                    BdistanceClass = mypl_distance:distance("194001", B#location.name) div ?DISTANCESCALINGFACTOR
+                                    BdistanceClass = 0
                             end;
                         true -> % else
                             % movement within the warehouse ("Umlagerung")
@@ -412,10 +432,30 @@ best_location_helper_test() ->
     ok.
     
 
+sort_units_by_age_test() ->
+    test_init(),
+    {ok, "mui1"} = mypl_db:store_at_location("012002", "mui1", 5, "a0001", 1200),
+    {ok, "mui2"} = mypl_db:store_at_location("011001", "mui2", 5, "a0001", 1999),
+    {ok, "mui3"} = mypl_db:store_at_location("200104", "mui3", 5, "a0001", 1900),
+    {ok, "mui4"} = mypl_db:store_at_location("013003", "mui4", 5, "a0001", 2100),
+    Units = transaction(fun() -> [mui_to_unit("mui1"), mui_to_unit("mui4"),
+                                  mui_to_unit("mui3"), mui_to_unit("mui2")] end),
+    erlang:display(sort_units_by_age(Units)),
+    % since all for units are created more or less simoultaneusly they should be returned
+    % purely ordered by distance to 011001.
+    [{unit,"mui2",5,"a0001",1999,0,"011001",[],_},
+     {unit,"mui1",5,"a0001",1200,0,"012002",[],_},
+     {unit,"mui4",5,"a0001",2100,0,"013003",[],_},
+     {unit,"mui3",5,"a0001",1900,0,"200104",[],_}] = sort_units_by_age_and_distance("011001", Units),
+    ok.
+    
+
+
 testrunner() ->
     choose_location_test(),
     choose_locations_test(),
     best_location_helper_test(),
+    sort_units_by_age_test(),
     ok.
     
 -endif.
