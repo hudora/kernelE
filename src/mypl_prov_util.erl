@@ -21,13 +21,22 @@
 
 % @doc sort provpipeline records in order which they should be handled
 %
-% sorts by the attributes `versandtermin', `liefertermin' the priority cusotmer ID
-%% and the number of unsuccessfull tries
+% Sorts by 
+% <ul>
+% <li>shut it be shipped NOW?</li>
+% <li>attribute `versandtermin'</li>
+% <li>attribute `liefertermin'</li>
+% <li>priority</li>
+% <li>number number of unsuccessfull tries to select  (more tries sort first)</li>
+% <li>customer ID</li>
+-spec sort_provpipeline([#provpipeline{attributes::[any()]},...]) ->
+    [#provpipeline{attributes::[any()]},...].
 sort_provpipeline(Records) ->
     lists:sort(fun(A, B) -> sort_provpipeline_helper(A) < sort_provpipeline_helper(B) end, Records).
 
 % @private
 % creates a key for sorting
+-spec sort_provpipeline_helper(#provpipeline{attributes::[any()]}) -> term().
 sort_provpipeline_helper(Record) ->
     {not (proplists:get_value(fixtermin, Record#provpipeline.attributes, false) 
           and (shouldprocess(Record) =:= yes)),
@@ -45,7 +54,7 @@ sort_provpipeline_helper(Record) ->
 %%   yes:   MUST be shipped today
 %%   maybe: CAN be shipped today
 %%   no:    MAY NOT be shipped today
-
+-spec shouldprocess(#provpipeline{attributes::[any()]}) -> 'maybe' | 'no' | 'yes'.
 shouldprocess(Record) ->
     {{Year,Month,Day}, _} =  calendar:now_to_datetime(erlang:now()),
     Today = lists:flatten(io_lib:format("~4.10.0B-~2.10.0B-~2.10.0B", [Year, Month, Day])),
