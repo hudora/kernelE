@@ -100,17 +100,24 @@ provisioninglist_info(Id) ->
     
 
 piplinearticles_helper2([], Dict) -> Dict;
-piplinearticles_helper2([Product|Tail], Dict) ->
-    piplinearticles_helper2(Tail, dict:update_counter(Product, 1, Dict)).
-    
+piplinearticles_helper2([{Quantity, Product}|Tail], Dict) ->
+    % piplinearticles_helper2(Tail, dict:update_counter(Product, 1, Dict)).
+    piplinearticles_helper2(Tail, dict:update(Product, fun({Count, SumQuantity}) ->
+                                                          {Count + 1, SumQuantity + Quantity}
+                                                       end,
+                                              {1, Quantity}, Dict)).
+     
+
+% this is called which a list of orderlines
 piplinearticles_helper1([], Dict) -> Dict;
 piplinearticles_helper1([Orderline|Tail], Dict) ->
-    piplinearticles_helper1(Tail, piplinearticles_helper2([Product || {_, Product, _} <- Orderline], Dict)).
-    
+    piplinearticles_helper1(Tail, piplinearticles_helper2([{Quantity, Product} || {Quantity, Product, _} <- Orderline], Dict)).
+
 %% @doc get a list of all articles in the provisioning pipeline and in how many orders they exist
 pipelinearticles() ->
     Orderlines = mypl_db_util:do_trans(qlc:q([X#provpipeline.orderlines || X <- mnesia:table(provpipeline),
                                               X#provpipeline.status /= provisioned,
-                                              X#provpipeline.status /= deleted])),
+                                              X#provpipeline.status /= deleted,
+                                              shouldprocess(X) =:= yes])),
     ProductDict = piplinearticles_helper1(Orderlines, dict:new()),
     lists:reverse(lists:sort(lists:map(fun({A, B}) -> {B, A} end, dict:to_list(ProductDict)))).

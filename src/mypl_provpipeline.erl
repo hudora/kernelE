@@ -1,12 +1,12 @@
-%% @version 0.2
-%%% File    : mypl_provpipeline
+%% @version 0.3
 %%% Author  : Maximillian Dornseif
 %%% Created :  Created by Maximillian Dornseif on 2007-11-07.
 %% @doc
 %%
 %% How does data move through the System?
 %%
-%% Data enters the system by beeing written in the provpipeline with status new.
+%% Data enters the system by beeing written in the provpipeline via insert_pipeline/1
+%% with status new.
 %%
 %% Then refill_pipeline() generates Picks and Retrievals for an provpipeline Entry,
 %% writes the Picks and Retrievals into the pickpipeline/retrievalpipeline and sets
@@ -24,7 +24,13 @@
 %% * Wenn es mehrere identische Picklists gibt, sollten die gleichzeitig rauskommen
 %% * Grosse Picklists sollten gesplittet werden.
 %% 
-
+% kernel_updated_at
+% kernel_enqueued_at
+% versandtermin
+% liefertermin
+% auftragsnummer
+% fixtermin
+% See {@link sort_provpipeline/1} for details of the approach to sorting.
 
 -module(mypl_provpipeline).
 -define(SERVER, mypl_provpipeline).
@@ -91,28 +97,34 @@ run_me_once() ->
 %%           Attributes = [{name, value}]
 %% @doc adds an order to the provisioningpipeline.
 %%
-%% `CId' is a unique Id used by the client to refer to this Picking order, e.g. the "Lieferscheinnummer" 
-%% or something similar. `Orderlines' is a list of Articles to 
+%% `CId' is a unique Id used by the client to refer to this Picking order, e.g. the
+%% "Kommisionierauftragsnummer" or something similar. `Orderlines' is a list of Articles to 
 %% provision. The List elements are tuples `{Quanity, Product, Attributes}' where Attributes contains
-%% arbitrary data for use at tha client side.
-%% The higher the `priority' the more likely it is, that the Order is processed early.
+%% arbitrary data for use at the client side.
+%% The <b>lower</b> the `priority' the more likely it is, that the Order is processed early.
 %% In addition we consider the attributes `versandtermin' and `liefertermin' to determine processing order.
-%% 'Customer' is to aggregate shippments to the same customer. 'Weigth' and 'Volume' are the calculated.
-%% See {@link sort_provpipeline/1} for details.
-%% total Weigth and Volume of the shippment and are used to make scheduling descisions.
+%% See {@link sort_provpipeline/1} for details of the approach to sorting.
+%% 'Customer' is to aggregate shippments to the same customer. 'Weigth' and 'Volume' are the calculated
+%% total weigth and volume of the shippment and are used to make scheduling descisions.
 %%
 %% Example:
 %% ```insert_pipeline(Id, [{20, 10106, [{"auftragsposition", "1"}, {"gewicht", "34567"}]},
 %%                         {70, 14650, [{"auftragsposition", "2"}, {"gewicht", "35667"}]},
 %%                         {30, 76500, [{"auftragsposition", "3"}, {"gewicht", "12367"}]}],
 %%                    28, "34566", 345000, 581.34,
-%%                    [{"auftragsnumer", "123432"}, {"liefertermin", "2007-12-23"}]).'''
-insert_pipeline({CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes}) ->
-    insert_pipeline([CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes]);
+%%                    [{"auftragsnummer", "123432"}, {"liefertermin", "2007-12-23"}]).'''
 insert_pipeline([CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes]) ->
+    insert_pipeline(CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes);
+insert_pipeline({CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes}) ->
+    insert_pipeline(CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes).
+
+-spec insert_pipeline(string(),[{pos_integer(), string(), attributes()},...],
+                      [0..10],string(),integer(),float(),mypl_db:attributes()) ->
+    'ok'|{error, cant_reinsert_already_open, term()}
+insert_pipeline(CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes) ->
     Fun = fun() ->
         case mnesia:read({provpipeline, CId}) of
-            % ensure we don't update an entry which already wxists and is NOT new
+            % ensure we don't update an entry which already exists and is NOT new
             [ExistingEntry] ->
                 if 
                     ExistingEntry#provpipeline.status /= new ->
@@ -130,6 +142,8 @@ insert_pipeline([CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes
     mypl_db_util:transaction(Fun).
     
 %% @private
+-spec insert_pipeline(string(),[{pos_integer(), string(), attributes()},...],
+                      [0..10],string(),integer(),float(),mypl_db:attributes()) -> 'ok'
 insert_pipeline_helper(CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes) ->
     PPline = #provpipeline{id=CId, priority=Priority, weigth=Weigth, volume=Volume,
                            attributes=[{kernel_customer, Customer}
@@ -584,6 +598,132 @@ is_provisioned(CId) ->
             unfinished
     end.
     
+
+% TODO: extract.
+
+%% @doc get a list of all articles in the provisioning pipeline
+pipelinecombinations() ->
+    Orderlinelist = mypl_db_util:do_trans(qlc:q([X#provpipeline.orderlines || X <- mnesia:table(provpipeline),
+                                                 X#provpipeline.status /= provisioned,
+                                                 mypl_prov_util:shouldprocess(X) /= no])),
+    Dict = pipelinecombinations_helper1(Orderlinelist, dict:new()),
+    lists:reverse(lists:sort(lists:map(fun({A, B}) -> {B, A} end, dict:to_list(Dict)))).
+    
+pipelinecombinations_helper1([], Dict) -> Dict;
+pipelinecombinations_helper1([Orderlines|Tail], Dict) ->
+    pipelinecombinations_helper1(Tail, dict:update_counter([Product || {_Quantity, Product, _} <- Orderlines], 1, Dict)).
+
+
+pair_with_each2(_, [], Dict) -> Dict;
+pair_with_each2(A, [B], Dict) -> dict:update_counter({A, B}, 1, Dict);
+pair_with_each2(A, [B|Tail], Dict1) ->
+    pair_with_each2(A, Tail, dict:update_counter({A, B}, 1, Dict1)).
+
+pair_with_each1(_, [], Dict) -> Dict;
+pair_with_each1(A, [B], Dict) -> dict:update_counter({A, B}, 1, Dict);
+pair_with_each1(A, [B|Tail], Dict1) ->
+    Dict2 = pair_with_each2(A, Tail, dict:update_counter({A, B}, 1, Dict1)),
+    pair_with_each1(B, Tail, Dict2).
+    
+pair_each_with_each([], Dict) -> Dict;
+pair_each_with_each([_], Dict) -> Dict;
+pair_each_with_each([A|Tail], Dict) ->
+    pair_with_each1(A, Tail, Dict).
+
+% this is called with a list of orderlines
+build_pairs_helper1([], Dict) -> Dict;
+build_pairs_helper1([Orderlines|Tail], Dict) ->
+    build_pairs_helper1(Tail, pair_each_with_each(lists:sort([Product || {_, Product, _} <- Orderlines]), Dict)).
+    
+
+build_pairs() ->
+    Orderlinelist = mypl_db_util:do_trans(qlc:q([X#provpipeline.orderlines || X <- mnesia:table(provpipeline),
+                                                 X#provpipeline.status /= provisioned,
+                                                 mypl_prov_util:shouldprocess(X) /= no])),
+    Dict = build_pairs_helper1(Orderlinelist, dict:new()),
+    lists:reverse(lists:sort(lists:map(fun({A, B}) -> {B, A} end, dict:to_list(Dict)))).
+    
+
+find_schnelldreher() ->
+    % get a list of {orderlines, quantity, pallets, Product}, e.g.
+    % {26, 177, 5.53125, "30970"},
+    Candidates1 = [{C, Quantity, mypl_volumes:pallets({Quantity, Product}), Product}
+                     || {{C,  Quantity}, Product} <- mypl_provpipeline:pipelinearticles()],
+    % filter everything which wouldn't completely used up tomorrow
+    Candidates2 = [{C, Quantity, Pallets, Product} || {C, Quantity, Pallets, Product} <- Candidates1,
+                     Pallets > 1],
+    % find out how many floor units we have already.
+    Fun = fun() ->
+       lists:map(fun({C, Quantity, Pallets, Product}) ->
+                     Units = mypl_db_query:find_floor_units_for_product(Product),
+                     Q = lists:sum([Unit#unit.quantity - Unit#unit.pick_quantity
+                                        || Unit <- Units]),
+                     {C, Quantity, Pallets, Product, Q, Quantity-Q, mypl_volumes:pallets({Quantity-Q, Product})}
+                 end, 
+                 Candidates2)
+        end,
+    Candidates3 = mypl_db_util:transaction(Fun),
+    
+    % TODO: consider movements to floor
+    
+    % Gibt eine Liste zurueck aller Artikel, fuer die es genug offene Auftrage gibt, dass
+    % a) morgen alle bodenpaletten wegkomissioniert werden
+    % b) mindestens eine weitere palette benoetigt wird
+    % c) mindestens drei auftraege vorliegen
+    Candidates4 = [{C, Product, NeedPal}
+                       || {C, _Quantity, _Pallets, Product, _FloorQ, _Need, NeedPal} <- Candidates3,
+                          NeedPal > 1,
+                          C > 2].
+
+% decompose the output of find_schnelldreher()
+find_schnelldreher2_helper([]) -> [];
+find_schnelldreher2_helper([H|T]) ->
+    {C, Product, NeedPal} = H,
+    case NeedPal < 2 of
+        false ->
+            [{C, Product}|find_schnelldreher2_helper(T ++ [{C, Product, NeedPal-1}])];
+        true ->
+            [{C, Product}|find_schnelldreher2_helper(T)]
+    end.
+
+% returns a list of products from which one unit should be moved into the "schnelldreherzone"
+find_schnelldreher2() ->
+    S = find_schnelldreher(),
+    Candidates = find_schnelldreher2_helper(S),
+    % Prefer articles with more (>15) orders
+    [X || {Y, X} <- Candidates, Y > 15] ++ [X || {Y, X} <- Candidates, Y < 15].
+
+
+
+% add edges depending on a threshold
+add_edges([], Max, G) -> G;
+add_edges([{Count, {Item_A, Item_B}}|Tail], Max, G) ->
+    if
+        ((Max - Count) / 30 + 0.4) < 2.5 ->
+            V1 = digraph:add_vertex(G),
+            digraph:add_vertex(G, V1, Item_A),
+            V2 = digraph:add_vertex(G),
+            digraph:add_vertex(G, V2, Item_B),
+            digraph:add_edge(G, V1, V2),
+            digraph:add_edge(G, V2, V1);
+        true -> ok
+    end,
+    add_edges(Tail, Max, G).
+
+
+build_graph() ->
+    Pairs = build_pairs(),
+    {Max, _} = lists:max(Pairs),
+    add_edges(Pairs, Max, digraph:new()).
+
+
+in_degrees() ->
+    G = build_graph(),
+    Fun = fun(X) -> digraph:in_degree(G, X) end,
+    In_Degrees = lists:reverse(lists:sort(lists:map(Fun, digraph:edges(G)))).
+
+
+
 
 % ~~ Unit tests
 -ifdef(EUNIT).
