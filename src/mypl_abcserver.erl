@@ -39,6 +39,7 @@
 
 %% API
 -export([run_me_once/0, start_link/0, feed/3, get_abc/0, get_penner/0, get_abcclass/1]).
+-export([spawn_abc_transfer/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -285,26 +286,58 @@ update_summary(Record) ->
 
 %% @doc aggregate records in abc_pick_detail into abc_pick_summary
 update_summary() ->
-    lists:map(fun(X) -> update_summary(X) end, mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(abc_pick_detail)]))).
+    lists:map(fun(X) -> update_summary(X) end,
+              mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(abc_pick_detail)]))).
 
+
+% @doc spawn transfer_summary/0 - but ensure only one is running
+spawn_abc_transfer() ->
+    % the next line will fail if there already is a audit_transfer_process running, which is fine ...
+    mypl_util:spawn_and_register(abc_transfer_process, fun() -> transfer_summary() end).
+
+
+%% @doc transfer pick_summary records older than 60 days into database
+transfer_summary() ->
+    {Date, _} = calendar:now_to_datetime(erlang:now()),
+    EndDate = calendar:gregorian_days_to_date(calendar:date_to_gregorian_days(Date) - 60),
+    transfer_summary(mnesia:dirty_first(abc_pick_summary), EndDate).
+    
+
+transfer_summary('$end_of_table', _EndDate) -> ok;
+transfer_summary(Key, EndDate) ->
+    case mnesia:dirty_read({abc_pick_summary, Key}) of
+        [] ->
+            ok;
+        [Record] ->
+            NextKey = mnesia:dirty_next(abc_pick_summary, Key),
+            case Record#abc_pick_summary.date < EndDate of
+                false ->
+                    ignore;
+                true -> 
+                    {Year, Month, Day} = Record#abc_pick_summary.date,
+                    Date = lists:flatten(io_lib:format("~4.10.0B-~2.10.0B-~2.10.0B", [Year, Month, Day])),
+                    erlang_couchdb:create_document({"couchdb.local.hudora.biz", 5984},
+                        "mypl_abc_summary",
+                        Record#abc_pick_summary.product ++ "_" ++ Date,
+                        [{date, mypl_util:ensure_binary(Date)},
+                         {picks, Record#abc_pick_summary.picks},
+                         {quantity, Record#abc_pick_summary.quantity},
+                         {product, mypl_util:ensure_binary(Record#abc_pick_summary.product)},
+                         {avg_picksize, Record#abc_pick_summary.avg_picksize},
+                         {picksizes, Record#abc_pick_summary.picksizes},
+                         {avg_duration, Record#abc_pick_summary.avg_duration},
+                         {durations, Record#abc_pick_summary.durations},
+                         {locations, [mypl_util:ensure_binary(X) || X <- Record#abc_pick_summary.locations]}
+                        ]),
+                    mnesia:dirty_delete(abc_pick_summary, Key)
+            end,
+            transfer_summary(NextKey, EndDate)
+    end.
+    
 
 average([]) -> 0.0;
 average(L) ->
     lists:sum(L) / length(L).
-
-
-
-% this could be used to feed historic data into the system
-%store_abc({Date,Quantity,Product,Locationname,_Foo}) ->
-%    Fun = fun() ->
-%            mnesia:write(#abc_pick_detail{id=mypl_util:oid(),
-%                                          quantity=Quantity,
-%                                          product=Product,
-%                                          duration=0,
-%                                          location=Locationname,
-%                                          created_at={Date,{0,0,0}}})
-%    end,
-%    {atomic, _ } = mnesia:transaction(Fun).
 
 
 % ~~ Unit tests

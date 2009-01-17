@@ -5,8 +5,10 @@
 -module(mypl_util).
 
 %% API
--export([get_config/2, serial/0, oid/0, generate_mui/0, timestamp/0, ensure_binary/1, proplist_cleanup/1,
+-export([get_config/2, serial/0, oid/0, generate_mui/0, timestamp/0, timestamp2binary/1, ensure_binary/1,
+         proplist_cleanup/1,
          combine_until_fit/2, choose/2, choose/3, nearest/2, nearest/3, spawn_and_register/2, log/5]).
+
 
 %% @spec get_config(atom(), val()) -> val()
 %% @doc Get some configuration value from the applications environment.
@@ -63,16 +65,27 @@ timestamp() ->
     {_, _, MS} = erlang:now(),
     {Date, Time, MS}.
     
+% TODO: replace all formating code scattered arround kernel with this function
+timestamp2binary({{Year,Month,Day},{Hour,Minute,Second}}) ->
+    timestamp2binary({{Year,Month,Day},{Hour,Minute,Second},0});
+timestamp2binary({{Year,Month,Day},{Hour,Minute,Second},Ms}) ->
+    list_to_binary(lists:flatten(io_lib:format("~4.10.0B~2.10.0B~2.10.0BT~4.10.0B~2.10.0B~2.10.0B.~6.10.0B",
+                                               [Year, Month, Day, Hour, Minute, Second, Ms]))).
 
-%% @doc convert stringa and atoms to binary.
-ensure_binary(V) when is_list(V) ->
-    list_to_binary(V);
-ensure_binary(V) when is_atom(V) ->
-    ensure_binary(erlang:atom_to_list(V));
-ensure_binary(V) when is_binary(V) ->
-    V.
+%% @doc converts a list (or a timestamp) to binary.
+ensure_binary({{Year,Month,Day},{Hour,Minute,Second}}) ->
+    timestamp2binary({{Year,Month,Day},{Hour,Minute,Second},0});
+ensure_binary({{Year,Month,Day},{Hour,Minute,Second},Ms}) ->
+    timestamp2binary({{Year,Month,Day},{Hour,Minute,Second},Ms});
+ensure_binary(Atom) when is_atom(Atom) ->
+    ensure_binary(atom_to_list(Atom));
+ensure_binary(Bin) when is_list(Bin) ->
+    list_to_binary(Bin);
+ensure_binary(Str) when is_binary(Str)->
+    Str.
 
-%% doc converts
+
+%% @doc converts
 %% [{tries,0},
 %%  {kernel_customer," "14529"},
 %%  ["auftragsnummer", 647105],

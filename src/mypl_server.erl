@@ -72,7 +72,7 @@ init([]) ->
             ok
     end,
     % every 7 seconds try to transfer audit data from temporary tables to their final destination
-    timer:apply_interval(7000,  mypl_audit, spawn_audit_transfer, []),
+    % timer:apply_interval(7000,  mypl_audit, spawn_audit_transfer, []),
     % dump database once a day
     timer:apply_interval(1000*60*60*24,  mypl_db, backup, []),
     {ok, #state{}}.
