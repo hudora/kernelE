@@ -204,14 +204,14 @@ transfer_archive(Key) ->
                     ok = mnesia:dirty_delete(archive, Key),
                     transfer_archive(NextKey);
                 {provpipeline, 10} ->
-                    erlang:display(Record#archive.body),
+                    erlang:display(Body),
                     save_into_couchdb("mypl_archive",
                             Body#provpipeline.id ++ "-" ++ Record#archive.id,
                             [{type, <<"provpipeline">>},
                              {id, mypl_util:ensure_binary(Body#provpipeline.id)},
                              {priority, Body#provpipeline.priority},
-                             {attributes, {proplist_cleanup_binary(Body#provpipeline.attributes 
-                              ++ [{weigth, Body#provpipeline.weigth}, {volume, Body#provpipeline.volume}])}},
+                             {attributes, {proplist_cleanup_binary(Body#provpipeline.attributes) 
+                                           ++ [{weigth, Body#provpipeline.weigth}, {volume, Body#provpipeline.volume}]}},
                              {status, mypl_util:ensure_binary(Body#provpipeline.status)},
                              {tries, Body#provpipeline.tries},
                              {provisioninglists, Body#provpipeline.provisioninglists},
@@ -221,6 +221,27 @@ transfer_archive(Key) ->
                                                         [Quantity, mypl_util:ensure_binary(Product), {proplist_cleanup_binary(Attributes)}]
                                                     end, Body#provpipeline.orderlines)}
                             ]),
+                    ok = mnesia:dirty_delete(archive, Key),
+                    transfer_archive(NextKey);
+                {provisioninglist, 10} ->
+                    save_into_couchdb("mypl_archive",
+                            Body#provisioninglist.id ++ "-" ++ Record#archive.id,
+                            [{type, Body#provisioninglist.type},
+                             {provpipeline_id, mypl_util:ensure_binary(Body#provisioninglist.provpipeline_id)},
+                             {destination, mypl_util:ensure_binary(Body#provisioninglist.destination)},
+                             {attributes, {proplist_cleanup_binary(Body#provisioninglist.attributes)
+                                           ++ [{parts, Body#provisioninglist.parts}]}},
+                             {provisionings, lists:map(fun({Id, _, _, _, _, _}) ->
+                                                           mypl_util:ensure_binary(Id);
+                                                          (Id) ->
+                                                           mypl_util:ensure_binary(Id)
+                                                       end,
+                                                       Body#provisioninglist.provisionings)},
+                             {status, mypl_util:ensure_binary(Body#provisioninglist.status)},
+                             {created_at, mypl_util:ensure_binary(Body#provisioninglist.created_at)},
+                             {archived_by, mypl_util:ensure_binary(Record#archive.archived_by)},
+                             {archived_at, ArchivedAt}
+                             ]),
                     ok = mnesia:dirty_delete(archive, Key),
                     transfer_archive(NextKey);
                 Other ->

@@ -93,7 +93,8 @@ run_me_once() ->
     mypl_volumes:run_me_once(),
     
     ok = mnesia:wait_for_tables([location, unit, movement, pick, reservation, multistorage, correction,
-                                 articleaudit, unitaudit], 50000),
+                                 articleaudit, unitaudit%, provpipline, provisioninglist
+                                ], 50000),
     
     % upgrade tables where needed
     Fields1 = record_info(fields, pick),

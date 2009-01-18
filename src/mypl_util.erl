@@ -5,7 +5,8 @@
 -module(mypl_util).
 
 %% API
--export([get_config/2, serial/0, oid/0, generate_mui/0, timestamp/0, timestamp2binary/1, ensure_binary/1,
+-export([get_config/2, serial/0, oid/0, generate_mui/0,
+         timestamp/0, timestamp2binary/0, timestamp2binary/1, ensure_binary/1,
          proplist_cleanup/1,
          combine_until_fit/2, choose/2, choose/3, nearest/2, nearest/3, spawn_and_register/2, log/5]).
 
@@ -66,6 +67,9 @@ timestamp() ->
     {Date, Time, MS}.
     
 % TODO: replace all formating code scattered arround kernel with this function
+timestamp2binary() ->
+    timestamp2binary(timestamp()).
+
 timestamp2binary({{Year,Month,Day},{Hour,Minute,Second}}) ->
     timestamp2binary({{Year,Month,Day},{Hour,Minute,Second},0});
 timestamp2binary({{Year,Month,Day},{Hour,Minute,Second},Ms}) ->

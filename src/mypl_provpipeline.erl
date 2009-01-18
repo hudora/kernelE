@@ -51,7 +51,8 @@
          % mark work as done
          commit_picklist/1, commit_retrievallist/1,
          delete_provisioninglist/1,
-         is_provisioned/1, run_me_once/0]).
+         is_provisioned/1, run_me_once/0,
+         cleanup/0, cleanup2/0]).
 
 run_me_once() ->
     % komissionierbelege, so wie sie aus SoftM kommen
@@ -152,9 +153,12 @@ insert_pipeline_helper(CId, Orderlines, Priority, Customer, Weigth, Volume, Attr
                            % normalize on tuples instead of lists
                            % TODO: normalize attributes to tuple
                            orderlines=lists:map(fun({Quantity, Product, OlAttributes}) -> 
-                                                        {Quantity, Product, OlAttributes};
+                                                        {Quantity, Product, 
+                                                         mypl_util:proplist_cleanup(OlAttributes)};
                                                     ([Quantity, Product, OlAttributes]) -> 
-                                                        {Quantity, Product, OlAttributes} end, Orderlines)},
+                                                        {Quantity, Product,
+                                                         mypl_util:proplist_cleanup(OlAttributes)} end,
+                                                 Orderlines)},
     mnesia:write(PPline),
     ok.
     
@@ -548,19 +552,29 @@ delete_provisioninglist(Id) ->
     mypl_db_util:transaction(Fun).
     
 
+% TODO: better name: commit provisioninglist
 commit_anything(Id, _Attributes, _Lines) when is_list(_Attributes) ->
     Fun = fun() ->
         [Processing] = mnesia:read({provpipeline_processing, Id}),
         % commit all related pick and retrieval ids
         lists:map(fun(PId) ->
+                      % TODO: transfer attributes
                       {ok, _} = mypl_db:commit_pick(PId)
                   end,
                   Processing#provpipeline_processing.pickids),
         lists:map(fun(RId) ->
+                      % TODO: transfer attributes
                       {ok, _} = mypl_db:commit_retrieval(RId)
                   end,
                   Processing#provpipeline_processing.retrievalids),
         mnesia:delete({provpipeline_processing, Id}),
+        
+        [PList] = mnesia:read({provisioninglist, Id}),
+        mypl_audit:archive(PList#provisioninglist{status=provisioned,
+                           attributes=[{commited_at, mypl_util:timestamp2binary()}
+                                        |PList#provisioninglist.attributes]},
+                           commit_anything),
+        
         
         % TODO: this might be wrong!
         % find out if finished or if there are other picks/retrievals for this order
@@ -599,131 +613,35 @@ is_provisioned(CId) ->
     end.
     
 
-% TODO: extract.
+% remove old records
+cleanup([]) -> ok;
+cleanup([PList|T]) ->
+    mypl_audit:archive(PList#provisioninglist{status=provisioned,
+                       attributes=[{commited_at, mypl_util:timestamp2binary()}
+                                    |PList#provisioninglist.attributes]},
+                       cleanup),
+    mnesia:dirty_delete({provisioninglist, PList#provisioninglist.id}),
+    cleanup(T).
 
-%% @doc get a list of all articles in the provisioning pipeline
-pipelinecombinations() ->
-    Orderlinelist = mypl_db_util:do_trans(qlc:q([X#provpipeline.orderlines || X <- mnesia:table(provpipeline),
-                                                 X#provpipeline.status /= provisioned,
-                                                 mypl_prov_util:shouldprocess(X) /= no])),
-    Dict = pipelinecombinations_helper1(Orderlinelist, dict:new()),
-    lists:reverse(lists:sort(lists:map(fun({A, B}) -> {B, A} end, dict:to_list(Dict)))).
+cleanup() ->
+    cleanup(mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(provisioninglist),
+                                               X#provisioninglist.created_at < {{2009,1,1}, {0,0,0}}]))).
+cleanup2([]) -> ok;
+cleanup2([PList|T]) ->
+    erlang:display(proplists:get_value(kernel_enqueued_at, PList#provpipeline.attributes)),
+    mypl_audit:archive(PList#provpipeline{status=provisioned,
+                       attributes=[{commited_at, mypl_util:timestamp2binary()}
+                                    |PList#provpipeline.attributes]},
+                       cleanup),
+    mnesia:dirty_delete({provpipeline, PList#provpipeline.id}),
+    cleanup2(T).
+
+cleanup2() ->
+    cleanup2(mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(provpipeline),
+                                               proplists:get_value(kernel_enqueued_at, X#provpipeline.attributes) < {{2008,12,31}, {0,0,0}},
+                                               proplists:get_value(liefertermin, X#provpipeline.attributes) < "2009-01-01"
+                                               ]))).
     
-pipelinecombinations_helper1([], Dict) -> Dict;
-pipelinecombinations_helper1([Orderlines|Tail], Dict) ->
-    pipelinecombinations_helper1(Tail, dict:update_counter([Product || {_Quantity, Product, _} <- Orderlines], 1, Dict)).
-
-
-pair_with_each2(_, [], Dict) -> Dict;
-pair_with_each2(A, [B], Dict) -> dict:update_counter({A, B}, 1, Dict);
-pair_with_each2(A, [B|Tail], Dict1) ->
-    pair_with_each2(A, Tail, dict:update_counter({A, B}, 1, Dict1)).
-
-pair_with_each1(_, [], Dict) -> Dict;
-pair_with_each1(A, [B], Dict) -> dict:update_counter({A, B}, 1, Dict);
-pair_with_each1(A, [B|Tail], Dict1) ->
-    Dict2 = pair_with_each2(A, Tail, dict:update_counter({A, B}, 1, Dict1)),
-    pair_with_each1(B, Tail, Dict2).
-    
-pair_each_with_each([], Dict) -> Dict;
-pair_each_with_each([_], Dict) -> Dict;
-pair_each_with_each([A|Tail], Dict) ->
-    pair_with_each1(A, Tail, Dict).
-
-% this is called with a list of orderlines
-build_pairs_helper1([], Dict) -> Dict;
-build_pairs_helper1([Orderlines|Tail], Dict) ->
-    build_pairs_helper1(Tail, pair_each_with_each(lists:sort([Product || {_, Product, _} <- Orderlines]), Dict)).
-    
-
-build_pairs() ->
-    Orderlinelist = mypl_db_util:do_trans(qlc:q([X#provpipeline.orderlines || X <- mnesia:table(provpipeline),
-                                                 X#provpipeline.status /= provisioned,
-                                                 mypl_prov_util:shouldprocess(X) /= no])),
-    Dict = build_pairs_helper1(Orderlinelist, dict:new()),
-    lists:reverse(lists:sort(lists:map(fun({A, B}) -> {B, A} end, dict:to_list(Dict)))).
-    
-
-find_schnelldreher() ->
-    % get a list of {orderlines, quantity, pallets, Product}, e.g.
-    % {26, 177, 5.53125, "30970"},
-    Candidates1 = [{C, Quantity, mypl_volumes:pallets({Quantity, Product}), Product}
-                     || {{C,  Quantity}, Product} <- mypl_provpipeline:pipelinearticles()],
-    % filter everything which wouldn't completely used up tomorrow
-    Candidates2 = [{C, Quantity, Pallets, Product} || {C, Quantity, Pallets, Product} <- Candidates1,
-                     Pallets > 1],
-    % find out how many floor units we have already.
-    Fun = fun() ->
-       lists:map(fun({C, Quantity, Pallets, Product}) ->
-                     Units = mypl_db_query:find_floor_units_for_product(Product),
-                     Q = lists:sum([Unit#unit.quantity - Unit#unit.pick_quantity
-                                        || Unit <- Units]),
-                     {C, Quantity, Pallets, Product, Q, Quantity-Q, mypl_volumes:pallets({Quantity-Q, Product})}
-                 end, 
-                 Candidates2)
-        end,
-    Candidates3 = mypl_db_util:transaction(Fun),
-    
-    % TODO: consider movements to floor
-    
-    % Gibt eine Liste zurueck aller Artikel, fuer die es genug offene Auftrage gibt, dass
-    % a) morgen alle bodenpaletten wegkomissioniert werden
-    % b) mindestens eine weitere palette benoetigt wird
-    % c) mindestens drei auftraege vorliegen
-    Candidates4 = [{C, Product, NeedPal}
-                       || {C, _Quantity, _Pallets, Product, _FloorQ, _Need, NeedPal} <- Candidates3,
-                          NeedPal > 1,
-                          C > 2].
-
-% decompose the output of find_schnelldreher()
-find_schnelldreher2_helper([]) -> [];
-find_schnelldreher2_helper([H|T]) ->
-    {C, Product, NeedPal} = H,
-    case NeedPal < 2 of
-        false ->
-            [{C, Product}|find_schnelldreher2_helper(T ++ [{C, Product, NeedPal-1}])];
-        true ->
-            [{C, Product}|find_schnelldreher2_helper(T)]
-    end.
-
-% returns a list of products from which one unit should be moved into the "schnelldreherzone"
-find_schnelldreher2() ->
-    S = find_schnelldreher(),
-    Candidates = find_schnelldreher2_helper(S),
-    % Prefer articles with more (>15) orders
-    [X || {Y, X} <- Candidates, Y > 15] ++ [X || {Y, X} <- Candidates, Y < 15].
-
-
-
-% add edges depending on a threshold
-add_edges([], Max, G) -> G;
-add_edges([{Count, {Item_A, Item_B}}|Tail], Max, G) ->
-    if
-        ((Max - Count) / 30 + 0.4) < 2.5 ->
-            V1 = digraph:add_vertex(G),
-            digraph:add_vertex(G, V1, Item_A),
-            V2 = digraph:add_vertex(G),
-            digraph:add_vertex(G, V2, Item_B),
-            digraph:add_edge(G, V1, V2),
-            digraph:add_edge(G, V2, V1);
-        true -> ok
-    end,
-    add_edges(Tail, Max, G).
-
-
-build_graph() ->
-    Pairs = build_pairs(),
-    {Max, _} = lists:max(Pairs),
-    add_edges(Pairs, Max, digraph:new()).
-
-
-in_degrees() ->
-    G = build_graph(),
-    Fun = fun(X) -> digraph:in_degree(G, X) end,
-    In_Degrees = lists:reverse(lists:sort(lists:map(Fun, digraph:edges(G)))).
-
-
-
 
 % ~~ Unit tests
 -ifdef(EUNIT).
