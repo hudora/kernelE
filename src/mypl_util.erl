@@ -95,9 +95,9 @@ ensure_binary(Str) when is_binary(Str)->
 %%  ["liefertermin", "2007-12-03"]]
 %% to
 %% [{tries,0},
-%%  {kernel_customer, <<"14529">>},
+%%  {kernel_customer, &lt;&lt;"14529">>},
 %%  {auftragsnummer, 647105},
-%%  {liefertermin, <<"2007-12-03">>}]
+%%  {liefertermin, &lt;&lt;"2007-12-03">>}]
 %% mainly for fixing data gotten via json
 proplist_cleanup(L) ->
     lists:map(fun([Name, Value]) when is_atom(Name) -> 

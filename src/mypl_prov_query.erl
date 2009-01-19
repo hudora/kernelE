@@ -118,6 +118,6 @@ pipelinearticles() ->
     Orderlines = mypl_db_util:do_trans(qlc:q([X#provpipeline.orderlines || X <- mnesia:table(provpipeline),
                                               X#provpipeline.status /= provisioned,
                                               X#provpipeline.status /= deleted,
-                                              shouldprocess(X) =:= yes])),
+                                              mypl_prov_util:shouldprocess(X) =:= yes])),
     ProductDict = piplinearticles_helper1(Orderlines, dict:new()),
     lists:reverse(lists:sort(lists:map(fun({A, B}) -> {B, A} end, dict:to_list(ProductDict)))).

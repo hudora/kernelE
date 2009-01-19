@@ -29,6 +29,7 @@
 % <li>priority</li>
 % <li>number number of unsuccessfull tries to select  (more tries sort first)</li>
 % <li>customer ID</li>
+% </ul>
 -spec sort_provpipeline([#provpipeline{attributes::[any()]},...]) ->
     [#provpipeline{attributes::[any()]},...].
 sort_provpipeline(Records) ->

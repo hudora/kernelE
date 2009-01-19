@@ -119,9 +119,9 @@ insert_pipeline([CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes
 insert_pipeline({CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes}) ->
     insert_pipeline(CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes).
 
--spec insert_pipeline(string(),[{pos_integer(), string(), attributes()},...],
-                      [0..10],string(),integer(),float(),mypl_db:attributes()) ->
-    'ok'|{error, cant_reinsert_already_open, term()}
+%-spec insert_pipeline(string(),[{pos_integer(), string(), attributes()},...],
+%                      [0..10],string(),integer(),float(),mypl_db:attributes()) ->
+%    'ok'|{error, cant_reinsert_already_open, term()}.
 insert_pipeline(CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes) ->
     Fun = fun() ->
         case mnesia:read({provpipeline, CId}) of
@@ -143,8 +143,8 @@ insert_pipeline(CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes)
     mypl_db_util:transaction(Fun).
     
 %% @private
--spec insert_pipeline(string(),[{pos_integer(), string(), attributes()},...],
-                      [0..10],string(),integer(),float(),mypl_db:attributes()) -> 'ok'
+%-spec insert_pipeline(string(),[{pos_integer(), string(), attributes()},...],
+%                      [0..10],string(),integer(),float(),mypl_db:attributes()) -> 'ok'.
 insert_pipeline_helper(CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes) ->
     PPline = #provpipeline{id=CId, priority=Priority, weigth=Weigth, volume=Volume,
                            attributes=[{kernel_customer, Customer}

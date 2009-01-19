@@ -27,7 +27,7 @@ run_me_once() ->
 
 get_eap(ArtNr) ->
     case mnesia:dirty_read({eap, ArtNr}) of
-        [] -> error_logger:warning_msg("No eAP for ~s~n", [ArtNr]), unknown_artnr;
+        [] -> unknown_artnr;
         [Eap] -> Eap
     end.
 
