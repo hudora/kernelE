@@ -156,7 +156,7 @@ run_me_once() ->
 -spec backup() -> 'ok'.
 backup() ->
     Tables = [location, unit, movement, pick, reservation, abc_pick_detail, archive, articleaudit,
-              auditbuffer, pickpipeline, provisioninglist, provpipeline, provpipeline_processing,
+              pickpipeline, provisioninglist, provpipeline, provpipeline_processing,
               retrievalpipeline, unitaudit, multistorage],
     Day = calendar:day_of_the_week(date()),
     BkName = "Backup-tag-" ++ integer_to_list(Day),
@@ -508,6 +508,7 @@ commit_movement_backend(Movement) ->
 %% Commits a movement created previously by {@link init_movement/2}. This is by doing the actual
 %% bookkeping of storing the unit on the new location and removing all previous information on the
 %% formerly unfinished movement. Returns the name of the Location where the Unit is stored now.
+%% TODO: seemingly this doesn't work as intended
 -spec commit_movement(movementID()) -> locationName().
 commit_movement(MovementId) ->
     Fun = fun() ->

@@ -77,6 +77,9 @@ init([]) ->
             [mypl_tcp_session, Host, Port, [list, {active, false}, {packet, line}, {reuseaddr, true}], []]
            },
            permanent, 10000, worker, [generic_tcp_server]},
+    Tfr = {tag6, 
+            {mypl_audit_transfer, start_link, []},
+            permanent, 10000, worker, [mypl_audit_transfer]},
     Trk = {tag1, 
             {mypl_requesttracker, start_link, []},
             permanent, 10000, worker, [mypl_requesttracker]},

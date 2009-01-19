@@ -65,7 +65,6 @@ timestamp() ->
     {Date, Time} = calendar:universal_time(),
     {_, _, MS} = erlang:now(),
     {Date, Time, MS}.
-    
 % TODO: replace all formating code scattered arround kernel with this function
 timestamp2binary() ->
     timestamp2binary(timestamp()).
