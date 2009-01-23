@@ -25,7 +25,6 @@ start() ->
     % try to make mnesia start faster
     application:set_env (mnesia, no_table_loaders, 20),
     ensure_started(crypto),
-    %ensure_started(psql),
     ensure_started(mnesia),
     Res = application:start(mypl),
     case Res of 
