@@ -119,7 +119,7 @@ insert_pipeline([CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes
 insert_pipeline({CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes}) ->
     insert_pipeline(CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes).
 
--spec insert_pipeline(string(),[{pos_integer(), string(), attributes()},...],
+-spec insert_pipeline(string(),[{pos_integer(), string(), mypl_db:attributes()},...],
                       [0..10],string(),integer(),float(),mypl_db:attributes()) ->
     'ok'|{error, cant_reinsert_already_open, term()}.
 insert_pipeline(CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes) ->
