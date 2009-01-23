@@ -58,14 +58,6 @@
                       created_at}).
     
 
-% reservation of a location - usually for a movement
--record(reservation, {id,
-                     mui,
-                     location,
-                     reason,
-                     attributes
-                }).
-
 % keep information about changes in stock ("Korrekturbuchungen")
 -record(correction, {id,
                     old_quantity,

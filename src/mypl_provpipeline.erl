@@ -119,9 +119,9 @@ insert_pipeline([CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes
 insert_pipeline({CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes}) ->
     insert_pipeline(CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes).
 
-%-spec insert_pipeline(string(),[{pos_integer(), string(), attributes()},...],
-%                      [0..10],string(),integer(),float(),mypl_db:attributes()) ->
-%    'ok'|{error, cant_reinsert_already_open, term()}.
+-spec insert_pipeline(string(),[{pos_integer(), string(), attributes()},...],
+                      [0..10],string(),integer(),float(),mypl_db:attributes()) ->
+    'ok'|{error, cant_reinsert_already_open, term()}.
 insert_pipeline(CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes) ->
     Fun = fun() ->
         case mnesia:read({provpipeline, CId}) of
@@ -143,8 +143,8 @@ insert_pipeline(CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes)
     mypl_db_util:transaction(Fun).
     
 %% @private
-%-spec insert_pipeline(string(),[{pos_integer(), string(), attributes()},...],
-%                      [0..10],string(),integer(),float(),mypl_db:attributes()) -> 'ok'.
+-spec insert_pipeline_helper(string(),[{pos_integer(), string(), mypl_db:attributes()},...],
+                      [0..10],string(),integer(),float(),mypl_db:attributes()) -> 'ok'.
 insert_pipeline_helper(CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes) ->
     PPline = #provpipeline{id=CId, priority=Priority, weigth=Weigth, volume=Volume,
                            attributes=[{kernel_customer, Customer}
@@ -443,7 +443,7 @@ refill_pipeline(_Type, []) -> no_fit;
 refill_pipeline(Type, Candidates) ->
     [Entry|CandidatesTail] = Candidates,
     Orderlines = [{Quantity, Product} || {Quantity, Product, _Attributes} <- Entry#provpipeline.orderlines],
-    case mypl_provisioning:find_provisioning_candidates_multi(Orderlines, mypl_prov_util:sort_provpipeline_helper(Entry)) of
+    case mypl_choose:find_provisioning_candidates_multi(Orderlines, mypl_prov_util:sort_provpipeline_helper(Entry)) of
         {error, no_fit} ->
             % update number of tries
             mypl_db_util:transaction(fun() ->
@@ -458,7 +458,7 @@ refill_pipeline(Type, Candidates) ->
                 ((Type =:= retrievals) and (length(Retrievals) > 0)) 
                 ->
                     % we have got a match - add to the two queues, remove from pipeline and we are done here
-                    {ok, RetrievalIds, PickIds} = mypl_provisioning:init_provisionings_multi(Orderlines,
+                    {ok, RetrievalIds, PickIds} = mypl_choose:init_provisionings_multi(Orderlines,
                                                          [{kernel_provpipeline_id, Entry#provpipeline.id},
                                                           {kernel_allocated_at, calendar:universal_time()}],
                                                           mypl_prov_util:sort_provpipeline_helper(Entry)),

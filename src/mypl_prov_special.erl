@@ -102,7 +102,7 @@ flood_requestracker() ->
 flood_requestracker([]) -> ok;
 flood_requestracker([Entry|CandidatesTail]) ->
     Orderlines = [{Quantity, Product} || {Quantity, Product, _Attributes} <- Entry#provpipeline.orderlines],
-    mypl_provisioning:find_provisioning_candidates_multi(Orderlines, mypl_prov_util:sort_provpipeline_helper(Entry)),
+    mypl_choose:find_provisioning_candidates_multi(Orderlines, mypl_prov_util:sort_provpipeline_helper(Entry)),
     flood_requestracker(CandidatesTail).
     
 

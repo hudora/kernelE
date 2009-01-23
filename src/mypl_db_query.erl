@@ -196,7 +196,7 @@ location_info(Locname) ->
                 {error, unknown_location};
             Location ->
                 {ok, 
-                 {{name,          Location#location.name},
+                 [{name,          Location#location.name},
                   {height,        Location#location.height},
                   {floorlevel,    Location#location.floorlevel},
                   {preference,    Location#location.preference},
@@ -204,7 +204,7 @@ location_info(Locname) ->
                   {attributes,    Location#location.attributes},
                   {allocated_by,  Location#location.allocated_by},
                   {reserved_for,  Location#location.reserved_for}
-                 }}
+                 ]}
         end
     end,
     {atomic, Ret} = mnesia:transaction(Fun),

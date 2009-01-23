@@ -17,7 +17,7 @@
 -include("mypl.hrl").
 
 -export([init_table_info/2, run_me_once/0, init_location/6, init_location/5,
- store_at_location/5, store_at_location_multi/1, update_unit/1, retrieve/1,
+ store_at_location/5, store_at_location_multi/4, store_at_location_multi/1, update_unit/1, retrieve/1,
  init_movement/2, init_movement/3, init_movement_to_good_location/1,
  commit_movement/1, rollback_movement/1, update_movement/1,
  commit_retrieval/1, rollback_retrieval/1,
@@ -80,7 +80,6 @@ run_me_once() ->
     mnesia:add_table_index(unit, #unit.product),
     init_table_info(mnesia:create_table(movement,         [{disc_copies, [node()]}, {attributes, record_info(fields, movement)}]), movement),
     init_table_info(mnesia:create_table(pick,             [{disc_copies, [node()]}, {attributes, record_info(fields, pick)}]), pick),
-    init_table_info(mnesia:create_table(reservation,      [{disc_copies, [node()]}, {attributes, record_info(fields, reservation)}]), reservation),
     init_table_info(mnesia:create_table(multistorage,     [{disc_copies, [node()]}, {attributes, record_info(fields, multistorage)}]), multistorage),
     init_table_info(mnesia:create_table(correction,       [{disc_copies, [node()]}, {attributes, record_info(fields, correction)}]), correction),
     mnesia:add_table_index(correction, #correction.product),
@@ -92,7 +91,7 @@ run_me_once() ->
     mypl_provpipeline:run_me_once(),
     mypl_volumes:run_me_once(),
     
-    ok = mnesia:wait_for_tables([location, unit, movement, pick, reservation, multistorage, correction,
+    ok = mnesia:wait_for_tables([location, unit, movement, pick, multistorage, correction,
                                  articleaudit, unitaudit%, provpipline, provisioninglist
                                 ], 50000),
     
@@ -155,7 +154,7 @@ run_me_once() ->
 %% @doc backup the whole database
 -spec backup() -> 'ok'.
 backup() ->
-    Tables = [location, unit, movement, pick, reservation, abc_pick_detail, archive, articleaudit,
+    Tables = [location, unit, movement, pick, abc_pick_detail, archive, articleaudit,
               pickpipeline, provisioninglist, provpipeline, provpipeline_processing,
               retrievalpipeline, unitaudit, multistorage],
     Day = calendar:day_of_the_week(date()),
@@ -283,11 +282,9 @@ store_at_location(Locname, Mui, Quantity, Product, Height, Attributes)
     mypl_db_util:transaction(Fun).
     
 
-%% @spec store_at_location_multi(Id, locationName(), Elements, Attributes) -> {ok, [muID()]}|duplicate_id
-%%          Elements = [{Quantity::integer(), Product::string(), heightMM()}]
 %% @doc creates several units within a single transaction.
 %%
-%% `Id' must be unique. If you call store_at_location_multi/3 more than once with the same Id,
+%% `Id' must be unique. If you call store_at_location_multi/4 more than once with the same Id,
 %% successive calls return duplicate_id instead a list of NVEs.
 %% See http://blogs.23.nu/disLEXia/2007/12/antville-16699/ for some rationale behind this function.
 %% returns {ok, [Mui]}.
@@ -432,12 +429,6 @@ init_movement(Mui, DestinationName, Attributes) when is_list(Attributes) ->
                                      created_at=mypl_util:timestamp(),
                                      attributes=Attributes},
                 ok = mnesia:write(Movement),
-                Resevation = #reservation{id=(DestinationName ++ "-" ++ Mui),
-                                         mui=Mui,
-                                         location=DestinationName,
-                                         reason=movement,
-                                         attributes=Attributes},
-                ok = mnesia:write(Resevation),
                 mypl_audit:unitaudit(Unit, "Umlagerung von " ++ Source#location.name ++ " nach "
                               ++ Destination#location.name ++ " initialisiert", Movement#movement.id),
                 {ok, Movement#movement.id}
@@ -492,7 +483,6 @@ commit_movement_backend(Movement) ->
     mypl_audit:unitaudit(Unit, "Umlagerung von " ++ Source#location.name ++ " nach "
                   ++ Destination#location.name ++ " comitted", Movement#movement.id),
     
-    ok = mnesia:delete({reservation, (Movement#movement.to_location ++ "-" ++ Movement#movement.mui)}),
     case (lists:member({mypl_notify_requesttracker}, Movement#movement.attributes) 
           andalso Movement#movement.to_location /= "AUSLAG") of
         true ->
@@ -545,7 +535,6 @@ rollback_movement(MovementId) ->
                                              ++ [{rolled_back_at, mypl_util:timestamp()}]},
                            rollback_movement),
         ok = mnesia:delete({movement, MovementId}),
-        ok = mnesia:delete({reservation, (Movement#movement.to_location ++ "-" ++ Movement#movement.mui)}),
         mypl_audit:unitaudit(Unit, "Umlagerung von " ++ Source#location.name ++ " nach "
                       ++ Destination#location.name ++ " abgebrochen", Movement#movement.id),
         Source#location.name
