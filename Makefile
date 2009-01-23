@@ -4,6 +4,7 @@ include ./support/include.mk
 DOCOPT={todo, true}
 
 all:
+	python tools/genkernelinterface.py
 	(cd src;$(MAKE))
 
 clean:
