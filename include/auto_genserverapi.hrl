@@ -336,15 +336,15 @@ handle_call({find_empty_location_nice, {Height}}, _From, State) ->
     {reply, Ret, State};
 
 handle_call({find_provisioning_candidates, {Quantity,Product}}, From, State) ->
-    proc_lib:spawn(fun() -> gen_server:reply(From, mypl_provisioning:find_provisioning_candidates(Quantity,Product)) end),
+    proc_lib:spawn(fun() -> gen_server:reply(From, mypl_choose:find_provisioning_candidates(Quantity,Product)) end),
     {noreply, State, 39999};
 
 handle_call({find_provisioning_candidates_multi, {JsonList}}, From, State) ->
-    proc_lib:spawn(fun() -> gen_server:reply(From, mypl_provisioning:find_provisioning_candidates_multi(JsonList)) end),
+    proc_lib:spawn(fun() -> gen_server:reply(From, mypl_choose:find_provisioning_candidates_multi(JsonList)) end),
     {noreply, State, 39999};
 
 handle_call({init_provisionings_multi, {JsonList}}, From, State) ->
-    proc_lib:spawn(fun() -> gen_server:reply(From, mypl_provisioning:init_provisionings_multi(JsonList)) end),
+    proc_lib:spawn(fun() -> gen_server:reply(From, mypl_choose:init_provisionings_multi(JsonList)) end),
     {noreply, State, 39999};
 
 handle_call({insert_pipeline, {JsonList}}, _From, State) ->

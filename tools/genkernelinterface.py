@@ -46,9 +46,9 @@ funcdefs = [
 
 ('mypl_db_util', 'find_empty_location_nice', 'Height', []),
 
-('mypl_provisioning', 'find_provisioning_candidates', 'Quantity, Product', ['async']),
-('mypl_provisioning', 'find_provisioning_candidates_multi', 'JsonList', ['async']),
-('mypl_provisioning', 'init_provisionings_multi', 'JsonList', ['async']),
+('mypl_choose', 'find_provisioning_candidates', 'Quantity, Product', ['async']),
+('mypl_choose', 'find_provisioning_candidates_multi', 'JsonList', ['async']),
+('mypl_choose', 'init_provisionings_multi', 'JsonList', ['async']),
 
 ('mypl_provpipeline', 'insert_pipeline', 'JsonList', []),
 ('mypl_provpipeline', 'commit_picklist', 'CId', []),

@@ -10,7 +10,7 @@
 %% and {@link find_retrieval_candidates/2}.
 %% @end
 
--module(mypl_provisioning).
+-module(mypl_choose).
 
 -include_lib("stdlib/include/qlc.hrl").
 -include("mypl.hrl").
@@ -644,7 +644,7 @@ real_world2_test() ->
    %{ok, _} = mypl_db:store_at_location("010402", mui7, 56, "14890/01", 1950),
    {ok, _} = mypl_db:store_at_location("010403", "mui8", 56, "14890/01", 1950),
    {ok, _} = mypl_db:store_at_location("010101", "mui9", 62, "14890/01", 1950),
-   ?assertMatch({ok, ["mui1"], [{44, "mui9"}]}, mypl_provisioning:find_provisioning_candidates(100,"14890/01")),
+   ?assertMatch({ok, ["mui1"], [{44, "mui9"}]}, mypl_choose:find_provisioning_candidates(100,"14890/01")),
    ok.
 
 real_world3_test() ->
@@ -666,10 +666,10 @@ real_world3_test() ->
     %{ok, _} = mypl_db:store_at_location("151603", muid, 36, "14695", 1950),
     %{ok, _} = mypl_db:store_at_location("152803", muie, 36, "14695", 1950),
     ?assertMatch({ok, _}, mypl_db:store_at_location("010101", "muif",250, "66702", 1950)),
-    ?assertMatch({ok,[],[{4, "mui2"}]}, mypl_provisioning:find_provisioning_candidates(4, "10195")),
-    ?assertMatch({error, no_fit}, mypl_provisioning:find_provisioning_candidates(18, "14695")),
-    ?assertMatch({ok,[],[{24, "muif"}]}, mypl_provisioning:find_provisioning_candidates(24, "66702")),
-    ?assertMatch({ok,[],[{100, "muif"}]}, mypl_provisioning:find_provisioning_candidates(100,"66702")),
+    ?assertMatch({ok,[],[{4, "mui2"}]}, mypl_choose:find_provisioning_candidates(4, "10195")),
+    ?assertMatch({error, no_fit}, mypl_choose:find_provisioning_candidates(18, "14695")),
+    ?assertMatch({ok,[],[{24, "muif"}]}, mypl_choose:find_provisioning_candidates(24, "66702")),
+    ?assertMatch({ok,[],[{100, "muif"}]}, mypl_choose:find_provisioning_candidates(100,"66702")),
     % find_provisioning_candidates_multi takes list-of-lists and list-of-tuples as an argument to satisfy JSON
     ?assertMatch({error, no_fit}, find_provisioning_candidates_multi([[4,"10195"], [18,"14695"], [24,"66702"], [180,"66702"]])),
     ?assertMatch({error, no_fit}, find_provisioning_candidates_multi([{4,"10195"}, {18,"14695"}, {24,"66702"}, {180,"66702"}])),
@@ -678,8 +678,8 @@ real_world3_test() ->
     
     % quantity 0 products are ignored
     ?assertMatch({ok,[],[{204, "muif"},{4, "mui2"}]}, find_provisioning_candidates_multi([{4,"10195"}, {0,"14695"}, {24,"66702"}, {180,"66702"}])),
-    ?assertMatch({error,no_fit}, mypl_provisioning:init_provisionings_multi([[4,"10195"], [18,"14695"], [24,"66702"], [180,"66702"]])),
-    {ok,[],[Pick1, Pick2]} = mypl_provisioning:init_provisionings_multi([[4,"10195"], [24,"66702"], [180,"66702"]]),
+    ?assertMatch({error,no_fit}, mypl_choose:init_provisionings_multi([[4,"10195"], [18,"14695"], [24,"66702"], [180,"66702"]])),
+    {ok,[],[Pick1, Pick2]} = mypl_choose:init_provisionings_multi([[4,"10195"], [24,"66702"], [180,"66702"]]),
     ?assertMatch({ok, {204, "66702"}}, mypl_db:commit_pick(Pick1)),
     ?assertMatch({ok, {4, "10195"}}, mypl_db:commit_pick(Pick2)),
     ok.
