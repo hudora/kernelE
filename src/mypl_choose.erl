@@ -88,17 +88,13 @@ find_pick_candidates(Quantity, Product, Exclude) when is_integer(Quantity), Quan
     Fun = fun() ->
         Candidates = find_pickable_units(Product) -- Exclude,
         FilteredCandidates = [X || X <- Candidates, not(lists:member(X#unit.mui, Exclude))],
-        % we only pick from floorlevel
-        FloorCandidates = lists:filter(fun(X) -> Loc = mypl_db_util:get_mui_location(X#unit.mui), 
-                                                 Loc#location.floorlevel =:= true
-                                       end, FilteredCandidates),
-        case [X || X <- FloorCandidates, X#unit.quantity - X#unit.pick_quantity =:= Quantity] of
+        case [X || X <- FilteredCandidates, X#unit.quantity - X#unit.pick_quantity =:= Quantity] of
             [H|_] ->
                 % we found a 100% fit with a single unit ... done
                 {fit, [{Quantity, H#unit.mui}]};
             _ -> 
                 % go on searching for combinations
-                find_pick_candidates_helper1(Quantity, FloorCandidates)
+                find_pick_candidates_helper1(Quantity, FilteredCandidates)
         end
     end,
     mypl_db_util:transaction(Fun).
@@ -120,8 +116,9 @@ find_pickable_units(Product) ->
 %% expects to be called within a transaction
 unit_pickable_helper(Unit) ->
      Loc = mypl_db_util:get_mui_location(Unit#unit.mui),
-     % TODO: check florlevel
-     (not(lists:member({no_picks}, Loc#location.attributes))) and (mypl_db_util:unit_moving(Unit) =:= no).
+     (not(lists:member({no_picks}, Loc#location.attributes))) 
+      and (Loc#location.floorlevel =:= true)
+      and (mypl_db_util:unit_moving(Unit) =:= no).
      
 
 %% @spec find_retrieval_candidates_helper(Quantity::integer(), [mypl_db:muID()]) -> {ok, [mypl_db:unitRecord()]}
