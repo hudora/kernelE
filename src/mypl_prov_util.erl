@@ -58,11 +58,11 @@ sort_provpipeline_helper(Record) ->
 -spec shouldprocess(#provpipeline{attributes::[any()]}) -> 'maybe' | 'no' | 'yes'.
 shouldprocess(Record) ->
     {{Year,Month,Day}, _} =  calendar:now_to_datetime(erlang:now()),
-    Today = lists:flatten(io_lib:format("~4.10.0B-~2.10.0B-~2.10.0B", [Year, Month, Day])),
+    Today = mypl_util:ensure_binary(lists:flatten(io_lib:format("~4.10.0B-~2.10.0B-~2.10.0B", [Year, Month, Day]))),
     Termin = proplists:get_value(versandtermin, Record#provpipeline.attributes,
                                  proplists:get_value(liefertermin,  Record#provpipeline.attributes, "")),
     Fix = proplists:get_value(fixtermin, Record#provpipeline.attributes, false),
-    case {Fix, Termin =< Today} of
+    case {Fix, mypl_util:ensure_binary(Termin) =< Today} of
         {_, true} ->
             % due date reached - ship it
             yes;
