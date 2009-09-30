@@ -31,8 +31,7 @@ bewegungen2() ->
 
 statistics() ->
     [{empty_pickable_locations, mypl_movements:count_empty_floor_locations()},
-     {multi_floorunits,
-length(mypl_movements:more_than_one_floorunit())},
+     {multi_floorunits,         length(mypl_movements:more_than_one_floorunit())},
      {requesstracker_entries,   length(mypl_requesttracker:dump_requests())},
      {provpipeline_articles,    length(mypl_prov_query:pipelinearticles())},
      {provpipeline_new,         length(mypl_prov_query:provpipeline_list_new())},

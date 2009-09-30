@@ -20,9 +20,7 @@
 
 -record(state, {}).
 
-%%====================================================================
 %% API
-%%====================================================================
 %%--------------------------------------------------------------------
 %% @spec start_link() -> {ok,Pid} | ignore | {error,Error}
 %% @doc Starts the server
@@ -34,9 +32,7 @@ start_link() ->
 start_transfer() ->
     gen_server:call(mypl_audit_transfer, transfer).
 
-%%====================================================================
 %% gen_server callbacks
-%%====================================================================
 
 %%--------------------------------------------------------------------
 %% @spec init(Args) -> {ok, State} |
@@ -72,9 +68,9 @@ handle_call(_Request, _From, State) ->
 %% @end 
 %%--------------------------------------------------------------------
 handle_cast(transfer, State) ->
-    transfer_archive(),
     transfer_articleaudit(),
     transfer_unitaudit(),
+    transfer_archive(),
     {noreply, State};
 handle_cast(_Msg, State) ->
     {noreply, State}.
@@ -155,7 +151,6 @@ transfer_archive(Key) ->
         [] ->
             transfer_archive(NextKey);
         [Record] ->
-            erlang:display({Record#archive.type, size(Record#archive.body), Record#archive.id}),
             Body = Record#archive.body,
             ArchivedAt = mypl_util:timestamp2binary(Record#archive.created_at),
             case {Record#archive.type, size(Record#archive.body)} of

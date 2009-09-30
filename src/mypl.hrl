@@ -151,6 +151,30 @@
     }).
 
 
+% speichert alle Warenbewegungen zu Protokollzwecken
+-record(articleaudit, {id,           % eindeutiger Bezeichner
+                       quantity,     % Einkeiten des produkts
+                       product,      % ArtNr
+                       text,         % text describing the transaction
+                       mui,          % bebuchte Unit
+                       transaction,  % movement or pick ID
+                       references,   % list of tuples to be used by the client application, not used by the myPL kernel
+                       created_at
+                   }).
+
+
+% speichert alle Unitbewegungen zu Protokollzwecken
+-record(unitaudit, {id,           % eindeutiger Bezeichner
+                    mui,          % bebuchte Unit
+                    quantity,     % Einkeiten des produkts
+                    product,      % ArtNr
+                    text,         % text describing the transaction
+                    transaction,  % movement or pick ID
+                    references,   % list of tuples to be used by the client application, not used by the myPL kernel
+                    created_at
+                   }).
+
+
 % Trace utilities from adviserl
 
 -ifdef(LOG_DEBUG).

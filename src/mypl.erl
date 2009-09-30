@@ -26,6 +26,7 @@ start() ->
     application:set_env (mnesia, no_table_loaders, 20),
     ensure_started(crypto),
     ensure_started(mnesia),
+    mnesia:create_schema([node()]), % TODO may fail, don't care (already exists)?
     Res = application:start(mypl),
     case Res of 
         ok ->

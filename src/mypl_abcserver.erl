@@ -292,15 +292,24 @@ update_summary() ->
 
 % @doc spawn transfer_summary/0 - but ensure only one is running
 spawn_abc_transfer() ->
-    % the next line will fail if there already is a audit_transfer_process running, which is fine ...
-    mypl_util:spawn_and_register(abc_transfer_process, fun() -> transfer_summary() end).
-
+    {{_Year, _Month, _Day}, {Hour, _Minutes, _Seconds}} = erlang:localtime(),
+    % ony spawn at 23h
+    case Hour of
+        23 ->
+            % the next line will fail if there already is a audit_transfer_process running, which is fine ...
+            mypl_util:spawn_and_register(abc_transfer_process, fun() -> transfer_summary() end);
+        _ -> 
+            ok
+    end,
+    ok.
 
 %% @doc transfer pick_summary records older than 60 days into database
 transfer_summary() ->
     {Date, _} = calendar:now_to_datetime(erlang:now()),
     EndDate = calendar:gregorian_days_to_date(calendar:date_to_gregorian_days(Date) - 60),
-    transfer_summary(mnesia:dirty_first(abc_pick_summary), EndDate).
+    transfer_summary(mnesia:dirty_first(abc_pick_summary), EndDate),
+    % sleep two minutes to ensure we are not called twice a hour.
+    timer:sleep(1000*60*2).
     
 
 transfer_summary('$end_of_table', _EndDate) -> ok;

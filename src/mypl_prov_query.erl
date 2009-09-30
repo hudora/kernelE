@@ -18,6 +18,7 @@
 -export([
 provpipeline_list_new/0,
 provpipeline_list_prepared/0,
+provpipeline_list/0,
 provpipeline_list_processing/0,
 provpipeline_info/1,
 provisioninglist_list/0,
@@ -35,9 +36,6 @@ provpipeline_list_new() ->
     [format_pipeline_record(X) || X <- mypl_prov_util:sort_provpipeline(mypl_db_util:do_trans(
                                            qlc:q([X || X <- mnesia:table(provpipeline),
                                                        X#provpipeline.status =:= new])))].
-    
-
-    
 
 %% processing
 provpipeline_list_processing() ->
@@ -45,6 +43,11 @@ provpipeline_list_processing() ->
                                            qlc:q([X || X <- mnesia:table(provpipeline),
                                                        X#provpipeline.status =:= processing])))].
 
+provpipeline_list() -> 
+    provpipeline_list_new() ++ provpipeline_list_processing().
+
+%% 
+%% this is named wrong since it DOESN't return provpipeline entries
 provpipeline_list_prepared() ->
     mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(pickpipeline)])) ++
     mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(retrievalpipeline)])).

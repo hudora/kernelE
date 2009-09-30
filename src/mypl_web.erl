@@ -26,23 +26,36 @@ loop(Req, DocRoot) ->
         Method when Method =:= 'GET'; Method =:= 'HEAD' ->
             case Path of
                 "location" ->
-                    Req:respond({200, [{"Content-Type", "text/plain; charset=utf-8"}],
+                    Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                 myjson:encode([list_to_binary(X) || X <- mypl_db_query:location_list()])});
-                [$l,$o,$c,$a,$t,$i,$o,$n,$/|Location_Id] ->
-                    {ok, Info} = mypl_db_query:location_info(Location_Id),
+                [$l,$o,$c,$a,$t,$i,$o,$n,$/|LocationId] ->
+                    {ok, Info} = mypl_db_query:location_info(LocationId),
                     send_json(Req, {Info});
+                
                 "unit" ->
-                    Req:respond({200, [{"Content-Type", "text/plain; charset=utf-8"}],
+                    Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                 myjson:encode([list_to_binary(X) || X <- mypl_db_query:unit_list()])});
                 % /unit/123456789012345678
+                [$u,$n,$i,$t,$/|UnitId] ->
+                    {ok, Info} = mypl_db_query:unit_info(UnitId),
+                    send_json(Req, {Info});
+                
                 "movement" ->
-                    Req:respond({200, [{"Content-Type", "text/plain; charset=utf-8"}],
+                    Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                 myjson:encode([list_to_binary(X) || X <- mypl_db_query:movement_list()])});
                 % /movement/1235
+                
                 "pick" ->
-                    Req:respond({200, [{"Content-Type", "text/plain; charset=utf-8"}],
+                    Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                 myjson:encode([list_to_binary(X) || X <- mypl_db_query:pick_list()])});
                 % /pick/12345
+                
+                % kommiauftrag (provpipeline)
+                "kommiauftrag" ->
+                    Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
+                                myjson:encode([list_to_binary(X) || X <- mypl_prov_query:provpipeline_list()])});
+                
+                % statistics
                 _ ->
                     Req:serve_file(Path, DocRoot)
             end;

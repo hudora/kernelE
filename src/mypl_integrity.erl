@@ -47,6 +47,8 @@ orphaned_unit(Unit) ->
 locations_pointing_nowhere() ->
     Fun = fun() ->
         Locations = mypl_db_util:do(qlc:q([location_pointing_nowhere(X) || X <- mnesia:table(location)])),
+        erlang:display(Locations),
+        erlang:display( mypl_db_util:do(qlc:q([{X, location_pointing_nowhere(X)} || X <- mnesia:table(location)]))),
         lists:all(fun(X) -> X =:= ok end, Locations)
     end,
     {atomic, Ret} = mnesia:transaction(Fun),
