@@ -222,6 +222,12 @@ handle_command("update_pipeline", _Parameters, State) ->
     % implementation for update_pipeline,
     {ok, NewJsonList, _} = rfc4627:decode(_Parameters),
     {noreply, reply(220, rfc4627:encode(mypl_server:update_pipeline(NewJsonList)), reset_buffers(State))};
+handle_command("push_picklist", _Parameters, State) ->
+    % implementation for push_picklist,
+    Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
+    [CId] = Tokens,
+    NewCId = convertString(CId),
+    {noreply, reply(220, rfc4627:encode(mypl_server:push_picklist(NewCId)), reset_buffers(State))};
 handle_command("get_articleaudit", _Parameters, State) ->
     % implementation for get_articleaudit,
     Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
@@ -337,6 +343,7 @@ provisioninglist_list
 provisioninglist_info CId
 delete_pipeline CId
 update_pipeline JsonList
+push_picklist CId
 get_articleaudit Product
 get_unitaudit Mui
 get_articlecorrection Product

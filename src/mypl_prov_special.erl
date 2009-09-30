@@ -20,7 +20,7 @@ update_pipeline/1,
 delete_pipeline/1,
 flood_requestracker/0,
 provpipeline_find_by_product/1,
-push_picklist/1,
+push_picklist/1
 ]).
 
 %%====================================================================
@@ -67,7 +67,7 @@ update_pipeline({versandtermin, CId, Versandtermin}) ->
     
 
 
-@doc Sets the shipping date to a past value to push the entry to the front of the pipeline.
+%% @doc Sets the shipping date to a past value to push the entry to the front of the pipeline.
 push_picklist(CId) ->
     update_pipeline({versandtermin, CId, <<"2001-01-01">>}).
 
