@@ -25,6 +25,7 @@
 -export([do/1, do_trans/1, transaction/1, get_mui_location/1,
          mui_to_unit/1, mui_to_unit_archive/1, mui_to_unit_archive_trans/1, mui_to_unit_trans/1,
          unit_picks/1, unit_movement/1, unit_moving/1, unit_movable/1, sort_units_by_age/1,
+         sort_units_by_age_and_distance/2,
          find_empty_location/1, find_empty_location_nice/1, best_location/1, best_locations/2,
          read_location/1, find_movable_units/1]).
 
@@ -185,9 +186,11 @@ sort_units_by_age(Units) ->
                end, Units).
     
 
-%% @doc Sort units by age but ignore differences of just a few days
+%% @doc Sort units by distance and age but ignore differences
+%% of just a few days/meters
+%% also pefer units with lower quantity
 sort_units_by_age_and_distance(Locname, Units) ->
-    lists:sort(fun(A, B) ->
+    lists:sort(fun(A, B) when is_record(A, unit) and is_record(B, unit) ->
                   {{A1, A2, _}, _, _} = A#unit.created_at,
                   {{B1, B2, _}, _, _} = B#unit.created_at,
                   {A1, A2, mypl_distance:distance(Locname, A#unit.location), A#unit.quantity}
