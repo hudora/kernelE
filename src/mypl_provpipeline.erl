@@ -569,15 +569,25 @@ commit_anything(Id, _Attributes, _Lines) when is_list(_Attributes) ->
                   Processing#provpipeline_processing.retrievalids),
         mnesia:delete({provpipeline_processing, Id}),
         
+        % archive provisionist information record
         [PList] = mnesia:read({provisioninglist, Id}),
         mypl_audit:archive(PList#provisioninglist{status=provisioned,
                            attributes=[{commited_at, mypl_util:timestamp2binary()}
                                         |PList#provisioninglist.attributes]},
                            commit_anything),
+        mnesia:delete({provisioninglist, Id}),
         
+        % find out if finished or if there are other picks/retrievals for this order
+    %    PPipeline = mnesia:read({provpipeline, PList#provisioninglist.provpipeline_id}),
+    %    PPipeline#provpipeline.provisioninglists
+        % mnesia:dirty_all_keys(provpipeline).
+    % Candidates = [X || X <- mypl_db_util:transaction(fun() -> 
+    %                                              mnesia:match_object(#provpipeline{status = new, _ = '_'})
+    %                                            end),
+    %                                       mypl_prov_util:shouldprocess(X) /= no],
+    % refill_pipeline(Type, mypl_prov_util:sort_provpipeline(Candidates)).
         
         % TODO: this might be wrong!
-        % find out if finished or if there are other picks/retrievals for this order
         case mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(provpipeline_processing),
                                                X#provpipeline_processing.provpipelineid 
                                                =:= Processing#provpipeline_processing.provpipelineid])) of
@@ -586,7 +596,6 @@ commit_anything(Id, _Attributes, _Lines) when is_list(_Attributes) ->
             [] ->
                 Ret = provisioned,
                 % mark in provpipeline as done
-                % todo mark provisioninglist as done
                 [PPEntry] = mnesia:read({provpipeline, Processing#provpipeline_processing.provpipelineid}),
                 mnesia:write(PPEntry#provpipeline{status=provisioned,
                                  attributes=[{kernel_provisioned_at,

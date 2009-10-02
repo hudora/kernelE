@@ -9,104 +9,8 @@
 
 -include("mypl.hrl").
 
--behaviour(gen_server).
-
 %% API
--export([start_link/0, start_transfer/0, transfer_unitaudit/0, transfer_articleaudit/0, transfer_archive/0]).
-
-%% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-         terminate/2, code_change/3]).
-
--record(state, {}).
-
-%% API
-%%--------------------------------------------------------------------
-%% @spec start_link() -> {ok,Pid} | ignore | {error,Error}
-%% @doc Starts the server
-%% @end 
-%%--------------------------------------------------------------------
-start_link() ->
-    gen_server:start_link({local, mypl_audit_transfer}, ?MODULE, [], []).
-
-start_transfer() ->
-    gen_server:call(mypl_audit_transfer, transfer).
-
-%% gen_server callbacks
-
-%%--------------------------------------------------------------------
-%% @spec init(Args) -> {ok, State} |
-%%                         {ok, State, Timeout} |
-%%                         ignore               |
-%%                         {stop, Reason}
-%% @doc Initiates the server
-%% @end 
-%%--------------------------------------------------------------------
-init([]) ->
-    {ok, #state{}}.
-
-%%--------------------------------------------------------------------
-%% @spec 
-%% handle_call(Request, From, State) -> {reply, Reply, State} |
-%%                                      {reply, Reply, State, Timeout} |
-%%                                      {noreply, State} |
-%%                                      {noreply, State, Timeout} |
-%%                                      {stop, Reason, Reply, State} |
-%%                                      {stop, Reason, State}
-%% @doc Handling call messages
-%% @end 
-%%--------------------------------------------------------------------
-handle_call(_Request, _From, State) ->
-    Reply = ok,
-    {reply, Reply, State}.
-
-%%--------------------------------------------------------------------
-%% @spec handle_cast(Msg, State) -> {noreply, State} |
-%%                                      {noreply, State, Timeout} |
-%%                                      {stop, Reason, State}
-%% @doc Handling cast messages
-%% @end 
-%%--------------------------------------------------------------------
-handle_cast(transfer, State) ->
-    transfer_articleaudit(),
-    transfer_unitaudit(),
-    transfer_archive(),
-    {noreply, State};
-handle_cast(_Msg, State) ->
-    {noreply, State}.
-
-%%--------------------------------------------------------------------
-%% @spec handle_info(Info, State) -> {noreply, State} |
-%%                                       {noreply, State, Timeout} |
-%%                                       {stop, Reason, State}
-%% @doc Handling all non call/cast messages
-%% @end 
-%%--------------------------------------------------------------------
-handle_info(_Info, State) ->
-    {noreply, State}.
-
-%%--------------------------------------------------------------------
-%% @spec terminate(Reason, State) -> void()
-%% @doc This function is called by a gen_server when it is about to
-%% terminate. It should be the opposite of Module:init/1 and do any necessary
-%% cleaning up. When it returns, the gen_server terminates with Reason.
-%% The return value is ignored.
-%% @end 
-%%--------------------------------------------------------------------
-terminate(_Reason, _State) ->
-    ok.
-
-%%--------------------------------------------------------------------
-%% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
-%% @doc Convert process state when code is changed
-%% @end 
-%%--------------------------------------------------------------------
-code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.
-
-%%--------------------------------------------------------------------
-%%% Internal functions
-%%--------------------------------------------------------------------
+-export([spawn_audit_transfer/0, transfer_unitaudit/0, transfer_articleaudit/0, transfer_archive/0]).
 
 %%%
 %%% The code below is for a process which will transfer data continuesly into CouchDB
@@ -141,9 +45,17 @@ save_into_couchdb(DbName, Id, Doc) ->
     end.
     
 
+transfer_all() ->
+    transfer_articleaudit(),
+    transfer_unitaudit(),
+    transfer_archive(),
+    % sleep two minutes to ensure we are not called twice a hour.
+    timer:sleep(1000*60*2).
+    
+
 transfer_archive() ->
     transfer_archive(mnesia:dirty_first(archive)).
-    
+
 transfer_archive('$end_of_table') -> ok;
 transfer_archive(Key) ->
     NextKey = mnesia:dirty_next(archive, Key),
@@ -303,3 +215,14 @@ transfer_articleaudit(Key) ->
     transfer_articleaudit(NextKey).
     
 
+% @doc spawn start_transfer/0 - but ensure only one is running
+spawn_audit_transfer() ->
+    {{_Year, _Month, _Day}, {Hour, _Minutes, _Seconds}} = erlang:localtime(),
+    % ony spawn at 2h
+    case Hour of
+        2 ->
+            mypl_util:spawn_and_register(audit_transfer_process, fun() -> transfer_all() end);
+        _ -> 
+            ok
+    end,
+    ok.
