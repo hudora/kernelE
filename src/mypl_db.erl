@@ -310,8 +310,8 @@ store_at_location_multi(Id, Locname, Elements, Attributes) ->
                         {ok, _} = store_at_location(Locname, Mui, Quantity, Product, Height, Attributes2),
                         Mui
                      end, Elements),
-                mnesia:write(#multistorage{id=Id2, muis=Muis, attributes=Attributes2, 
-                                            created_at=calendar:universal_time()}),
+                % we refrain from using some of the fields to save storage space
+                mnesia:write(#multistorage{id=Id2, muis=[], attributes=[], created_at={}}),
                 {ok, Muis}
         end
     end,
@@ -423,7 +423,13 @@ init_movement(Mui, DestinationName, Attributes) when is_list(Attributes) ->
                 % now we can write to the database
                 ok = mnesia:write(Destination#location{reserved_for=Destination#location.reserved_for ++ [Mui]}),
                 % generate movement record
-                Movement = #movement{id=("m" ++ mypl_util:serial()), mui=Mui,
+                case proplists:get_value(kernel_type, Attributes) of
+                    retrieval ->
+                        Id = "mr" ++ mypl_util:serial();
+                    _ -> 
+                        Id = "mb" ++ mypl_util:serial()
+                end,
+                Movement = #movement{id=Id, mui=Mui,
                                      from_location=Source#location.name,
                                      to_location=Destination#location.name,
                                      created_at=mypl_util:timestamp(),
