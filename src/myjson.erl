@@ -104,6 +104,10 @@ json_encode(Array, State) when is_list(Array) ->
     json_encode_array(Array, State);
 json_encode({Props}, State) when is_list(Props) ->
     json_encode_proplist(Props, State);
+json_encode({{Year, Month, Day}, {Hour, Minute, Sec}}, State) ->
+    json_encode_timestamp({{Year, Month, Day}, {Hour, Minute, Sec}}, State);
+json_encode({{Year, Month, Day}, {Hour, Minute, Sec}, _Milli}, State) ->
+    json_encode_timestamp({{Year, Month, Day}, {Hour, Minute, Sec}}, State);
 json_encode(Bad, #encoder{handler=null}) ->
     exit({json_encode, {bad_term, Bad}});
 json_encode(Bad, State=#encoder{handler=Handler}) ->
@@ -123,11 +127,23 @@ json_encode_proplist([], _State) ->
 json_encode_proplist(Props, State) ->
     F = fun ({K, V}, Acc) ->
                 KS = json_encode_string(K, State),
-                VS = json_encode(V, State),
+                case K of
+                    attributes -> % hardcoded hack, but works
+                        VS = json_encode_proplist(V, State);
+                    "attributes" -> % hardcoded hack, but works
+                        VS = json_encode_proplist(V, State);
+                    _ ->
+                        VS = json_encode(V, State)
+                end,
                 [$,, VS, $:, KS | Acc]
         end,
     [$, | Acc1] = lists:foldl(F, "{", Props),
     lists:reverse([$\} | Acc1]).
+
+json_encode_timestamp({{Year, Month, Day}, {Hour, Minute, Sec}}, State) ->
+    json_encode_string(mypl_util:ensure_binary(lists:flatten(
+        io_lib:format("~4.10.0B-~2.10.0B-~2.10.0BT~2.10.0B:~2.10.0B:~2.10.0B",
+            [Year, Month, Day, Hour, Minute, Sec]))), State).
 
 json_encode_string(A, _State) when is_atom(A) ->
     json_encode_string_unicode(xmerl_ucs:from_utf8(atom_to_list(A)), [?Q]);

@@ -25,6 +25,10 @@ loop(Req, DocRoot) ->
     case Req:get(method) of
         Method when Method =:= 'GET'; Method =:= 'HEAD' ->
             case Path of
+                "" ->
+                    Req:respond({200, [{"Content-Type", "text/plain"}], list_to_binary([
+					"try: /location /unit /movement /pick /kommiauftrag"
+					])});
                 "location" ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                 myjson:encode([list_to_binary(X) || X <- mypl_db_query:location_list()])});
@@ -44,7 +48,10 @@ loop(Req, DocRoot) ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                 myjson:encode([list_to_binary(X) || X <- mypl_db_query:movement_list()])});
                 % /movement/1235
-                
+                [$m,$o,$v,$e,$m,$e,$n,$t,$/|MovementId] ->                
+                    {ok, Info} = mypl_db_query:movement_info(MovementId),
+                    send_json(Req, {Info});
+
                 "pick" ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                 myjson:encode([list_to_binary(X) || X <- mypl_db_query:pick_list()])});
