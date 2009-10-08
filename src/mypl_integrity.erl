@@ -12,9 +12,40 @@
 -import(mnesia).
 -import(mypl_db_util).
 
--export([selftest/0, locations_pointing_nowhere/0, orphaned_units/0, orphaned_unit/1,
+-export([selftest/0, pick_quantity_per_unit/0, locations_pointing_nowhere/0, orphaned_units/0, orphaned_unit/1,
          orphaned_pickpipeline/0, orphaned_retrievalpipeline/0]).
 
+
+%% @doc check that pick_quantity corrospondents to the number of picks
+pick_quantity_per_unit() ->
+    lists:all(fun(X) -> X =:= ok end,
+              mypl_db_util:do_trans(qlc:q([pick_quantity_per_unit_helper(X) || X <- mnesia:table(unit)]))).
+    
+pick_quantity_per_unit_helper(Unit) ->
+    PickIds  = mypl_db_util:do(qlc:q([X#pick.id || X <- mnesia:table(pick), X#pick.from_unit =:= Unit#unit.mui])),
+    RealPickQuantity = lists:sum(lists:map(fun(PickId) ->
+                                    [Pick] = mnesia:read({pick, PickId}),
+                                    Pick#pick.quantity
+                                    end, 
+                                    PickIds) ++ [0]),
+    case Unit#unit.pick_quantity /= RealPickQuantity of
+        true ->
+            ErrorText = "FEHLER! Unit '" ++ Unit#unit.mui ++ "' behauptete eine Pickmenge von '" ++ 
+                        integer_to_list(Unit#unit.pick_quantity) ++ " tatsaechliche Pickmenge ist aber " ++
+                        integer_to_list(RealPickQuantity) ++ ". Pickmenge wurde korregiert.",
+            TransFun = fun() ->
+                erlang:display(ErrorText),
+                ok = mnesia:write(Unit#unit{pick_quantity=RealPickQuantity}),
+                mypl_audit:unitaudit(Unit, ErrorText),
+                error_logger:error_msg(ErrorText)
+            end,
+            {atomic, _} = mnesia:transaction(TransFun),
+            erlang:display({RealPickQuantity, Unit#unit.pick_quantity, Unit}),
+            error;
+        _ ->
+            ok
+    end.
+    
 
 %% @doc check for Units which are not actually booked into a Location
 orphaned_units() ->
@@ -32,13 +63,13 @@ orphaned_unit(Unit) ->
                         ++ "' zu stehen, aber die Location hatte keine entsprechenden Daten."
                         ++ " Wurde auf FEHLER gebucht.",
             TransFun = fun() ->
+                erlang:display(ErrorText),
                 ok = mnesia:write(Destination#location{allocated_by=[Unit#unit.mui|Destination#location.allocated_by]}),
                 ok = mnesia:write(Unit#unit{location=Destination#location.name}),
                 mypl_audit:unitaudit(Unit, ErrorText),
                 error_logger:error_msg(ErrorText)
             end,
             {atomic, _} = mnesia:transaction(TransFun),
-            erlang:display(ErrorText),
             error
     end.
 
@@ -46,10 +77,7 @@ orphaned_unit(Unit) ->
 %% verify location records actually have their allocated_by and reserved_by fields pointing to something actually existing
 locations_pointing_nowhere() ->
     Fun = fun() ->
-        Locations = mypl_db_util:do(qlc:q([location_pointing_nowhere(X) || X <- mnesia:table(location)])),
-        erlang:display(Locations),
-        erlang:display( mypl_db_util:do(qlc:q([{X, location_pointing_nowhere(X)} || X <- mnesia:table(location)]))),
-        lists:all(fun(X) -> X =:= ok end, Locations)
+        lists:all(fun(X) -> X =:= ok end, lists:flatten(mypl_db_util:do(qlc:q([location_pointing_nowhere(X) || X <- mnesia:table(location)]))))
     end,
     {atomic, Ret} = mnesia:transaction(Fun),
     Ret.
@@ -123,7 +151,7 @@ run_a_test(Testname) ->
     io:format("~w   ~f s   ~w~n", [Testname, TimeSec, Res]).
     
 selftest() ->
-    TestList = [locations_pointing_nowhere, orphaned_units, orphaned_pickpipeline, orphaned_retrievalpipeline],
+    TestList = [pick_quantity_per_unit, locations_pointing_nowhere, orphaned_units, orphaned_pickpipeline, orphaned_retrievalpipeline],
     lists:map(fun(X) -> run_a_test(X) end, TestList),
     ok.
     
