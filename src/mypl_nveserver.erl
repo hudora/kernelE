@@ -265,7 +265,7 @@ write_checkpoint(State) when State#state.generated_count > 0 ->
         ok = io:put_chars(Handle, [$.])
     after
         ok = file:close(Handle),
-        file:rename(FileName, checkpoint_file() ++ ".new")
+        file:rename(FileName, checkpoint_file())
     end,
     State#state{generated_count=0};
 write_checkpoint(State) ->
