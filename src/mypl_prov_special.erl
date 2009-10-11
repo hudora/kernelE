@@ -18,7 +18,7 @@
 -export([
 update_pipeline/1,
 delete_pipeline/1,
-archive_pipeline/1,
+archive_kommiauftraege/0,
 flood_requestracker/0,
 provpipeline_find_by_product/1,
 push_picklist/1
@@ -72,9 +72,9 @@ update_pipeline({versandtermin, CId, Versandtermin}) ->
 push_picklist(CId) ->
     update_pipeline({versandtermin, CId, <<"2001-01-01">>}),
     Fun = fun() ->
-        [PPEntry] = mnesia:read({provpipeline, CId}),
+        mnesia:read({provpipeline, CId})
     end,
-    mypl_db_util:transaction(Fun),
+    [PPEntry] = mypl_db_util:transaction(Fun),
     mypl_requesttracker:flush(), % sicherstellen, dass nicht alte Umlagerungen "im Weg" sind.
     flood_requestracker([PPEntry]).
     
@@ -101,18 +101,18 @@ delete_pipeline(CId) ->
     mypl_db_util:transaction(Fun).
     
 
-archive_pipeline() ->
+archive_kommiauftraege() ->
     Kommiauftraege = mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(provpipeline),
                                                   % X#provpipeline.status /= deleted,
                                                   X#provpipeline.status == provisioned])),
-    [archive_pipeline_entry(X) || X <- Kommiauftraege].
+    [archive_kommiauftrag(X) || X <- Kommiauftraege].
     
 
-archive_pipeline_entry(Kommiauftrag) ->
+archive_kommiauftrag(Kommiauftrag) ->
     % TODO: pruefen, ob alle komponenten erledigt sind
     Fun = fun() ->
         mypl_audit:archive(Kommiauftrag, archive_pipeline),
-        mnesia:delete({provpipeline, Kommiauftrag#provpipeline.id}).
+        mnesia:delete({provpipeline, Kommiauftrag#provpipeline.id})
     end,
     mypl_db_util:transaction(Fun).
     
