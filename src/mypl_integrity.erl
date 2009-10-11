@@ -13,7 +13,7 @@
 -import(mypl_db_util).
 
 -export([selftest/0, pick_quantity_per_unit/0, locations_pointing_nowhere/0, orphaned_units/0, orphaned_unit/1,
-         orphaned_pickpipeline/0, orphaned_retrievalpipeline/0]).
+         orphaned_pickpipeline/0, orphaned_retrievalpipeline/0, kommiauftrag_offen/0]).
 
 
 %% @doc check that pick_quantity corrospondents to the number of picks
@@ -72,6 +72,25 @@ orphaned_unit(Unit) ->
             {atomic, _} = mnesia:transaction(TransFun),
             error
     end.
+
+
+kommiauftrag_offen() ->
+    lists:all(fun(X) -> X =:= ok end, [kommiauftrag_offen_per_auftrag(Y) || Y <- mypl_prov_query:provpipeline_list_processing()]).
+    
+
+kommiauftrag_offen_per_auftrag(Auftrag) ->
+    {_, Attributes, Positions} = Auftrag,
+    [kommiauftrag_offen_per_kommischein(Auftrag, X) || X <- proplists:get_value(provisioninglists, Attributes)].
+
+    
+kommiauftrag_offen_per_kommischein(Auftrag, KommischeinId) ->
+    {ok, Kommischein} = mypl_prov_query:provisioninglist_info(KommischeinId),
+    [kommiauftrag_offen_per_kommipos(Auftrag, X) || X <- proplists:get_value(provisioning_ids, Kommischein)].
+    
+
+kommiauftrag_offen_per_kommipos(Auftrag, KommiPodId) ->
+    erlang:display(mypl_db_query:pick_info(KommiPodId)).
+
 
 
 %% verify location records actually have their allocated_by and reserved_by fields pointing to something actually existing
