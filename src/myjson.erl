@@ -108,6 +108,8 @@ json_encode({{Year, Month, Day}, {Hour, Minute, Sec}}, State) ->
     json_encode_timestamp({{Year, Month, Day}, {Hour, Minute, Sec}}, State);
 json_encode({{Year, Month, Day}, {Hour, Minute, Sec}, _Milli}, State) ->
     json_encode_timestamp({{Year, Month, Day}, {Hour, Minute, Sec}}, State);
+json_encode({Name, Value}, State) ->
+    json_encode_proplistentry({Name, Value}, State);
 json_encode(Bad, #encoder{handler=null}) ->
     exit({json_encode, {bad_term, Bad}});
 json_encode(Bad, State=#encoder{handler=Handler}) ->
@@ -139,6 +141,11 @@ json_encode_proplist(Props, State) ->
         end,
     [$, | Acc1] = lists:foldl(F, "{", Props),
     lists:reverse([$\} | Acc1]).
+    
+
+json_encode_proplistentry({Name, Value}, State) ->
+    json_encode([Name, Value], State).
+    
 
 json_encode_timestamp({{Year, Month, Day}, {Hour, Minute, Sec}}, State) ->
     json_encode_string(mypl_util:ensure_binary(lists:flatten(
@@ -520,4 +527,7 @@ e2j_test_vec(utf8) ->
      %% json object in a json array
      {[-123, <<"foo">>, obj_from_list([{<<"bar">>, []}]), null],
       "[-123,\"foo\",{\"bar\":[]},null]"}
+     
+     %{[{<<"volume">>,1935.36},{<<"anbruch">>,<<"true">>},{<<"weight">>,405474},{parts,2}],
+     %  "[[\"volume\",1935.36],[\"anbruch\",\"true\"],[\"weight\",405474],[\"parts\",2]]"}
     ].
