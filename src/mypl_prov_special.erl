@@ -18,6 +18,7 @@
 -export([
 update_pipeline/1,
 delete_pipeline/1,
+archive_pipeline/1,
 flood_requestracker/0,
 provpipeline_find_by_product/1,
 push_picklist/1
@@ -66,11 +67,17 @@ update_pipeline({versandtermin, CId, Versandtermin}) ->
     ok.
     
 
-
 %% @doc Sets the shipping date to a past value to push the entry to the front of the pipeline.
+%% TODO: falsch benannt, es dreht sich hier um Kommiauftraege/provpipelineentries, nicht picklists
 push_picklist(CId) ->
-    update_pipeline({versandtermin, CId, <<"2001-01-01">>}).
-
+    update_pipeline({versandtermin, CId, <<"2001-01-01">>}),
+    Fun = fun() ->
+        [PPEntry] = mnesia:read({provpipeline, CId}),
+    end,
+    mypl_db_util:transaction(Fun),
+    mypl_requesttracker:flush(), % sicherstellen, dass nicht alte Umlagerungen "im Weg" sind.
+    flood_requestracker([PPEntry]).
+    
 
 %% @spec delete_pipeline(CId::string()) -> ok|error
 %% @doc removes an unprocessed order from the provisioningpipeline
@@ -83,7 +90,7 @@ delete_pipeline(CId) ->
         [Entry] = mnesia:read({provpipeline, CId}),
         if 
             Entry#provpipeline.status /= new ->
-                % we can't reinsert something which is not new
+                % we can't delete something which is not new
                 {error, cant_delete_already_open, {CId, Entry}};
             true ->
                 mypl_audit:archive(Entry, delete),
@@ -94,7 +101,21 @@ delete_pipeline(CId) ->
     mypl_db_util:transaction(Fun).
     
 
+archive_pipeline() ->
+    Kommiauftraege = mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(provpipeline),
+                                                  % X#provpipeline.status /= deleted,
+                                                  X#provpipeline.status == provisioned])),
+    [archive_pipeline_entry(X) || X <- Kommiauftraege].
+    
 
+archive_pipeline_entry(Kommiauftrag) ->
+    % TODO: pruefen, ob alle komponenten erledigt sind
+    Fun = fun() ->
+        mypl_audit:archive(Kommiauftrag, archive_pipeline),
+        mnesia:delete({provpipeline, Kommiauftrag#provpipeline.id}).
+    end,
+    mypl_db_util:transaction(Fun).
+    
 
 % @doc ensure that the requestracker is informed about the products we need
 flood_requestracker() ->
