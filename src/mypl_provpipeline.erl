@@ -166,8 +166,7 @@ insert_pipeline_helper(CId, Orderlines, Priority, Customer, Weigth, Volume, Attr
                                                          mypl_util:proplist_cleanup(OlAttributes)} end,
                                                  Orderlines)},
     mnesia:write(PPline),
-    PPline,
-    ok.
+    PPline.
     
 
 %% @spec get_picklists() -> PicklistList|nothing_available

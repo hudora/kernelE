@@ -56,7 +56,7 @@ run_me_once() ->
     mnesia:add_table_index(archive, #archive.body_id),
     mypl_db:init_table_info(mnesia:create_table(unitaudit, [{disc_copies, [node()]}, {attributes, record_info(fields, unitaudit)}]), unitaudit),
     mnesia:add_table_index(unitaudit, #unitaudit.mui),
-    mypl_db:init_table_info(mnesia:create_table(kommiauftragaudit, [{disc_copies, [node()]}, {attributes, record_info(fields, unitaudit)}]), unitaudit),
+    mypl_db:init_table_info(mnesia:create_table(kommiauftragaudit, [{disc_copies, [node()]}, {attributes, record_info(fields, kommiauftragaudit)}]), kommiauftragaudit),
     mnesia:add_table_index(kommiauftragaudit, #kommiauftragaudit.komminr),
     mnesia:add_table_index(kommiauftragaudit, #kommiauftragaudit.auftrnr),
     ok.

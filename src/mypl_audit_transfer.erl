@@ -198,17 +198,18 @@ transfer_unitaudit(Key) ->
         [] ->
             ok;
         [Buffer] ->
+            Archivedata = [{type, "unitaudit"},
+                            {mui, Buffer#unitaudit.mui},
+                            {quantity, Buffer#unitaudit.quantity},
+                            {product, Buffer#unitaudit.product},
+                            {description, Buffer#unitaudit.text},
+                            {transaction, Buffer#unitaudit.transaction},
+                            {ref, Buffer#unitaudit.references},
+                            {created_at, mypl_util:timestamp2binary(Buffer#unitaudit.created_at)}
+                           ],
             save_into_couchdb("mypl_audit",
-                Buffer#unitaudit.mui ++ "-" ++ Buffer#unitaudit.id,
-                [{type, "unitaudit"},
-                 {mui, Buffer#unitaudit.mui},
-                 {quantity, Buffer#unitaudit.quantity},
-                 {product, Buffer#unitaudit.product},
-                 {description, Buffer#unitaudit.text},
-                 {transaction, Buffer#unitaudit.transaction},
-                 {ref, Buffer#unitaudit.references},
-                 {created_at, mypl_util:timestamp2binary(Buffer#unitaudit.created_at)}
-                ]),
+                lists:flatten([Buffer#unitaudit.mui, "-", Buffer#unitaudit.id]),
+                Archivedata),
             mnesia:dirty_delete(unitaudit, Key)
     end,
     transfer_unitaudit(NextKey).
