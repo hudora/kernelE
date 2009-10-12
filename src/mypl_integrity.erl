@@ -1,5 +1,5 @@
 %% @version 0.2
-%%% File    : mypl_check
+%%% File    : mypl_integrity.erl
 %%% Author  : Maximillian Dornseif
 %%% Created :  Created by Maximillian Dornseif on 2007-10-31.
 %% @doc self_test functionality for mypl

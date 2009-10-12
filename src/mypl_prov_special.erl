@@ -17,11 +17,11 @@
 %% API
 -export([
 update_pipeline/1,
-delete_pipeline/1,
+delete_kommiauftrag/1,
 archive_kommiauftraege/0,
 flood_requestracker/0,
 provpipeline_find_by_product/1,
-push_picklist/1
+push_kommiauftrag/1
 ]).
 
 %%====================================================================
@@ -68,8 +68,7 @@ update_pipeline({versandtermin, CId, Versandtermin}) ->
     
 
 %% @doc Sets the shipping date to a past value to push the entry to the front of the pipeline.
-%% TODO: falsch benannt, es dreht sich hier um Kommiauftraege/provpipelineentries, nicht picklists
-push_picklist(CId) ->
+push_kommiauftrag(CId) ->
     update_pipeline({versandtermin, CId, <<"2001-01-01">>}),
     Fun = fun() ->
         mnesia:read({provpipeline, CId})
@@ -79,13 +78,13 @@ push_picklist(CId) ->
     flood_requestracker([PPEntry]).
     
 
-%% @spec delete_pipeline(CId::string()) -> ok|error
+%% @spec delete_kommiauftrag(CId::string()) -> ok|error
 %% @doc removes an unprocessed order from the provisioningpipeline
 %%
 %% Returns `aborted' if the order can't be removed because it is currently processed.
 %% Returns `ok' if the order has been successfully removed
 %% @TODO: fixme
-delete_pipeline(CId) ->
+delete_kommiauftrag(CId) ->
     Fun = fun() ->
         [Entry] = mnesia:read({provpipeline, CId}),
         if 

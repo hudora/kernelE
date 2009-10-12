@@ -36,6 +36,7 @@
 -export([run_me_once/0, get_articleaudit/1, get_unitaudit/1, get_articlecorrection/1,
          articleaudit/6, articleaudit/5, articleaudit/4,
          unitaudit_mui/2, unitaudit/4, unitaudit/3, unitaudit/2,
+         kommiauftragaudit/4,
          archive/2, 
          get_from_archive/2, get_recent_from_archive/1]).
 
@@ -48,13 +49,16 @@
 
 run_me_once() ->
     % Tables kept in RAM with disk based backing
-    mypl_db:init_table_info(mnesia:create_table(articleaudit,     [{disc_copies, [node()]}, {attributes, record_info(fields, articleaudit)}]), articleaudit),
+    mypl_db:init_table_info(mnesia:create_table(articleaudit, [{disc_copies, [node()]}, {attributes, record_info(fields, articleaudit)}]), articleaudit),
     mnesia:add_table_index(articleaudit, #articleaudit.product),
-    mypl_db:init_table_info(mnesia:create_table(archive,          [{disc_copies, [node()]}, {attributes, record_info(fields, archive)}]), archive),
+    mypl_db:init_table_info(mnesia:create_table(archive, [{disc_copies, [node()]}, {attributes, record_info(fields, archive)}]), archive),
     mnesia:add_table_index(archive, #archive.type),
     mnesia:add_table_index(archive, #archive.body_id),
-    mypl_db:init_table_info(mnesia:create_table(unitaudit,        [{disc_copies, [node()]}, {attributes, record_info(fields, unitaudit)}]), unitaudit),
+    mypl_db:init_table_info(mnesia:create_table(unitaudit, [{disc_copies, [node()]}, {attributes, record_info(fields, unitaudit)}]), unitaudit),
     mnesia:add_table_index(unitaudit, #unitaudit.mui),
+    mypl_db:init_table_info(mnesia:create_table(kommiauftragaudit, [{disc_copies, [node()]}, {attributes, record_info(fields, unitaudit)}]), unitaudit),
+    mnesia:add_table_index(kommiauftragaudit, #kommiauftragaudit.komminr),
+    mnesia:add_table_index(kommiauftragaudit, #kommiauftragaudit.auftrnr),
     ok.
 
 
@@ -125,9 +129,9 @@ get_unitaudit_helper(Uaudit) ->
 %% Transaction can be an movementID or an pickID.
 articleaudit(Quantity, Product, Text, Mui, Transaction, References) ->
     Fun = fun() ->
-            mnesia:dirty_write(#articleaudit{id="a" ++ mypl_util:oid(), quantity=Quantity, product=Product,
-                                             text=Text, mui=Mui, transaction=Transaction,
-                                             references=References, created_at=calendar:universal_time()})
+            mnesia:write(#articleaudit{id="a" ++ mypl_util:oid(), quantity=Quantity, product=Product,
+                                       text=Text, mui=Mui, transaction=Transaction,
+                                       references=References, created_at=calendar:universal_time()})
           end,
     mnesia:transaction(Fun).
     
@@ -147,8 +151,8 @@ articleaudit(Quantity, Product, Text, Mui) ->
 
 unitaudit_mui(Mui, Text) ->
     Fun = fun() ->
-            mnesia:dirty_write(#unitaudit{id="A" ++ mypl_util:oid(),
-                                          mui=Mui, text=Text, created_at=calendar:universal_time()})
+            mnesia:write(#unitaudit{id="A" ++ mypl_util:oid(),
+                                    mui=Mui, text=Text, created_at=calendar:universal_time()})
           end,
     mnesia:transaction(Fun).
     
@@ -159,23 +163,42 @@ unitaudit_mui(Mui, Text) ->
 unitaudit(Unit, Text, Transaction, References) ->
     Id = "A" ++ mypl_util:oid(),
     Fun = fun() ->
-        mnesia:dirty_write(#unitaudit{id=Id,
-                                      mui=Unit#unit.mui, quantity=Unit#unit.quantity, product=Unit#unit.product,
-                                      text=Text, transaction=Transaction,
-                                      references=References, created_at=calendar:universal_time()})
+        mnesia:write(#unitaudit{id=Id,
+                                mui=Unit#unit.mui, quantity=Unit#unit.quantity, product=Unit#unit.product,
+                                text=Text, transaction=Transaction,
+                                references=References, created_at=calendar:universal_time()})
     end,
     mnesia:transaction(Fun).
     
+
 %% @spec unitaudit(unitRecord(), string(), string()) -> {ok, atomic}
 %% @doc to be called whenever Units are moved in the warehouse.
 unitaudit(Unit, Text, Transaction) ->
     unitaudit(Unit, Text, Transaction, []).
+    
 
 %% @spec unitaudit(unitRecord(), string()) -> {ok, atomic}
 %% @doc to be called whenever Units are moved in the warehouse.
 unitaudit(Unit, Text) ->
     unitaudit(Unit, Text, undefined).
+    
 
+%% @spec kommiauftragaudit(any(), string(), string(), externalReferences()) -> {ok, atomic}
+%% @doc to be called whenever Units are moved in the warehouse.
+kommiauftragaudit(Kommiauftrag, Text, Transaction, References) ->
+    Id = "K" ++ mypl_util:oid(),
+    Auftragsnummer = proplists:lookup(auftragsnummer, Kommiauftrag#provpipeline.attributes),
+    Customer = proplists:lookup(kernel_customer, Kommiauftrag#provpipeline.attributes),
+    Fun = fun() ->
+        mnesia:write(#kommiauftragaudit{id=Id,
+                                        komminr=Kommiauftrag#provpipeline.id,
+                                        auftrnr=Auftragsnummer,
+                                        customer=Customer,
+                                        text=Text, transaction=Transaction,
+                                        references=References,
+                                        created_at=calendar:universal_time()})
+    end,
+    mnesia:transaction(Fun).
 
 %% @doc archives an Unit, Movement, Pick when it is deleted.
 archive(Object, Archivaltype) ->

@@ -54,7 +54,7 @@ loop(Req, DocRoot) ->
 
                 "pick" ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
-                                myjson:encode([list_to_binary(X) || X <- mypl_db_query:pick_list()])});
+                                myjson:encode([list_to_binary(["/pick/"|X]) || X <- mypl_db_query:pick_list()])});
                 % /pick/12345
                 
                 % kommiauftrag (provpipeline)
@@ -62,7 +62,11 @@ loop(Req, DocRoot) ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                 myjson:encode([list_to_binary(X) || X <- mypl_prov_query:provpipeline_list()])});
                 
-                % statistics
+                %"statistik" ->
+                % puffer, fuer picks, die noch ausgegeben werden muessen
+                %pickpipeline
+                % puffer, fuer retrievals, die noch ausgegeben werden muessen
+                %retrievalpipeline
                 _ ->
                     Req:serve_file(Path, DocRoot)
             end;

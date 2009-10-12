@@ -58,8 +58,8 @@ make_oid() ->
 %%--------------------------------------------------------------------
 init([]) ->
     State = init_state(),
-    % checkpoint at least every 70 seconds
-    timer:apply_interval(70000,  gen_server, cast, [?SERVER, {write_checkpoint}]),
+    % checkpoint at least every 17 seconds
+    timer:apply_interval(17000,  gen_server, cast, [?SERVER, {write_checkpoint}]),
     {ok, State}.
     
 
@@ -245,9 +245,9 @@ init_state() ->
             % we restart about 200 after the last checkpoint to ensure nothing is lost between checkpoints
             State#state{nvepos=State#state.nvepos+201, oidpos=State#state.oidpos+203, generated_count=0};
         _Data ->
-            error_logger:warning_msg("cannot read nveserver checkpoint file ~s during startup, starting at 200000.",
+            error_logger:warning_msg("cannot read nveserver checkpoint file ~s during startup, starting at 2000000.",
                                      [FileName]),
-            #state{nvepos=200000, oidpos=200000, generated_count=200000}
+            #state{nvepos=2000000, oidpos=2000000, generated_count=2000000}
     end.
 
 %% @doc write current state to disk
@@ -272,10 +272,10 @@ write_checkpoint(State) ->
     State.
 
 
-%% @doc forces checkpoint to be written to disk at least once every 70 numbers
-%% if more than 70 records have been created, save checkpoint to disk
+%% @doc forces checkpoint to be written to disk at least once every 41 numbers
+%% if more than 41 records have been created, save checkpoint to disk
 -spec check_checkpoint(#state{}) -> #state{}.
-check_checkpoint(State) when State#state.generated_count > 70 ->
+check_checkpoint(State) when State#state.generated_count > 41 ->
     write_checkpoint(State);
 check_checkpoint(State) ->
     State.

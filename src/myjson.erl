@@ -130,16 +130,16 @@ json_encode_proplist({Props}, State) ->
     json_encode_proplist(Props, State);
 json_encode_proplist(Props, State) ->
     F = fun ({K, V}, Acc) ->
-                KS = json_encode_string(K, State),
-                case K of
-                    attributes -> % hardcoded hack, but works
-                        VS = json_encode_proplist(V, State);
-                    "attributes" -> % hardcoded hack, but works
-                        VS = json_encode_proplist(V, State);
-                    _ ->
-                        VS = json_encode(V, State)
-                end,
-                [$,, VS, $:, KS | Acc]
+            KS = json_encode_string(K, State),
+            case K of
+                attributes -> % hardcoded hack, but works
+                    VS = json_encode_proplist(V, State);
+                "attributes" -> % hardcoded hack, but works
+                    VS = json_encode_proplist(V, State);
+                _ ->
+                    VS = json_encode(V, State)
+            end,
+            [$,, VS, $:, KS | Acc]
         end,
     [$, | Acc1] = lists:foldl(F, "{", Props),
     lists:reverse([$\} | Acc1]).
@@ -528,8 +528,8 @@ e2j_test_vec(utf8) ->
      
      %% json object in a json array
      {[-123, <<"foo">>, obj_from_list([{<<"bar">>, []}]), null],
-      "[-123,\"foo\",{\"bar\":[]},null]"}
-     
-     %{[{<<"volume">>,1935.36},{<<"anbruch">>,<<"true">>},{<<"weight">>,405474},{parts,2}],
-     %  "[[\"volume\",1935.36],[\"anbruch\",\"true\"],[\"weight\",405474],[\"parts\",2]]"}
+      "[-123,\"foo\",{\"bar\":[]},null]"},
+    
+     {{[{<<"volume">>,1935.36},{<<"anbruch">>,<<"true">>},{<<"weight">>,405474},{parts,2}]},
+       "[[\"volume\",1935.36],[\"anbruch\",\"true\"],[\"weight\",405474],[\"parts\",2]]"}
     ].

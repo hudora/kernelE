@@ -132,12 +132,18 @@ insert_pipeline(CId, Orderlines, Priority, Customer, Weigth, Volume, Attributes)
                         % we can't reinsert something which is not new
                         {error, cant_reinsert_already_open, {CId, ExistingEntry}};
                     true ->
-                        insert_pipeline_helper(CId, Orderlines, Priority, Customer, Weigth, Volume,
-                                               [{kernel_updated_at, calendar:universal_time()}|Attributes])
+                        Kommiauftrag =  insert_pipeline_helper(CId, Orderlines, Priority, Customer,
+                                                               Weigth, Volume,
+                                                  [{kernel_updated_at, calendar:universal_time()}|Attributes]),
+                        mypl_audit:kommiauftragaudit(Kommiauftrag, "Im Kernel geupdated",
+                                                     insert_pipeline_update,
+                                                     Kommiauftrag#provpipeline.attributes)
                 end;
             [] ->
-                insert_pipeline_helper(CId, Orderlines, Priority, Customer, Weigth, Volume,
-                                       [{kernel_enqueued_at, calendar:universal_time()}|Attributes])
+                Kommiauftrag = insert_pipeline_helper(CId, Orderlines, Priority, Customer, Weigth, Volume,
+                                               [{kernel_enqueued_at, calendar:universal_time()}|Attributes]),
+                mypl_audit:kommiauftragaudit(Kommiauftrag, "In den Kernel eingefuegt",
+                                             insert_pipeline, Kommiauftrag#provpipeline.attributes)
         end
     end,
     mypl_db_util:transaction(Fun).
@@ -160,6 +166,7 @@ insert_pipeline_helper(CId, Orderlines, Priority, Customer, Weigth, Volume, Attr
                                                          mypl_util:proplist_cleanup(OlAttributes)} end,
                                                  Orderlines)},
     mnesia:write(PPline),
+    PPline,
     ok.
     
 
@@ -480,6 +487,8 @@ refill_pipeline(Type, Candidates) ->
                                                         attributes=[{kernel_retrievals, RetrievalIds},
                                                                     {kernel_picks, PickIds}
                                                                     |Entry#provpipeline.attributes]}),
+                        mypl_audit:kommiauftragaudit(Entry, "Kommischeine erzeugt",
+                              refill_pipeline, [{kernel_retrievals, RetrievalIds}, {kernel_picks, PickIds}]),
                         ok
                     end,
                     mypl_db_util:transaction(Fun);
@@ -553,7 +562,7 @@ delete_provisioninglist(Id) ->
     
 
 % TODO: better name: commit provisioninglist
-commit_anything(Id, _Attributes, _Lines) when is_list(_Attributes) ->
+commit_anything(Id, Attributes, _Lines) when is_list(Attributes) ->
     Fun = fun() ->
         [Processing] = mnesia:read({provpipeline_processing, Id}),
         % commit all related pick and retrieval ids
@@ -577,6 +586,7 @@ commit_anything(Id, _Attributes, _Lines) when is_list(_Attributes) ->
                            commit_anything),
         mnesia:delete({provisioninglist, Id}),
         
+        
         % find out if finished or if there are other picks/retrievals for this order
     %    PPipeline = mnesia:read({provpipeline, PList#provisioninglist.provpipeline_id}),
     %    PPipeline#provpipeline.provisioninglists
@@ -587,19 +597,25 @@ commit_anything(Id, _Attributes, _Lines) when is_list(_Attributes) ->
     %                                       mypl_prov_util:shouldprocess(X) /= no],
     % refill_pipeline(Type, mypl_prov_util:sort_provpipeline(Candidates)).
         
+        [PPEntry] = mnesia:read({provpipeline, Processing#provpipeline_processing.provpipelineid}),
         % TODO: this might be wrong!
         case mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(provpipeline_processing),
                                                X#provpipeline_processing.provpipelineid 
                                                =:= Processing#provpipeline_processing.provpipelineid])) of
             [_Foo] ->
-                Ret = unfinished;
+                Ret = unfinished,
+                mypl_audit:kommiauftragaudit(PPEntry, "Kommischein " ++ Id ++ " zurueckgemeldet",
+                                             commit_provisioninglist_unfinished,
+                                             [{kernel_provisioninglist, Id}] ++ Attributes);
             [] ->
                 Ret = provisioned,
                 % mark in provpipeline as done
-                [PPEntry] = mnesia:read({provpipeline, Processing#provpipeline_processing.provpipelineid}),
                 mnesia:write(PPEntry#provpipeline{status=provisioned,
                                  attributes=[{kernel_provisioned_at,
-                                              calendar:universal_time()}|PPEntry#provpipeline.attributes]});
+                                              calendar:universal_time()}|PPEntry#provpipeline.attributes]}),
+                mypl_audit:kommiauftragaudit(PPEntry, "Kommischein " ++ Id ++ " zurueckgemeldet, Auftrag erledigt",
+                                             commit_provisioninglist_provisioned,
+                                             [{kernel_provisioninglist, Id}] ++ Attributes);
             X ->
                 Ret = unfinished,
                 error_logger:error_msg("Unexpected provpipeline_processing content in regard to ~w|~w",
@@ -795,7 +811,7 @@ reinsert_test() ->
 
 delete_test() ->
     test_init(),
-    ok = mypl_prov_special:delete_pipeline(lieferschein1),
+    ok = mypl_prov_special:delete_kommiauftrag(lieferschein1),
     [{lieferschein4,_,[{1,"a0005",[]},{1,"a0004",[]}]},
      {lieferschein3,_,[{50,"a0005",[]},{16,"a0004",[]}]},
      {lieferschein2,_,[{10,"a0005",[]},{1,"a0004",[]}]}] = mypl_prov_query:provpipeline_list_new(),
@@ -803,7 +819,7 @@ delete_test() ->
     _P1 = get_picklists(),
     _P2 = get_picklists(),
     _P3 = get_picklists(),
-    {error, _, _} = mypl_prov_special:delete_pipeline(lieferschein4),
+    {error, _, _} = mypl_prov_special:delete_kommiauftrag(lieferschein4),
     ok.
     
 

@@ -175,6 +175,18 @@
                    }).
 
 
+% speichert alle Unitbewegungen zu Protokollzwecken - auch als provpipeline bekannt
+-record(kommiauftragaudit, {id,           % eindeutiger Bezeichner
+                            komminr,      % aus softm
+                            auftrnr,      % aus softm
+                            customer,     % aus softm
+                            text,         % text describing the transaction
+                            transaction,  % kommischeinid
+                            references,   % list of tuples to be used by the client application, not used by the myPL kernel
+                            created_at
+                            }).
+
+
 % Trace utilities from adviserl
 
 -ifdef(LOG_DEBUG).
