@@ -311,6 +311,7 @@ store_at_location_multi(Id, Locname, Elements, Attributes) ->
                         Mui
                      end, Elements),
                 % we refrain from using some of the fields to save storage space
+                % TODO: change Table/record accordingly
                 mnesia:write(#multistorage{id=Id2, muis=[], attributes=[], created_at={}}),
                 {ok, Muis}
         end
@@ -428,6 +429,9 @@ init_movement(Mui, DestinationName, Attributes) when is_list(Attributes) ->
                         Id = "mr" ++ mypl_util:serial();
                     _ -> 
                         Id = "mb" ++ mypl_util:serial()
+                end,
+                case mnesia:read({movement, Id}) of
+                    [] -> ok % anything else would be a nasty malfunction of mypl_util:serial()
                 end,
                 Movement = #movement{id=Id, mui=Mui,
                                      from_location=Source#location.name,
@@ -601,10 +605,14 @@ init_pick(Quantity, Mui, Attributes) when is_integer(Quantity) ->
                 % this really shouldn't happen
                 {error, not_enough_goods, {Quantity, UnitPickQuantity, Unit#unit.quantity, Mui, Unit}};
             true ->
+                PickId = ("P" ++ mypl_util:serial()),
+                case mnesia:read({pick, PickId}) of
+                    [] -> ok % anything else would be a nasty malfunction of mypl_util:serial()
+                end,
                 % update Unit
                 ok = mnesia:write(Unit#unit{pick_quantity=UnitPickQuantity}),
                 % generate Pick
-                Pick = #pick{id=("P" ++ mypl_util:serial()), quantity=Quantity,
+                Pick = #pick{id=PickId, quantity=Quantity,
                              product=Unit#unit.product, from_unit=Unit#unit.mui,
                              created_at=mypl_util:timestamp(),
                              attributes=Attributes},
