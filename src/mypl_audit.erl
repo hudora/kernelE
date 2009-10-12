@@ -187,8 +187,8 @@ unitaudit(Unit, Text) ->
 %% @doc to be called whenever Units are moved in the warehouse.
 kommiauftragaudit(Kommiauftrag, Text, Transaction, References) ->
     Id = "K" ++ mypl_util:oid(),
-    Auftragsnummer = proplists:lookup(auftragsnummer, Kommiauftrag#provpipeline.attributes),
-    Customer = proplists:lookup(kernel_customer, Kommiauftrag#provpipeline.attributes),
+    Auftragsnummer = proplists:get_value(auftragsnummer, Kommiauftrag#provpipeline.attributes),
+    Customer = proplists:get_value(kernel_customer, Kommiauftrag#provpipeline.attributes),
     Fun = fun() ->
         mnesia:write(#kommiauftragaudit{id=Id,
                                         komminr=Kommiauftrag#provpipeline.id,
