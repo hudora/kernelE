@@ -10,7 +10,8 @@
 -include("mypl.hrl").
 
 %% API
--export([spawn_audit_transfer/0, transfer_unitaudit/0, transfer_articleaudit/0, transfer_archive/0]).
+-export([spawn_audit_transfer/0, transfer_unitaudit/0, transfer_articleaudit/0, transfer_kommiauftragaudit/0,
+         transfer_archive/0]).
 
 %%%
 %%% The code below is for a process which will transfer data continuesly into CouchDB
@@ -240,6 +241,33 @@ transfer_articleaudit(Key) ->
     end,
     transfer_articleaudit(NextKey).
     
+
+transfer_kommiauftragaudit() ->
+    transfer_kommiauftragaudit(mnesia:dirty_first(kommiauftragaudit)).
+    
+transfer_kommiauftragaudit('$end_of_table') -> ok;
+transfer_kommiauftragaudit(Key) ->
+    NextKey = mnesia:dirty_next(kommiauftragaudit, Key),
+    case mnesia:dirty_read({kommiauftragaudit, Key}) of
+        [] ->
+            ok;
+        [Record] ->
+            erlang:display(Record),
+            % save_into_couchdb("mypl_audit",
+            %     Record#articleaudit.product ++ "-" ++ Record#articleaudit.id,
+            %     [{type, "articleaudit"},
+            %      {mui, Record#articleaudit.mui},
+            %      {quantity, Record#articleaudit.quantity},
+            %      {product, Record#articleaudit.product},
+            %      {description, Record#articleaudit.text},
+            %      {transaction, Record#articleaudit.transaction},
+            %      {ref, Record#articleaudit.references},
+            %      {created_at, mypl_util:timestamp2binary(Record#articleaudit.created_at)}
+            %     ]),
+            % ok = mnesia:dirty_delete({kommiauftragaudit, Key})
+    end,
+    transfer_kommiauftragaudit(NextKey).
+
 
 % @doc spawn start_transfer/0 - but ensure only one is running
 spawn_audit_transfer() ->
