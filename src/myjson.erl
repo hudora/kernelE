@@ -126,6 +126,8 @@ json_encode_array(L, State) ->
 
 json_encode_proplist([], _State) ->
     <<"{}">>;
+json_encode_proplist({Props}, State) ->
+    json_encode_proplist(Props, State);
 json_encode_proplist(Props, State) ->
     F = fun ({K, V}, Acc) ->
                 KS = json_encode_string(K, State),

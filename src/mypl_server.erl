@@ -59,7 +59,7 @@ stop() ->
 %%--------------------------------------------------------------------
 init([]) ->
     % every 3 seconds try to transfer audit data from temporary tables to their final destination
-    timer:apply_interval(3000,  mypl_audit_transfer, start_transfer, []),
+    timer:apply_interval(3000,  mypl_audit_transfer, spawn_audit_transfer, []),
     % dump database once a day
     timer:apply_interval(1000*60*60*24,  mypl_db, backup, []),
     % TODO: find a way to disable these in development mode

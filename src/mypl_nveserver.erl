@@ -242,8 +242,8 @@ init_state() ->
     FileName = checkpoint_file(),
     case file:consult(FileName) of
         {ok, [{version1, State}]} -> 
-            % we restart 200 after the last checkpoint to ensure nothing is lost between checkpoints
-            State#state{nvepos=State#state.nvepos+200, oidpos=State#state.oidpos+200, generated_count=0};
+            % we restart about 200 after the last checkpoint to ensure nothing is lost between checkpoints
+            State#state{nvepos=State#state.nvepos+201, oidpos=State#state.oidpos+203, generated_count=0};
         _Data ->
             error_logger:warning_msg("cannot read nveserver checkpoint file ~s during startup, starting at 200000.",
                                      [FileName]),

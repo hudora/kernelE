@@ -37,7 +37,7 @@ proplist_cleanup_binary([H|T]) ->
     [H|proplist_cleanup_binary(T)].
 
 save_into_couchdb(DbName, Id, Doc) ->
-    case erlang_couchdb:q({"couchdb.local.hudora.biz", 5984}, DbName, Id, Doc) of
+    case erlang_couchdb:create_document({"couchdb.local.hudora.biz", 5984}, DbName, Id, Doc) of
         {json,{[{<<"ok">>,true}|_]}} -> 
             ok;
         {json,{[{<<"error">>,<<"conflict">>}, {<<"reason">>,<<"Document update conflict.">>}]}} ->
@@ -46,9 +46,9 @@ save_into_couchdb(DbName, Id, Doc) ->
     
 
 transfer_all() ->
-    transfer_articleaudit(),
-    transfer_unitaudit(),
-    transfer_archive(),
+    % transfer_articleaudit(),
+    % transfer_unitaudit(),
+    % transfer_archive(),
     % sleep two minutes to ensure we are not called twice a hour.
     timer:sleep(1000*60*2).
     
@@ -79,7 +79,7 @@ transfer_archive(Key) ->
                     save_provpipeline(Key, Record, Body, ArchivedAt),
                     transfer_archive(NextKey);
                 {provisioninglist, 10} ->
-                    save_provisioninglist(Key, Record, Body, ArchivedAt),
+                    %save_provisioninglist(Key, Record, Body, ArchivedAt),
                     transfer_archive(NextKey);
                 Other ->
                     erlang:display(Record#archive.body),
@@ -138,23 +138,24 @@ save_unit(Key, Record, Body, ArchivedAt) ->
     
 
 save_provpipeline(Key, Record, Body, ArchivedAt) ->
-    erlang:display(Key, Body),
+    erlang:display({Key, Body}),
     save_into_couchdb("mypl_archive",
             Body#provpipeline.id ++ "-" ++ Record#archive.id,
-            {[{type, <<"provpipeline">>},
-              {id, mypl_util:ensure_binary(Body#provpipeline.id)},
-              {priority, Body#provpipeline.priority},
-              {attributes, {proplist_cleanup_binary(Body#provpipeline.attributes) 
-                            ++ [{weigth, Body#provpipeline.weigth}, {volume, Body#provpipeline.volume}]}},
-              {status, mypl_util:ensure_binary(Body#provpipeline.status)},
-              {tries, Body#provpipeline.tries},
-              {provisioninglists, Body#provpipeline.provisioninglists},
-              {archived_by, mypl_util:ensure_binary(Record#archive.archived_by)},
-              {archived_at, ArchivedAt},
-              {orderlines, lists:map(fun({Quantity, Product, Attributes}) -> 
+            [{type, <<"provpipeline">>},
+             {id, mypl_util:ensure_binary(Body#provpipeline.id)},
+             {priority, Body#provpipeline.priority},
+             {attributes, {proplist_cleanup_binary(Body#provpipeline.attributes
+                                                    ++ [{weigth, Body#provpipeline.weigth},
+                                                        {volume, Body#provpipeline.volume}])}},
+             {status, mypl_util:ensure_binary(Body#provpipeline.status)},
+             {tries, Body#provpipeline.tries},
+             {provisioninglists, Body#provpipeline.provisioninglists},
+             {archived_by, mypl_util:ensure_binary(Record#archive.archived_by)},
+             {archived_at, ArchivedAt},
+             {orderlines, lists:map(fun({Quantity, Product, Attributes}) -> 
                                          [Quantity, mypl_util:ensure_binary(Product), {proplist_cleanup_binary(Attributes)}]
                                      end, Body#provpipeline.orderlines)}
-             ]}),
+             ]),
     ok = mnesia:dirty_delete(archive, Key).
     
 
@@ -164,8 +165,8 @@ save_provisioninglist(Key, Record, Body, ArchivedAt) ->
         [{type, Body#provisioninglist.type},
          {provpipeline_id, mypl_util:ensure_binary(Body#provisioninglist.provpipeline_id)},
          {destination, mypl_util:ensure_binary(Body#provisioninglist.destination)},
-         {attributes, {proplist_cleanup_binary(Body#provisioninglist.attributes)
-                       ++ [{parts, Body#provisioninglist.parts}]}},
+         {attributes, {proplist_cleanup_binary(Body#provisioninglist.attributes
+                       ++ [{parts, Body#provisioninglist.parts}])}},
          {provisionings, lists:map(fun({Id, _, _, _, _, _}) ->
                                        mypl_util:ensure_binary(Id);
                                       (Id) ->
