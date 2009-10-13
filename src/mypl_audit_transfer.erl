@@ -47,11 +47,11 @@ save_into_couchdb(DbName, Id, Doc) ->
     
 
 transfer_all() ->
-    % transfer_articleaudit(),
-    % transfer_unitaudit(),
-    % transfer_archive(),
-    % sleep two minutes to ensure we are not called twice a hour.
-    timer:sleep(1000*60*2).
+    transfer_articleaudit(),
+    transfer_unitaudit(),
+    transfer_kommiauftragaudit(),
+    transfer_archive(),
+    timer:sleep(1000*20).
     
 
 transfer_archive() ->
@@ -142,7 +142,6 @@ save_unit(Key, Record, Body, ArchivedAt) ->
     
 
 save_provpipeline(Key, Record, Body, ArchivedAt) ->
-    erlang:display({Key, Body}),
     save_into_couchdb("mypl_archive",
             Body#provpipeline.id ++ "-" ++ Record#archive.id,
             [{type, <<"provpipeline">>},
@@ -252,19 +251,19 @@ transfer_kommiauftragaudit(Key) ->
         [] ->
             ok;
         [Record] ->
-            erlang:display(Record)
-            % save_into_couchdb("mypl_audit",
-            %     Record#articleaudit.product ++ "-" ++ Record#articleaudit.id,
-            %     [{type, "articleaudit"},
-            %      {mui, Record#articleaudit.mui},
-            %      {quantity, Record#articleaudit.quantity},
-            %      {product, Record#articleaudit.product},
-            %      {description, Record#articleaudit.text},
-            %      {transaction, Record#articleaudit.transaction},
-            %      {ref, Record#articleaudit.references},
-            %      {created_at, mypl_util:timestamp2binary(Record#articleaudit.created_at)}
-            %     ]),
-            % ok = mnesia:dirty_delete({kommiauftragaudit, Key})
+            save_into_couchdb("mypl_audit",
+                lists:flatten([Record#kommiauftragaudit.komminr, "-", Record#kommiauftragaudit.id]),
+                [{type, <<"kommiauftragaudit">>},
+                 {oid, mypl_util:ensure_binary(Record#kommiauftragaudit.komminr)},
+                 {komminr, mypl_util:ensure_binary(Record#kommiauftragaudit.komminr)},
+                 {auftrnr, mypl_util:ensure_binary(Record#kommiauftragaudit.auftrnr)},
+                 {customer, mypl_util:ensure_binary(Record#kommiauftragaudit.customer)},
+                 {description, mypl_util:ensure_binary(Record#kommiauftragaudit.text)},
+                 {transaction, mypl_util:ensure_binary(Record#kommiauftragaudit.transaction)},
+                 {attributes, {proplist_cleanup_binary(Record#kommiauftragaudit.references)}},
+                 {created_at, mypl_util:timestamp2binary(Record#kommiauftragaudit.created_at)}
+                ]),
+            ok = mnesia:dirty_delete({kommiauftragaudit, Key})
     end,
     transfer_kommiauftragaudit(NextKey).
 

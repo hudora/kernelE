@@ -13,7 +13,7 @@
 -import(mypl_db_util).
 
 -export([selftest/0, pick_quantity_per_unit/0, locations_pointing_nowhere/0, orphaned_units/0, orphaned_unit/1,
-         orphaned_pickpipeline/0, orphaned_retrievalpipeline/0, kommiauftrag_offen/0]).
+         kommischein_defekt/0, orphaned_pickpipeline/0, orphaned_retrievalpipeline/0, kommiauftrag_offen/0]).
 
 
 %% @doc check that pick_quantity corrospondents to the number of picks
@@ -80,16 +80,48 @@ kommiauftrag_offen() ->
 
 kommiauftrag_offen_per_auftrag(Auftrag) ->
     {_, Attributes, Positions} = Auftrag,
-    [kommiauftrag_offen_per_kommischein(Auftrag, X) || X <- proplists:get_value(provisioninglists, Attributes)].
+    [offen_per_kommischein(X) || X <- proplists:get_value(provisioninglists, Attributes)].
 
     
-kommiauftrag_offen_per_kommischein(Auftrag, KommischeinId) ->
-    {ok, Kommischein} = mypl_prov_query:provisioninglist_info(KommischeinId),
-    [kommiauftrag_offen_per_kommipos(Auftrag, X) || X <- proplists:get_value(provisioning_ids, Kommischein)].
-    
+kommischein_defekt() ->
+    [offen_per_kommischein(X) || X <- mypl_prov_query:provisioninglist_list()].
 
-kommiauftrag_offen_per_kommipos(Auftrag, KommiPodId) ->
-    erlang:display(mypl_db_query:pick_info(KommiPodId)).
+% gibt false zurueck, fals der kommischein nicht existiert
+offen_per_kommischein(KommischeinId) ->
+    case mypl_prov_query:provisioninglist_info(KommischeinId) of
+        {ok, Kommischein} ->
+            Positionen = [offen_per_kommipos(X) || X <- proplists:get_value(provisioning_ids, Kommischein)],
+            case lists:all(fun(X) -> X =:= false end, Positionen) of
+                true ->
+                    Fun = fun() ->
+                        ok = mnesia:delete({provisioninglist, KommischeinId})
+                    end,
+                    mypl_db_util:transaction(Fun),
+                    mypl_zwitscherserver:zwitscher("Kommischein ~s hat keine offenen Positionen - wird geloescht #error",
+                                                   [KommischeinId]),
+                    error_logger:warning_msg("Kommischein ~s hat keine offenen Positionen - wird geloescht #error",
+                                                   [KommischeinId]),
+                    false;
+                _ ->
+                    true
+            end;
+        {error,unknown_provisioninglist, _} ->
+            false
+    end.
+
+% gibt false zurueck, fallss die position nicht existiert
+offen_per_kommipos(KommiPodId) ->
+    case mypl_db_query:pick_info(KommiPodId) of
+        {error, _, _} ->
+            case mypl_db_query:movement_info(KommiPodId) of
+                {error, _, _} ->
+                    false;
+                _ ->
+                    true
+            end;
+        _ ->
+            true
+    end.
 
 
 

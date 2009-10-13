@@ -82,7 +82,10 @@ handle_cast({zwitscher, {Tweet}}, State) ->
     Publish = #'basic.publish'{exchange = <<"zwitscher">>, routing_key = <<"zwitscher">>},
     Data = list_to_binary(lists:flatten(myjson:encode({[{text, mypl_util:ensure_binary(Tweet)},
                                         {username, <<"mypl">>},
-                                        {password, <<"mypl">>}]}))),
+                                        {password, <<"mypl">>},
+                                        {created_by, mypl_zwitscherserver},
+                                        {audit_trail, <<"">>},
+                                        {guid, mypl_util:ensure_binary([mypl_util:oid(), "#", atom_to_list(node())])}]}))),
     ok = amqp_channel:call(State#state.channel, Publish, #amqp_msg{payload = Data}),
     {noreply, State}.
 
