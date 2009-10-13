@@ -246,6 +246,8 @@ init_state() ->
         _Data ->
             error_logger:warning_msg("cannot read nveserver checkpoint file ~s during startup, starting at 2000000.",
                                      [FileName]),
+            mypl_zwitscherserver:zwitscher("!!! ERROR: cannot read nveserver checkpoint file ~s during startup, starting at 2000000.",
+                                     [FileName]),
             #state{nvepos=2000000, oidpos=2000000, generated_count=2000000}
     end.
 

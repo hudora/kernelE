@@ -8,7 +8,7 @@
 -include("amqp_client.hrl").
 
 %% API
--export([start_link/0, zwitscher/1]).
+-export([start_link/0, zwitscher/1, zwitscher/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -27,13 +27,18 @@ start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 %-spec zwitscher(string()) -> term().
-zwitscher(Tweet) ->
+-spec zwitscher(Format :: string()) -> 'ok'.
+zwitscher(Format) ->
+    zwitscher(Format, []).
+
+-spec zwitscher(Format :: string(), Args :: list()) -> 'ok'.
+zwitscher(Format, Args) ->
     % start the server if it is not already running
     case whereis(?SERVER) of
         undefined -> start_link();
         _ -> ok
     end,
-    gen_server:cast(?SERVER, {zwitscher, {Tweet}}).
+    gen_server:cast(?SERVER, {zwitscher, {lists:flatten(io_lib:format(Format, Args))}}).
     
 
 %%====================================================================

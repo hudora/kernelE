@@ -237,7 +237,9 @@ store_at_location(Location, Unit) when Unit#unit.quantity > 0 ->
     Fun = fun() ->
         % check no unit record with this mui exists
         case mnesia:read({unit, Unit#unit.mui}) of
-            [_ExistingUnitload] ->
+            [ExistingUnitload] ->
+                mypl_zwitscherserver:zwitscher("Versuch Unit ~w auf ~w einzulagern. Es existiert aber Bereits eine Unit mit dieser MUI auf ~w. #error",
+                                               [Unit#unit.mui, Location#location.name, ExistingUnitload#unit.location]),
                 {error, duplicate_mui, {Location, Unit}};
             [] ->
                 % generate unit record
@@ -516,6 +518,16 @@ commit_movement(MovementId) ->
         %%% check we don't commit a retrieval as a movement leaving goods lying arround on AUSLAG
         case proplists:get_value(kernel_type, Movement#movement.attributes) of
             retrieval ->
+                mypl_zwitscherserver:zwitscher("Versuch ~w als Movement zurueckzumelden - Es handelt sich jedoch um ein retrieval. #error",
+                                               [MovementId]),
+                {error, retrieval_is_no_movement, [Movement]};
+            "retrieval" ->
+                mypl_zwitscherserver:zwitscher("Versuch ~w als Movement zurueckzumelden - Es handelt sich jedoch um ein retrieval. #error",
+                                               [MovementId]),
+                {error, retrieval_is_no_movement, [Movement]};
+            <<"retrieval">> ->
+                mypl_zwitscherserver:zwitscher("Versuch ~w als Movement zurueckzumelden - Es handelt sich jedoch um ein retrieval. #error",
+                                               [MovementId]),
                 {error, retrieval_is_no_movement, [Movement]};
             _ ->
                 commit_movement_backend(Movement)

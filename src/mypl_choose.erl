@@ -148,7 +148,9 @@ find_retrieval_candidates(Quantity, Product, Units) when is_integer(Quantity), Q
             if
                 FullQuantity < Quantity ->
                     % this really shouldn't happen. Something is deeply broken - or isn't it?
-                    error_logger:warning_msg("Not enough goods for Retrieval ~w x ~s (Available ~w of ~w)",
+                    error_logger:warning_msg("Not genug Ware fuer Retrieval ~w mal ~s (Verfuegbar ~w von ~w)",
+                                             [Quantity, Product, AvailableQuantity, FullQuantity]),
+                    mypl_zwitscherserver:zwitscher("Not genug Ware fuer Retrieval ~w mal ~s (Verfuegbar ~w von ~w)",
                                              [Quantity, Product, AvailableQuantity, FullQuantity]),
                     {error, not_enough};
                 true ->
