@@ -18,11 +18,12 @@ start(_Type, _StartArgs) ->
     mypl_db:run_me_once(),
     % check database integrity - also warms up caches
     % this gets to slow
-    % mypl_integrity:selftest(),
+    mypl_integrity:selftest(),
     % start supervisor
-    mypl_sup:start_link().
+    Ret = mypl_sup:start_link(),
     % fill requestracker at startup
-    % mypl_provpipeline:flood_requestracker().
+    mypl_prov_special:flood_requestracker(),
+    Ret.
 
 %% @spec stop(_State) -> ServerRet
 %% @doc application stop callback for mypl.

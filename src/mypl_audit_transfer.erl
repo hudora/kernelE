@@ -252,7 +252,7 @@ transfer_kommiauftragaudit(Key) ->
         [] ->
             ok;
         [Record] ->
-            erlang:display(Record),
+            erlang:display(Record)
             % save_into_couchdb("mypl_audit",
             %     Record#articleaudit.product ++ "-" ++ Record#articleaudit.id,
             %     [{type, "articleaudit"},

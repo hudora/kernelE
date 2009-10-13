@@ -88,7 +88,6 @@ handle_call({make_oid}, _From, State) ->
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
 handle_cast({write_checkpoint}, State) ->
-    write_checkpoint(State),
     {noreply, write_checkpoint(State)}.
 
 %%--------------------------------------------------------------------

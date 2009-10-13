@@ -10,6 +10,12 @@ all:
 clean:
 	(cd src;$(MAKE) clean)
 
+.PHONY: deps
+deps:
+	(cd deps/rabbitmq-erlang-client/ ; $(MAKE))
+	(cd deps/deps/mochiweb-src/ ; $(MAKE))
+
+
 .PHONY: doc
 doc:
 	$(ERL) -noshell -eval 'edoc:application(mypl, ".", [${DOCOPT}]).' -run init stop

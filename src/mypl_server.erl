@@ -58,15 +58,6 @@ stop() ->
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
 init([]) ->
-    % every 3 seconds try to transfer audit data from temporary tables to their final destination
-    timer:apply_interval(3000,  mypl_audit_transfer, spawn_audit_transfer, []),
-    % dump database once a day
-    timer:apply_interval(1000*60*60*24,  mypl_db, backup, []),
-    % TODO: find a way to disable these in development mode
-    % move abc_summary to CouchDB once a day by giving it once a hour the chance to run
-    %timer:apply_interval(1000*60*59,  mypl_abcserver, spawn_abc_transfer, []),
-    % move abc_summary to CouchDB once a day by giving it once a hour the chance to run
-    %timer:apply_interval(1000*60*59,  mypl_audit_transfer, spawn_audit_transfer, []),
     {ok, #state{}}.
 
 %%--------------------------------------------------------------------
