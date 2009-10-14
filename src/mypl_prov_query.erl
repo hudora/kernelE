@@ -44,7 +44,7 @@ provpipeline_list_processing() ->
                                                        X#provpipeline.status =:= processing])))].
 
 provpipeline_list() -> 
-    provpipeline_list_new() ++ provpipeline_list_processing().
+    [X#provpipeline.id || X <- (provpipeline_list_new() ++ provpipeline_list_processing())].
 
 %% 
 %% this is named wrong since it DOESN't return provpipeline entries
@@ -59,7 +59,7 @@ provpipeline_info(CId) ->
         mnesia:read({provpipeline, CId})
     end,
     [PPEntry] = mypl_db_util:transaction(Fun),
-    format_pipeline_record(PPEntry).
+    format_pipeline_record2(PPEntry).
     
 
 %% @doc create a nice proplist representation of the provpipeline
@@ -75,6 +75,41 @@ format_pipeline_record(Record) ->
      Record#provpipeline.orderlines
     }.
     
+%% @doc create a nice proplist representation of the provpipeline following the Kommiauftrag Protocol
+format_pipeline_record2(Record) ->
+    {[{kommiauftragsnr, Record#provpipeline.id},
+      {liefertermin, proplists:get_value(liefertermin, Record#provpipeline.attributes)},
+      {liefertermin_ab, proplists:get_value(liefertermin_ab, Record#provpipeline.attributes)},
+      {versandtermin, proplists:get_value(versandtermin, Record#provpipeline.attributes)},
+      {versandtermin_ab, proplists:get_value(versandtermin_ab, Record#provpipeline.attributes)},
+      {fixtermin, proplists:get_value(fixtermin, Record#provpipeline.attributes)},
+      {gewicht, Record#provpipeline.weigth},
+      {volumen, Record#provpipeline.volume},
+      {land, proplists:get_value(land, Record#provpipeline.attributes)},
+      {plz, proplists:get_value(plz, Record#provpipeline.attributes)},
+      {info_kunde, proplists:get_value(info_kunde, Record#provpipeline.attributes)},
+      {auftragsnr, proplists:get_value(auftragsnummer, Record#provpipeline.attributes)},
+      {kundenname, proplists:get_value(kundenname, Record#provpipeline.attributes)},
+      {kundennr, proplists:get_value(kernel_customer, Record#provpipeline.attributes)},
+      %% myPL spezifische inhalte
+      {tries, Record#provpipeline.tries},
+      {provisioninglists, Record#provpipeline.provisioninglists},
+      {priority, Record#provpipeline.priority},
+      {shouldprocess, mypl_prov_util:shouldprocess(Record)},
+      {status, Record#provpipeline.status},
+      {orderlines, {format_pipeline_orderlines2(Record#provpipeline.orderlines)}}
+      ] ++ Record#provpipeline.attributes}.
+      
+
+format_pipeline_orderlines2([]) ->
+    [];
+format_pipeline_orderlines2([Orderline|Rest]) ->
+    {Quantity, Product, Attributes} = Orderline,
+    [[{menge, Quantity},
+      {artnr, Product},
+      {auftragsposition, proplists:get_value(auftragsposition, Attributes)}
+     ] ++ Attributes
+    ] ++ format_pipeline_orderlines2(Rest).
 
 %% @doc returns a list of all (pick|retrieval)list ids.
 provisioninglist_list() ->

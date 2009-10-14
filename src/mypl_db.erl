@@ -1038,7 +1038,7 @@ do_not_commit_retrievals_as_movements_f3463_test() ->
     % ... but by commit_retrieval()
     ?assertMatch({ok,{5,"a0001"}}, commit_retrieval(Movement1)),
     {ok, Info} = mypl_db_query:unit_info(Mui),
-    Attributes = proplists:get_value(attributes, Info),
+    {Attributes} = proplists:get_value(attributes, Info),
     ?assertMatch(archived, proplists:get_value(status, Attributes)),
     ok.
     
