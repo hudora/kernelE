@@ -70,7 +70,7 @@ loop(Req, DocRoot) ->
                                 myjson:encode([list_to_binary(X) || X <- mypl_prov_query:provpipeline_list()])});
                 [$k,$o,$m,$m,$i,$a,$u,$f,$t,$r,$a,$g,$/|KommiauftragNr] ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
-                                myjson:encode([mypl_prov_query:provpipeline_info()])});
+                    myjson:encode([mypl_prov_query:provpipeline_info(KommiauftragNr)])});
                     
                 
                 %"statistik" ->

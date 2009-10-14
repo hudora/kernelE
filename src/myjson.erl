@@ -137,7 +137,12 @@ json_encode_proplist(Props, State) ->
                 "attributes" -> % hardcoded hack, but works
                     VS = json_encode_proplist(V, State);
                 _ ->
-                    VS = json_encode(V, State)
+                    case V of
+                        {VS} ->
+                            VS = json_encode_proplist(V, State);
+                        _ ->
+                            VS = json_encode(V, State)
+                    end
             end,
             [$,, VS, $:, KS | Acc]
         end,
