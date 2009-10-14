@@ -17,25 +17,6 @@
 %%% The code below is for a process which will transfer data continuesly into CouchDB
 %%%
 
-% changes all string values in a proplist to binary
-proplist_cleanup_binary([]) ->
-    [];
-proplist_cleanup_binary([{K, V}|T]) when is_number(V) ->
-    [{mypl_util:ensure_binary(K), V}|proplist_cleanup_binary(T)];
-proplist_cleanup_binary([[K, V]|T]) when is_number(V) ->
-    [{mypl_util:ensure_binary(K), V}|proplist_cleanup_binary(T)];
-proplist_cleanup_binary([{K, V}|T]) ->
-    [{mypl_util:ensure_binary(K), mypl_util:ensure_binary(V)}|proplist_cleanup_binary(T)];
-proplist_cleanup_binary([[K, V]|T]) ->
-    [{mypl_util:ensure_binary(K), mypl_util:ensure_binary(V)}|proplist_cleanup_binary(T)];
-proplist_cleanup_binary([[K]|T]) ->
-    [{mypl_util:ensure_binary(K), true}|proplist_cleanup_binary(T)];
-proplist_cleanup_binary([{K}|T]) ->
-    [{mypl_util:ensure_binary(K), true}|proplist_cleanup_binary(T)];
-proplist_cleanup_binary([K|T]) when is_atom(K) ->
-    [{mypl_util:ensure_binary(K), true}|proplist_cleanup_binary(T)];
-proplist_cleanup_binary([H|T]) ->
-    [H|proplist_cleanup_binary(T)].
 
 save_into_couchdb(DbName, Id, Doc) ->
     case erlang_couchdb:create_document({"couchdb.local.hudora.biz", 5984}, DbName, Id, Doc) of
@@ -99,7 +80,7 @@ save_pick(Key, Record, Body, ArchivedAt) ->
           {mui, mypl_util:ensure_binary(Body#pick.from_unit)},
           {quantity, Body#pick.quantity},
           {product, mypl_util:ensure_binary(Body#pick.product)},
-          {attributes, {proplist_cleanup_binary(Body#pick.attributes)}},
+          {attributes, {mypl_util:proplist_cleanup_binary(Body#pick.attributes)}},
           {archived_by, mypl_util:ensure_binary(Record#archive.archived_by)},
           {archived_at, ArchivedAt},
           {created_at, mypl_util:timestamp2binary(Body#pick.created_at)}
@@ -115,7 +96,7 @@ save_movement(Key, Record, Body, ArchivedAt) ->
           {mui, mypl_util:ensure_binary(Body#movement.mui)},
           {from_location, mypl_util:ensure_binary(Body#movement.from_location)},
           {to_location, mypl_util:ensure_binary(Body#movement.to_location)},
-          {attributes, {proplist_cleanup_binary(Body#movement.attributes)}},
+          {attributes, {mypl_util:proplist_cleanup_binary(Body#movement.attributes)}},
           {archived_by, mypl_util:ensure_binary(Record#archive.archived_by)},
           {archived_at, ArchivedAt},
           {created_at, mypl_util:timestamp2binary(Body#movement.created_at)}
@@ -131,7 +112,7 @@ save_unit(Key, Record, Body, ArchivedAt) ->
              {mui, mypl_util:ensure_binary(Body#unit.mui)},
              {quantity, Body#unit.quantity},
              {product, mypl_util:ensure_binary(Body#unit.product)},
-             {attributes, {proplist_cleanup_binary(Body#unit.attributes)}},
+             {attributes, {mypl_util:proplist_cleanup_binary(Body#unit.attributes)}},
              {location, mypl_util:ensure_binary(Body#unit.location)},
              {height, Body#unit.height},
              {archived_by, mypl_util:ensure_binary(Record#archive.archived_by)},
@@ -148,7 +129,7 @@ save_provpipeline(Key, Record, Body, ArchivedAt) ->
              {oid, mypl_util:ensure_binary(Body#provpipeline.id)},
              {id, mypl_util:ensure_binary(Body#provpipeline.id)},
              {priority, Body#provpipeline.priority},
-             {attributes, {proplist_cleanup_binary(Body#provpipeline.attributes
+             {attributes, {mypl_util:proplist_cleanup_binary(Body#provpipeline.attributes
                                                     ++ [{weigth, Body#provpipeline.weigth},
                                                         {volume, Body#provpipeline.volume}])}},
              {status, mypl_util:ensure_binary(Body#provpipeline.status)},
@@ -157,7 +138,7 @@ save_provpipeline(Key, Record, Body, ArchivedAt) ->
              {archived_by, mypl_util:ensure_binary(Record#archive.archived_by)},
              {archived_at, ArchivedAt},
              {orderlines, lists:map(fun({Quantity, Product, Attributes}) -> 
-                                         [Quantity, mypl_util:ensure_binary(Product), {proplist_cleanup_binary(Attributes)}]
+                                         [Quantity, mypl_util:ensure_binary(Product), {mypl_util:proplist_cleanup_binary(Attributes)}]
                                      end, Body#provpipeline.orderlines)}
              ]),
     ok = mnesia:dirty_delete(archive, Key).
@@ -170,7 +151,7 @@ save_provisioninglist(Key, Record, Body, ArchivedAt) ->
          {oid, mypl_util:ensure_binary(Body#provisioninglist.id)},
          {provpipeline_id, mypl_util:ensure_binary(Body#provisioninglist.provpipeline_id)},
          {destination, mypl_util:ensure_binary(Body#provisioninglist.destination)},
-         {attributes, {proplist_cleanup_binary(Body#provisioninglist.attributes
+         {attributes, {mypl_util:proplist_cleanup_binary(Body#provisioninglist.attributes
                        ++ [{parts, Body#provisioninglist.parts}])}},
          {provisionings, lists:map(fun({Id, _, _, _, _, _}) ->
                                        mypl_util:ensure_binary(Id);
@@ -260,7 +241,7 @@ transfer_kommiauftragaudit(Key) ->
                  {customer, mypl_util:ensure_binary(Record#kommiauftragaudit.customer)},
                  {description, mypl_util:ensure_binary(Record#kommiauftragaudit.text)},
                  {transaction, mypl_util:ensure_binary(Record#kommiauftragaudit.transaction)},
-                 {attributes, {proplist_cleanup_binary(Record#kommiauftragaudit.references)}},
+                 {attributes, {mypl_util:proplist_cleanup_binary(Record#kommiauftragaudit.references)}},
                  {created_at, mypl_util:timestamp2binary(Record#kommiauftragaudit.created_at)}
                 ]),
             ok = mnesia:dirty_delete({kommiauftragaudit, Key})

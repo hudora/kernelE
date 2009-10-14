@@ -1,4 +1,4 @@
-=%% @author author <author@example.com>
+%% @author author <author@example.com>
 %% @copyright YYYY author.
 
 %% @doc Web server for mypl.
@@ -49,8 +49,10 @@ loop(Req, DocRoot) ->
                                 myjson:encode([list_to_binary(X) || X <- mypl_db_query:movement_list()])});
                 % /movement/1235
                 [$m,$o,$v,$e,$m,$e,$n,$t,$/|MovementId] ->
-                    {ok, Info} = mypl_db_query:movement_info(MovementId),
-                    send_json(Req, {Info});
+                    case mypl_db_query:movement_info(MovementId) of
+                        {ok, Info} -> send_json(Req, {mypl_util:proplist_cleanup_binary(Info)});
+                        {error, Type, Info} -> send_json(Req, 404, {[Type, Info]})
+                    end;
                 
                 "pick" ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
@@ -61,7 +63,7 @@ loop(Req, DocRoot) ->
                 "kommiauftrag" ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                 myjson:encode([list_to_binary(X) || X <- mypl_prov_query:provpipeline_list()])});
-                [$k$o$m$m$i$a$u$f$t$r$a$g/|KommiauftragNr] ->
+                [$k,$o,$m,$m,$i,$a,$u,$f,$t,$r,$a,$g,$/|KommiauftragNr] ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                 myjson:encode([mypl_prov_query:provpipeline_info()])});
                     

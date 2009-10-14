@@ -53,7 +53,7 @@ get_mui_location(Mui) ->
     Unit#unit.location,
     case mnesia:read({location, Unit#unit.location}) of
         [] ->
-             mypl_zwitscherserver:zwitscher("Unit behauptete auf ~w zu stehen, aber die Location gibt es nicht. #error", [Unit#unit.location]),
+             mypl_zwitscherserver:zwitscher("Unit behauptete auf ~s zu stehen, aber die Location gibt es nicht. #error", [Unit#unit.location]),
              erlang:error({internal_error, mui_without_location1, {Mui, Unit}});
         [Location] ->
             case [X || X <- Location#location.allocated_by, X =:= Unit#unit.mui] of
@@ -62,7 +62,7 @@ get_mui_location(Mui) ->
                     % we have to use a different process to escape the failing transaction
                     spawn(fun() -> mypl_integrity:orphaned_unit(Unit) end),
                     % exit wit an error
-                    mypl_zwitscherserver:zwitscher("Unit behauptete auf ~w zu stehen, aber die Location hatte keine entsprechenden Daten. Wurde auf FEHLER gebucht. #error", [Unit#unit.location]),
+                    mypl_zwitscherserver:zwitscher("Unit behauptete auf ~s zu stehen, aber die Location hatte keine entsprechenden Daten. Wurde auf FEHLER gebucht. #error", [Unit#unit.location]),
                     erlang:error({internal_error, mui_without_location2, {"FEHLER! Unit behauptete auf '"
                                   ++ Unit#unit.location
                                   ++ "' zu stehen, aber die Location hatte keine entsprechenden Daten."
@@ -264,7 +264,7 @@ best_location(Unit) when is_record(Unit, unit) ->
     case Locations of
         [] ->
             error_logger:warning_msg("can't find a suitable location for ~w.", [Unit]),
-            mypl_zwitscherserver:zwitscher("can't find a suitable location for ~w. #warn", [Unit#unit.mui]),
+            mypl_zwitscherserver:zwitscher("can't find a suitable location for ~s. #warn", [Unit#unit.mui]),
             no_location_available;
         [H|_] ->
             H
@@ -319,7 +319,7 @@ read_location(Locname) when is_list(Locname)->
         [Location] ->
             Location;
         L ->
-            mypl_zwitscherserver:zwitscher("Doppelt vergebene Location ~w #error", [Locname]),
+            mypl_zwitscherserver:zwitscher("Doppelt vergebene Location ~s #error", [Locname]),
             erlang:error({internal_error, Locname, L})
     end.
     

@@ -238,7 +238,7 @@ store_at_location(Location, Unit) when Unit#unit.quantity > 0 ->
         % check no unit record with this mui exists
         case mnesia:read({unit, Unit#unit.mui}) of
             [ExistingUnitload] ->
-                mypl_zwitscherserver:zwitscher("Versuch Unit ~w auf ~w einzulagern. Es existiert aber Bereits eine Unit mit dieser MUI auf ~w. #error",
+                mypl_zwitscherserver:zwitscher("Versuch Unit ~s auf ~s einzulagern. Es existiert aber Bereits eine Unit mit dieser MUI auf ~s. #error",
                                                [Unit#unit.mui, Location#location.name, ExistingUnitload#unit.location]),
                 {error, duplicate_mui, {Location, Unit}};
             [] ->
@@ -518,15 +518,15 @@ commit_movement(MovementId) ->
         %%% check we don't commit a retrieval as a movement leaving goods lying arround on AUSLAG
         case proplists:get_value(kernel_type, Movement#movement.attributes) of
             retrieval ->
-                mypl_zwitscherserver:zwitscher("Versuch ~w als Movement zurueckzumelden - Es handelt sich jedoch um ein retrieval. #error",
+                mypl_zwitscherserver:zwitscher("Versuch ~s als Movement zurueckzumelden - Es handelt sich jedoch um ein retrieval. #error",
                                                [MovementId]),
                 {error, retrieval_is_no_movement, [Movement]};
             "retrieval" ->
-                mypl_zwitscherserver:zwitscher("Versuch ~w als Movement zurueckzumelden - Es handelt sich jedoch um ein retrieval. #error",
+                mypl_zwitscherserver:zwitscher("Versuch ~s als Movement zurueckzumelden - Es handelt sich jedoch um ein retrieval. #error",
                                                [MovementId]),
                 {error, retrieval_is_no_movement, [Movement]};
             <<"retrieval">> ->
-                mypl_zwitscherserver:zwitscher("Versuch ~w als Movement zurueckzumelden - Es handelt sich jedoch um ein retrieval. #error",
+                mypl_zwitscherserver:zwitscher("Versuch ~s als Movement zurueckzumelden - Es handelt sich jedoch um ein retrieval. #error",
                                                [MovementId]),
                 {error, retrieval_is_no_movement, [Movement]};
             _ ->

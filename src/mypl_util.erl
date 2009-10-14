@@ -7,7 +7,7 @@
 %% API
 -export([get_config/2, serial/0, oid/0, generate_mui/0,
          timestamp/0, timestamp2binary/0, timestamp2binary/1, ensure_binary/1,
-         proplist_cleanup/1,
+         proplist_cleanup/1, proplist_cleanup_binary/1,
          combine_until_fit/2, choose/2, choose/3, nearest/2, nearest/3, spawn_and_register/2, log/5]).
 
 
@@ -111,6 +111,28 @@ proplist_cleanup_helper({Name, Value}) when is_list(Value) ->
     {Name, list_to_binary(Value)};
 proplist_cleanup_helper({Name, Value}) ->    
     {Name, Value}.
+
+
+% changes all string values in a proplist to binary
+proplist_cleanup_binary([]) ->
+    [];
+proplist_cleanup_binary([{K, V}|T]) when is_number(V) ->
+    [{mypl_util:ensure_binary(K), V}|proplist_cleanup_binary(T)];
+proplist_cleanup_binary([[K, V]|T]) when is_number(V) ->
+    [{mypl_util:ensure_binary(K), V}|proplist_cleanup_binary(T)];
+proplist_cleanup_binary([{K, V}|T]) ->
+    [{mypl_util:ensure_binary(K), mypl_util:ensure_binary(V)}|proplist_cleanup_binary(T)];
+proplist_cleanup_binary([[K, V]|T]) ->
+    [{mypl_util:ensure_binary(K), mypl_util:ensure_binary(V)}|proplist_cleanup_binary(T)];
+proplist_cleanup_binary([[K]|T]) ->
+    [{mypl_util:ensure_binary(K), true}|proplist_cleanup_binary(T)];
+proplist_cleanup_binary([{K}|T]) ->
+    [{mypl_util:ensure_binary(K), true}|proplist_cleanup_binary(T)];
+proplist_cleanup_binary([K|T]) when is_atom(K) ->
+    [{mypl_util:ensure_binary(K), true}|proplist_cleanup_binary(T)];
+proplist_cleanup_binary([H|T]) ->
+    [H|proplist_cleanup_binary(T)].
+
 
 %% @spec combine_until_fit(Quantity::integer(), [Value::integer()]) -> [{Takefrom::integer(), Value::integer()}]
 %% @doc Takes from Values until Quantity is reached.

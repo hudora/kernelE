@@ -51,7 +51,7 @@ start_periodic() ->
     timer:apply_interval(1000*60*60*24,  mypl_db, backup, []),
     % move abc_summary to CouchDB once a day by giving it once a hour the chance to run
     timer:apply_interval(1000*60*59,  mypl_abcserver, spawn_abc_transfer, []),
-    io:format("~nPeriodic jops initialized.~n").
+    io:format("~nPeriodic jobs initialized.~n").
     
 
 %% @spec stop() -> ok
