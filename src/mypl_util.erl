@@ -80,6 +80,8 @@ ensure_binary({{Year,Month,Day},{Hour,Minute,Second}}) ->
     timestamp2binary({{Year,Month,Day},{Hour,Minute,Second},0});
 ensure_binary({{Year,Month,Day},{Hour,Minute,Second},Ms}) ->
     timestamp2binary({{Year,Month,Day},{Hour,Minute,Second},Ms});
+ensure_binary({List}) when is_list(List) ->
+    proplist_cleanup_binary({List});
 ensure_binary(Atom) when is_atom(Atom) ->
     ensure_binary(atom_to_list(Atom));
 ensure_binary(Bin) when is_list(Bin) ->
@@ -114,6 +116,8 @@ proplist_cleanup_helper({Name, Value}) ->
 
 
 % changes all string values in a proplist to binary
+proplist_cleanup_binary({L}) ->
+    {proplist_cleanup_binary(L)};
 proplist_cleanup_binary([]) ->
     [];
 proplist_cleanup_binary([{K, V}|T]) when is_number(V) ->

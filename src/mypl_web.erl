@@ -1,10 +1,10 @@
-%% @author author <author@example.com>
-%% @copyright YYYY author.
+%% @author Maximillian Dornseif <md@hudora.de>
+%% @copyright 2009 Maximillian Dornseif.
 
 %% @doc Web server for mypl.
 
 -module(mypl_web).
--author('author <author@example.com>').
+-author('Maximillian Dornseif <md@hudora.de>').
 
 -export([start/1, stop/0, loop/2]).
 
@@ -29,21 +29,26 @@ loop(Req, DocRoot) ->
                     Req:respond({200, [{"Content-Type", "text/plain"}], list_to_binary([
                                         "try: /location /unit /movement /pick /kommiauftrag"
                                         ])});
+
                 "location" ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                 myjson:encode([list_to_binary(X) || X <- mypl_db_query:location_list()])});
                 [$l,$o,$c,$a,$t,$i,$o,$n,$/|LocationId] ->
-                    {ok, Info} = mypl_db_query:location_info(LocationId),
-                    send_json(Req, {Info});
+                    case mypl_db_query:location_info(LocationId) of
+                        {ok, Info} ->  send_json(Req, {mypl_util:proplist_cleanup_binary(Info)});
+                        {error, Type, Info} -> send_json(Req, 404, Type)
+                    end; 
                 
                 "unit" ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                 myjson:encode([list_to_binary(X) || X <- mypl_db_query:unit_list()])});
                 % /unit/123456789012345678
                 [$u,$n,$i,$t,$/|UnitId] ->
-                    {ok, Info} = mypl_db_query:unit_info(UnitId),
-                    send_json(Req, {Info});
-                
+                    case mypl_db_query:unit_info(UnitId) of
+                        {ok, Info} -> send_json(Req, {mypl_util:proplist_cleanup_binary(Info)});
+                        {error, Type, Info} -> send_json(Req, 404, Type)
+                    end;                
+
                 "movement" ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                 myjson:encode([list_to_binary(X) || X <- mypl_db_query:movement_list()])});
@@ -51,7 +56,7 @@ loop(Req, DocRoot) ->
                 [$m,$o,$v,$e,$m,$e,$n,$t,$/|MovementId] ->
                     case mypl_db_query:movement_info(MovementId) of
                         {ok, Info} -> send_json(Req, {mypl_util:proplist_cleanup_binary(Info)});
-                        {error, Type, Info} -> send_json(Req, 404, {[Type, Info]})
+                        {error, Type, Info} -> send_json(Req, 404, Type)
                     end;
                 
                 "pick" ->
