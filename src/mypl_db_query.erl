@@ -170,7 +170,7 @@ unit_info(Mui) ->
                   {pick_quantity,  Unit#unit.pick_quantity},
                   {location,       Unit#unit.location},
                   {created_at,     Unit#unit.created_at},
-                  {attributes,     Unit#unit.attributes},
+                  {attributes,     {Unit#unit.attributes}},
                   {movements,      Movements},
                   {picks,          PickIds}
                  ]
