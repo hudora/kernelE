@@ -1,4 +1,4 @@
-%% @author author <author@example.com>
+=%% @author author <author@example.com>
 %% @copyright YYYY author.
 
 %% @doc Web server for mypl.
@@ -27,8 +27,8 @@ loop(Req, DocRoot) ->
             case Path of
                 "" ->
                     Req:respond({200, [{"Content-Type", "text/plain"}], list_to_binary([
-					"try: /location /unit /movement /pick /kommiauftrag"
-					])});
+                                        "try: /location /unit /movement /pick /kommiauftrag"
+                                        ])});
                 "location" ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                 myjson:encode([list_to_binary(X) || X <- mypl_db_query:location_list()])});
@@ -48,10 +48,10 @@ loop(Req, DocRoot) ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                 myjson:encode([list_to_binary(X) || X <- mypl_db_query:movement_list()])});
                 % /movement/1235
-                [$m,$o,$v,$e,$m,$e,$n,$t,$/|MovementId] ->                
+                [$m,$o,$v,$e,$m,$e,$n,$t,$/|MovementId] ->
                     {ok, Info} = mypl_db_query:movement_info(MovementId),
                     send_json(Req, {Info});
-
+                
                 "pick" ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                 myjson:encode([list_to_binary(["/pick/"|X]) || X <- mypl_db_query:pick_list()])});
@@ -61,6 +61,10 @@ loop(Req, DocRoot) ->
                 "kommiauftrag" ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                 myjson:encode([list_to_binary(X) || X <- mypl_prov_query:provpipeline_list()])});
+                [$k$o$m$m$i$a$u$f$t$r$a$g/|KommiauftragNr] ->
+                    Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
+                                myjson:encode([mypl_prov_query:provpipeline_info()])});
+                    
                 
                 %"statistik" ->
                 % puffer, fuer picks, die noch ausgegeben werden muessen
