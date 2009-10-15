@@ -20,9 +20,9 @@ provpipeline_list_new/0,
 provpipeline_list_prepared/0,
 provpipeline_list/0,
 provpipeline_list_processing/0,
-provpipeline_info/1,
+provpipeline_info/1,             %% Kommiauftrag
 provisioninglist_list/0,
-provisioninglist_info/1,
+provisioninglist_info/1,         %% Kommischein
 pipelinearticles/0
 ]).
 
@@ -44,7 +44,8 @@ provpipeline_list_processing() ->
                                                        X#provpipeline.status =:= processing])))].
 
 provpipeline_list() -> 
-    [X#provpipeline.id || X <- (provpipeline_list_new() ++ provpipeline_list_processing())].
+    [element(1, X) || X <- (provpipeline_list_new() ++ provpipeline_list_processing())].
+
 
 %% 
 %% this is named wrong since it DOESN't return provpipeline entries
@@ -78,16 +79,16 @@ format_pipeline_record(Record) ->
 %% @doc create a nice proplist representation of the provpipeline following the Kommiauftrag Protocol
 format_pipeline_record2(Record) ->
     {[{kommiauftragsnr, mypl_util:ensure_binary(Record#provpipeline.id)},
-      {liefertermin, proplists:get_value(liefertermin, Record#provpipeline.attributes)},
-      {liefertermin_ab, proplists:get_value(liefertermin_ab, Record#provpipeline.attributes)},
-      {versandtermin, proplists:get_value(versandtermin, Record#provpipeline.attributes)},
-      {versandtermin_ab, proplists:get_value(versandtermin_ab, Record#provpipeline.attributes)},
+      {liefertermin, proplists:get_value(liefertermin, Record#provpipeline.attributes, [])},
+      {liefertermin_ab, proplists:get_value(liefertermin_ab, Record#provpipeline.attributes, [])},
+      {versandtermin, proplists:get_value(versandtermin, Record#provpipeline.attributes, [])},
+      {versandtermin_ab, proplists:get_value(versandtermin_ab, Record#provpipeline.attributes, [])},
       {fixtermin, proplists:get_value(fixtermin, Record#provpipeline.attributes)},
       {gewicht, Record#provpipeline.weigth},
       {volumen, Record#provpipeline.volume},
       {land, mypl_util:ensure_binary(proplists:get_value(land, Record#provpipeline.attributes))},
       {plz, mypl_util:ensure_binary(proplists:get_value(plz, Record#provpipeline.attributes))},
-      {info_kunde, mypl_util:ensure_binary(proplists:get_value(info_kunde, Record#provpipeline.attributes))},
+      {info_kunde, mypl_util:ensure_binary(proplists:get_value(info_kunde, Record#provpipeline.attributes, []))},
       {auftragsnr, mypl_util:ensure_binary(proplists:get_value(auftragsnummer, Record#provpipeline.attributes))},
       {kundenname, mypl_util:ensure_binary(proplists:get_value(kundenname, Record#provpipeline.attributes))},
       {kundennr, mypl_util:ensure_binary(proplists:get_value(kernel_customer, Record#provpipeline.attributes))},

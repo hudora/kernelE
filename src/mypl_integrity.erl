@@ -12,8 +12,14 @@
 -import(mnesia).
 -import(mypl_db_util).
 
--export([selftest/0, pick_quantity_per_unit/0, locations_pointing_nowhere/0, orphaned_units/0, orphaned_unit/1,
-         kommischein_defekt/0, orphaned_pickpipeline/0, orphaned_retrievalpipeline/0, kommiauftrag_offen/0]).
+-export([selftest/0,
+         pick_quantity_per_unit/0,
+         locations_pointing_nowhere/0,
+         kommiauftrag_defekt/0,
+         kommischein_defekt/0,
+         orphaned_units/0,
+         orphaned_pickpipeline/0,
+         orphaned_retrievalpipeline/0]).
 
 
 %% @doc check that pick_quantity corrospondents to the number of picks
@@ -74,17 +80,47 @@ orphaned_unit(Unit) ->
     end.
 
 
-kommiauftrag_offen() ->
-    lists:all(fun(X) -> X =:= ok end, [kommiauftrag_offen_per_auftrag(Y) || Y <- mypl_prov_query:provpipeline_list_processing()]).
+kommiauftrag_defekt() ->
+    lists:all(fun(X) -> X =:= ok end, [kommiauftrag_offen_per_auftrag(Y) || Y <- mypl_prov_query:provpipeline_list()]).
     
 
-kommiauftrag_offen_per_auftrag(Auftrag) ->
-    {_, Attributes, Positions} = Auftrag,
-    [offen_per_kommischein(X) || X <- proplists:get_value(provisioninglists, Attributes)].
-
+kommiauftrag_offen_per_auftrag(AuftragId) ->
+    {Kommiauftrag} = mypl_prov_query:provpipeline_info(AuftragId),
+    Kommischeine = proplists:get_value(provisioninglists, Kommiauftrag, []),
+    Ok = lists:all(fun(X) -> X =:= true end, kommiauftrag_offen_per_auftrag_helper(Kommischeine)),
+    case Ok of
+        false ->
+            %% alle kommischeine des kommiauftrags fehlen: kommiauftrag loeschen
+            Fun = fun() ->
+                erlang:display(AuftragId),
+                [Entry] = mnesia:read({provpipeline, AuftragId}),
+                erlang:display({xxx, Entry}),
+                mypl_audit:kommiauftragaudit(Entry,
+                                             "geloescht, da keine der zugehoerigen Kommischeine existieren",
+                                             kommiauftrag_offen_per_auftrag, []),
+                erlang:display(zzz),
+                mypl_audit:archive(Entry, delete),
+                mnesia:delete({provpipeline, AuftragId})
+            end,
+            mypl_db_util:transaction(Fun);
+        _ -> ok
+    end,
+    Ok.
     
+
+kommiauftrag_offen_per_auftrag_helper([]) -> [];
+kommiauftrag_offen_per_auftrag_helper([Kommischein|Rest]) ->
+    Ret = case mypl_prov_query:provisioninglist_info(Kommischein) of
+            {error, unknown_provisioninglist, _} ->
+                false;
+            _ ->
+                true
+    end,
+    [Ret|kommiauftrag_offen_per_auftrag_helper(Rest)].
+
+
 kommischein_defekt() ->
-    [offen_per_kommischein(X) || X <- mypl_prov_query:provisioninglist_list()].
+    lists:all(fun(X) -> X =:= true end, [offen_per_kommischein(X) || X <- mypl_prov_query:provisioninglist_list()]).
 
 % gibt false zurueck, fals der kommischein nicht existiert
 offen_per_kommischein(KommischeinId) ->
@@ -95,7 +131,7 @@ offen_per_kommischein(KommischeinId) ->
                 true ->
                     Fun = fun() ->
                         case mnesia:read({provpipeline, Kommischein#provisioninglist.provpipeline_id}) of
-                            [PPEntry] ->
+                            [_PPEntry] ->
                                 mypl_audit:kommiauftragaudit(Kommischein#provisioninglist.provpipeline_id,
                                                              "Kommischein " ++ KommischeinId ++ "geloescht, da die einzelnen Positionen nicht mehr existieren",
                                                              integrity_offen_per_kommischein,
@@ -217,7 +253,9 @@ run_a_test(Testname) ->
     io:format("~w   ~f s   ~w~n", [Testname, TimeSec, Res]).
     
 selftest() ->
-    TestList = [pick_quantity_per_unit, locations_pointing_nowhere, orphaned_units, orphaned_pickpipeline, orphaned_retrievalpipeline],
+    TestList = [kommischein_defekt, kommiauftrag_defekt,
+                pick_quantity_per_unit, locations_pointing_nowhere,
+                orphaned_units, orphaned_pickpipeline, orphaned_retrievalpipeline],
     lists:map(fun(X) -> run_a_test(X) end, TestList),
     ok.
     
