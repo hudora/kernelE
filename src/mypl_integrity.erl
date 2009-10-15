@@ -94,6 +94,21 @@ offen_per_kommischein(KommischeinId) ->
             case lists:all(fun(X) -> X =:= false end, Positionen) of
                 true ->
                     Fun = fun() ->
+                        case mnesia:read({provpipeline, Kommischein#provisioninglist.provpipeline_id}) of
+                            [PPEntry] ->
+                                mypl_audit:kommiauftragaudit(Kommischein#provisioninglist.provpipeline_id,
+                                                             "Kommischein " ++ KommischeinId ++ "geloescht, da die einzelnen Positionen nicht mehr existieren",
+                                                             integrity_offen_per_kommischein,
+                                                             [{kommischein, KommischeinId}]);
+                            _ ->
+                                error_logger:warning_msg("Kommischein ~s gehoert zu Kommiauftrag ~s - dieser existiert aber nciht mehr",
+                                                         [KommischeinId, Kommischein#provisioninglist.provpipeline_id]),
+                                hat_keinen_kommiauftrag_mehr
+                        end,
+                        mypl_audit:archive(Kommischein#provisioninglist{status=deleted,
+                                           attributes=[{commited_at, mypl_util:timestamp2binary()}
+                                                        |Kommischein#provisioninglist.attributes]},
+                                           commit_anything),
                         ok = mnesia:delete({provisioninglist, KommischeinId})
                     end,
                     mypl_db_util:transaction(Fun),

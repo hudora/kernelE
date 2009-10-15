@@ -183,12 +183,12 @@ unitaudit(Unit, Text) ->
     unitaudit(Unit, Text, undefined).
     
 
-%% @spec kommiauftragaudit(any(), string(), string(), externalReferences()) -> {ok, atomic}
+%% @spec kommiauftragaudit(provpipelineRecord(), string(), string(), externalReferences()) -> {ok, atomic}
 %% @doc to be called whenever Units are moved in the warehouse.
 kommiauftragaudit(Kommiauftrag, Text, Transaction, References) ->
     Id = "K" ++ mypl_util:oid(),
-    Auftragsnummer = proplists:get_value(auftragsnummer, Kommiauftrag#provpipeline.attributes),
-    Customer = proplists:get_value(kernel_customer, Kommiauftrag#provpipeline.attributes),
+    Auftragsnummer = proplists:get_value(auftragsnummer, Kommiauftrag#provpipeline.attributes, []),
+    Customer = proplists:get_value(kernel_customer, Kommiauftrag#provpipeline.attributes, []),
     Fun = fun() ->
         mnesia:write(#kommiauftragaudit{id=Id,
                                         komminr=Kommiauftrag#provpipeline.id,
