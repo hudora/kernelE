@@ -117,12 +117,14 @@ kommiauftrag_offen_per_auftrag_helper([Kommischein|Rest]) ->
                 true
     end,
     [Ret|kommiauftrag_offen_per_auftrag_helper(Rest)].
+    
 
-
+% prueft ob in kommischeinen die positionen fehlen
 kommischein_defekt() ->
     lists:all(fun(X) -> X =:= true end, [offen_per_kommischein(X) || X <- mypl_prov_query:provisioninglist_list()]).
+    
 
-% gibt false zurueck, fals der kommischein nicht existiert
+% gibt false zurueck, falls der kommischein nicht existiert
 offen_per_kommischein(KommischeinId) ->
     case mypl_prov_query:provisioninglist_info(KommischeinId) of
         {ok, Kommischein} ->
@@ -160,7 +162,7 @@ offen_per_kommischein(KommischeinId) ->
             false
     end.
 
-% gibt false zurueck, fallss die position nicht existiert
+% gibt false zurueck, falls die position nicht existiert
 offen_per_kommipos(KommiPodId) ->
     case mypl_db_query:pick_info(KommiPodId) of
         {error, _, _} ->

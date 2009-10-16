@@ -1,6 +1,6 @@
 %%% @author    Maximillian Dornseif <> []
 %%% @copyright 2009 Maximillian Dornseif
-%%% @doc  transveral of data from mypl_audit into Couchdb
+%%% @doc  transveral of data from mypl_audit into CouchDB
 %%% @end  
 %%%
 %%% @since 2009-01-14 by Maximillian Dornseif
@@ -57,11 +57,11 @@ transfer_archive(Key) ->
                 {unit, 9} ->
                     save_unit(Key, Record, Body, ArchivedAt),
                     transfer_archive(NextKey);
-                {provpipeline, 10} ->
-                    save_provpipeline(Key, Record, Body, ArchivedAt),
+                {provpipeline, 10} -> % Kommiauftrag
+                    save_kommiauftrag(Key, Record, Body, ArchivedAt),
                     transfer_archive(NextKey);
-                {provisioninglist, 10} ->
-                    %save_provisioninglist(Key, Record, Body, ArchivedAt),
+                {provisioninglist, 10} -> % Kommischein
+                    save_kommischein(Key, Record, Body, ArchivedAt),
                     transfer_archive(NextKey);
                 Other ->
                     erlang:display(Record#archive.body),
@@ -122,48 +122,35 @@ save_unit(Key, Record, Body, ArchivedAt) ->
     ok = mnesia:dirty_delete(archive, Key).
     
 
-save_provpipeline(Key, Record, Body, ArchivedAt) ->
+% Put an arcived provpipelinr (Kommiauftrag) into CouchDB
+save_kommiauftrag(Key, Record, Body, ArchivedAt) ->
+    {Proplist} = mypl_prov_qury:format_pipeline_record2(Record),
     save_into_couchdb("mypl_archive",
             Body#provpipeline.id ++ "-" ++ Record#archive.id,
             [{type, <<"provpipeline">>},
              {oid, mypl_util:ensure_binary(Body#provpipeline.id)},
              {id, mypl_util:ensure_binary(Body#provpipeline.id)},
-             {priority, Body#provpipeline.priority},
-             {attributes, {mypl_util:proplist_cleanup_binary(Body#provpipeline.attributes
-                                                    ++ [{weigth, Body#provpipeline.weigth},
-                                                        {volume, Body#provpipeline.volume}])}},
-             {status, mypl_util:ensure_binary(Body#provpipeline.status)},
-             {tries, Body#provpipeline.tries},
-             {provisioninglists, Body#provpipeline.provisioninglists},
              {archived_by, mypl_util:ensure_binary(Record#archive.archived_by)},
-             {archived_at, ArchivedAt},
-             {orderlines, lists:map(fun({Quantity, Product, Attributes}) -> 
-                                         [Quantity, mypl_util:ensure_binary(Product), {mypl_util:proplist_cleanup_binary(Attributes)}]
-                                     end, Body#provpipeline.orderlines)}
-             ]),
+             {archived_at, ArchivedAt}
+             ] ++ Proplist),
     ok = mnesia:dirty_delete(archive, Key).
     
 
-save_provisioninglist(Key, Record, Body, ArchivedAt) ->
+% Put a Provisioninglist (Kommischein) into CouchDB
+save_kommischein(Key, Record, Body, ArchivedAt) -> % Kommischein
+    {Proplist} = mypl_prov_qury:format_pipeline_record2(Record),
     save_into_couchdb("mypl_archive",
         Body#provisioninglist.id ++ "-" ++ Record#archive.id,
-        [{type, Body#provisioninglist.type},
-         {oid, mypl_util:ensure_binary(Body#provisioninglist.id)},
-         {provpipeline_id, mypl_util:ensure_binary(Body#provisioninglist.provpipeline_id)},
-         {destination, mypl_util:ensure_binary(Body#provisioninglist.destination)},
-         {attributes, {mypl_util:proplist_cleanup_binary(Body#provisioninglist.attributes
-                       ++ [{parts, Body#provisioninglist.parts}])}},
+        [{oid, mypl_util:ensure_binary(Body#provisioninglist.id)},
          {provisionings, lists:map(fun({Id, _, _, _, _, _}) ->
                                        mypl_util:ensure_binary(Id);
                                       (Id) ->
                                        mypl_util:ensure_binary(Id)
                                    end,
                                    Body#provisioninglist.provisionings)},
-         {status, mypl_util:ensure_binary(Body#provisioninglist.status)},
-         {created_at, mypl_util:ensure_binary(Body#provisioninglist.created_at)},
          {archived_by, mypl_util:ensure_binary(Record#archive.archived_by)},
          {archived_at, ArchivedAt}
-         ]),
+         ] ++ Proplist),
     ok = mnesia:dirty_delete(archive, Key).
 
 %% @doc Transfer Unit Audit data to Postgresql.

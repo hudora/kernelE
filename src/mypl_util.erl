@@ -72,7 +72,7 @@ timestamp2binary() ->
 timestamp2binary({{Year,Month,Day},{Hour,Minute,Second}}) ->
     timestamp2binary({{Year,Month,Day},{Hour,Minute,Second},0});
 timestamp2binary({{Year,Month,Day},{Hour,Minute,Second},Ms}) ->
-    list_to_binary(lists:flatten(io_lib:format("~4.10.0B~2.10.0B~2.10.0BT~4.10.0B~2.10.0B~2.10.0B.~6.10.0B",
+    list_to_binary(lists:flatten(io_lib:format("~4.10.0B-~2.10.0B-~2.10.0BT~2.10.0B:~2.10.0B:~2.10.0B.~6.10.0BZ",
                                                [Year, Month, Day, Hour, Minute, Second, Ms]))).
 
 %% @doc converts a list (or a timestamp) to binary.

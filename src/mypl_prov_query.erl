@@ -83,6 +83,7 @@ format_pipeline_record(Record) ->
     
 %% @doc create a nice proplist representation of the provpipeline following the Kommiauftrag Protocol
 format_pipeline_record2(Record) ->
+    % mypl_util:proplist_cleanup_binary()
     {[{kommiauftragsnr, mypl_util:ensure_binary(Record#provpipeline.id)},
       {liefertermin, proplists:get_value(liefertermin, Record#provpipeline.attributes, [])},
       {liefertermin_ab, proplists:get_value(liefertermin_ab, Record#provpipeline.attributes, [])},
@@ -154,11 +155,10 @@ provisioninglist_info2(Id) ->
                   {provpipeline_id,  mypl_util:ensure_binary(Plist#provisioninglist.provpipeline_id)},
                   {destination,      mypl_util:ensure_binary(Plist#provisioninglist.destination)},
                   {parts,            Plist#provisioninglist.parts},
-                  {attributes,       Plist#provisioninglist.attributes},
                   {status,           mypl_util:ensure_binary(Plist#provisioninglist.status)},
                   {created_at,       mypl_util:ensure_binary(Plist#provisioninglist.created_at)},
                   {provisioning_ids, [mypl_util:ensure_binary(element(1, X)) || X <- Plist#provisioninglist.provisionings]}
-                 ]}
+                 ] ++ Plist#provisioninglist.attributes}
         end
     end,
     mypl_db_util:transaction(Fun).

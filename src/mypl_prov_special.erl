@@ -92,6 +92,9 @@ delete_kommiauftrag(CId) ->
                 % we can't delete something which is not new
                 {error, cant_delete_already_open, {CId, Entry}};
             true ->
+                mypl_audit:kommiauftragaudit(Entry,
+                                             "Auf Anforderung des Clients gelöscht.",
+                                             delete_kommiauftrag, []),
                 mypl_audit:archive(Entry, delete),
                 mnesia:delete({provpipeline, CId}),
                 ok
