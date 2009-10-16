@@ -23,6 +23,7 @@ provpipeline_list_processing/0,
 provpipeline_info/1,             %% Kommiauftrag
 provisioninglist_list/0,
 provisioninglist_info/1,         %% Kommischein
+provisioninglist_info2/1,         %% Kommischein
 pipelinearticles/0
 ]).
 
@@ -59,8 +60,12 @@ provpipeline_info(CId) ->
     Fun = fun()->
         mnesia:read({provpipeline, CId})
     end,
-    [PPEntry] = mypl_db_util:transaction(Fun),
-    format_pipeline_record2(PPEntry).
+    case mypl_db_util:transaction(Fun) of
+        [PPEntry] ->
+            format_pipeline_record2(PPEntry);
+        _ ->
+            unknown
+    end.
     
 
 %% @doc create a nice proplist representation of the provpipeline
@@ -94,7 +99,7 @@ format_pipeline_record2(Record) ->
       {kundennr, mypl_util:ensure_binary(proplists:get_value(kernel_customer, Record#provpipeline.attributes))},
       %% myPL spezifische inhalte
       {tries, Record#provpipeline.tries},
-      {provisioninglists, Record#provpipeline.provisioninglists},
+      {provisioninglists, [mypl_util:ensure_binary(X) || X <- Record#provpipeline.provisioninglists]},
       {priority, Record#provpipeline.priority},
       {shouldprocess, mypl_prov_util:shouldprocess(Record)},
       {status, Record#provpipeline.status},
@@ -132,6 +137,27 @@ provisioninglist_info(Id) ->
                   {status,           Plist#provisioninglist.status},
                   {created_at,       Plist#provisioninglist.created_at},
                   {provisioning_ids, [element(1, X) || X <- Plist#provisioninglist.provisionings]}
+                 ]}
+        end
+    end,
+    mypl_db_util:transaction(Fun).
+
+%% @doc get information concerning a (pick|retrieval)list
+provisioninglist_info2(Id) ->
+    Fun = fun() ->
+        case mnesia:read({provisioninglist, Id}) of
+            [] -> unknown;
+            [Plist] -> 
+                {ok, 
+                 [{id ,              mypl_util:ensure_binary(Plist#provisioninglist.id)},
+                  {type,             Plist#provisioninglist.type},
+                  {provpipeline_id,  mypl_util:ensure_binary(Plist#provisioninglist.provpipeline_id)},
+                  {destination,      mypl_util:ensure_binary(Plist#provisioninglist.destination)},
+                  {parts,            Plist#provisioninglist.parts},
+                  {attributes,       Plist#provisioninglist.attributes},
+                  {status,           mypl_util:ensure_binary(Plist#provisioninglist.status)},
+                  {created_at,       mypl_util:ensure_binary(Plist#provisioninglist.created_at)},
+                  {provisioning_ids, [mypl_util:ensure_binary(element(1, X)) || X <- Plist#provisioninglist.provisionings]}
                  ]}
         end
     end,

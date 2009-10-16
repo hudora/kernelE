@@ -27,9 +27,28 @@ loop(Req, DocRoot) ->
             case Path of
                 "" ->
                     Req:respond({200, [{"Content-Type", "text/plain"}], list_to_binary([
-                                        "try: /location /unit /movement /pick /kommiauftrag"
+                                        "try: /location /unit /movement /pick /kommiauftrag /kommischein"
                                         ])});
                 
+                % kommiauftrag (provpipeline)
+                "kommiauftrag" ->
+                    Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
+                                myjson:encode([list_to_binary(X) || X <- mypl_prov_query:provpipeline_list()])});
+                [$k,$o,$m,$m,$i,$a,$u,$f,$t,$r,$a,$g,$/|KommiauftragNr] ->
+                    case mypl_prov_query:provpipeline_info(KommiauftragNr) of
+                        unknown -> send_json(Req, 404, <<"unknown Kommiauftrag">>);
+                        Info -> send_json(Req, Info)
+                    end;
+
+                "kommischein" ->
+                    Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
+                                myjson:encode([list_to_binary(X) || X <- mypl_prov_query:provisioninglist_list()])});
+                [$k,$o,$m,$m,$i,$s,$c,$h,$e,$i,$n,$/|KommischeinNr] ->
+                    case mypl_prov_query:provisioninglist_info2(KommischeinNr) of
+                        unknown -> send_json(Req, 404, <<"unknown Kommischein">>);
+                        Info -> send_json(Req, Info)
+                    end;
+
                 "location" ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                 myjson:encode([list_to_binary(X) || X <- mypl_db_query:location_list()])});
@@ -64,14 +83,6 @@ loop(Req, DocRoot) ->
                                 myjson:encode([list_to_binary(["/pick/"|X]) || X <- mypl_db_query:pick_list()])});
                 % /pick/12345
                 
-                % kommiauftrag (provpipeline)
-                "kommiauftrag" ->
-                    Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
-                                myjson:encode([list_to_binary(X) || X <- mypl_prov_query:provpipeline_list()])});
-                [$k,$o,$m,$m,$i,$a,$u,$f,$t,$r,$a,$g,$/|KommiauftragNr] ->
-                    Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
-                    myjson:encode([mypl_prov_query:provpipeline_info(KommiauftragNr)])});
-                    
                 
                 %"statistik" ->
                 % puffer, fuer picks, die noch ausgegeben werden muessen
