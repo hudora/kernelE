@@ -1,6 +1,6 @@
-%%% @author    Maximillian Dornseif <> []
+%%% @author    Maximillian Dornseif <md@hudora.de> []
 %%% @copyright 2009 Maximillian Dornseif
-%%% @doc  transveral of data from mypl_audit into CouchDB
+%%% @doc  transferal of data from mypl_audit into CouchDB
 %%% @end  
 %%%
 %%% @since 2009-01-14 by Maximillian Dornseif
@@ -123,13 +123,13 @@ save_unit(Key, Record, Body, ArchivedAt) ->
     
 
 % Put an arcived provpipelinr (Kommiauftrag) into CouchDB
-save_kommiauftrag(Key, Record, Body, ArchivedAt) ->
-    {Proplist} = mypl_prov_qury:format_pipeline_record2(Record),
+save_kommiauftrag(Key, Record, Kommiauftrag, ArchivedAt) ->
+    {Proplist} = mypl_prov_query:format_pipeline_record2(Kommiauftrag),
     save_into_couchdb("mypl_archive",
-            Body#provpipeline.id ++ "-" ++ Record#archive.id,
+            Kommiauftrag#provpipeline.id ++ "-" ++ Record#archive.id,
             [{type, <<"provpipeline">>},
-             {oid, mypl_util:ensure_binary(Body#provpipeline.id)},
-             {id, mypl_util:ensure_binary(Body#provpipeline.id)},
+             {oid, mypl_util:ensure_binary(Kommiauftrag#provpipeline.id)},
+             {id, mypl_util:ensure_binary(Kommiauftrag#provpipeline.id)},
              {archived_by, mypl_util:ensure_binary(Record#archive.archived_by)},
              {archived_at, ArchivedAt}
              ] ++ Proplist),
@@ -137,17 +137,17 @@ save_kommiauftrag(Key, Record, Body, ArchivedAt) ->
     
 
 % Put a Provisioninglist (Kommischein) into CouchDB
-save_kommischein(Key, Record, Body, ArchivedAt) -> % Kommischein
-    {Proplist} = mypl_prov_qury:format_pipeline_record2(Record),
+save_kommischein(Key, Record, Kommischein, ArchivedAt) -> % Kommischein
+    {Proplist} = mypl_prov_query:format_provisioninglist_record2(Kommischein),
     save_into_couchdb("mypl_archive",
-        Body#provisioninglist.id ++ "-" ++ Record#archive.id,
-        [{oid, mypl_util:ensure_binary(Body#provisioninglist.id)},
+        Kommischein#provisioninglist.id ++ "-" ++ Record#archive.id,
+        [{oid, mypl_util:ensure_binary(Kommischein#provisioninglist.id)},
          {provisionings, lists:map(fun({Id, _, _, _, _, _}) ->
                                        mypl_util:ensure_binary(Id);
                                       (Id) ->
                                        mypl_util:ensure_binary(Id)
                                    end,
-                                   Body#provisioninglist.provisionings)},
+                                   Kommischein#provisioninglist.provisionings)},
          {archived_by, mypl_util:ensure_binary(Record#archive.archived_by)},
          {archived_at, ArchivedAt}
          ] ++ Proplist),

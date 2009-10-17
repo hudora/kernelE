@@ -21,9 +21,11 @@ provpipeline_list_prepared/0,
 provpipeline_list/0,
 provpipeline_list_processing/0,
 provpipeline_info/1,             %% Kommiauftrag
+format_pipeline_record2/1,
 provisioninglist_list/0,
 provisioninglist_info/1,         %% Kommischein
-provisioninglist_info2/1,         %% Kommischein
+provisioninglist_info2/1,        
+format_provisioninglist_record2/1,
 pipelinearticles/0
 ]).
 
@@ -143,26 +145,31 @@ provisioninglist_info(Id) ->
     end,
     mypl_db_util:transaction(Fun).
 
+
 %% @doc get information concerning a (pick|retrieval)list
 provisioninglist_info2(Id) ->
     Fun = fun() ->
         case mnesia:read({provisioninglist, Id}) of
             [] -> unknown;
-            [Plist] -> 
-                {ok, 
-                 [{id ,              mypl_util:ensure_binary(Plist#provisioninglist.id)},
-                  {type,             Plist#provisioninglist.type},
-                  {provpipeline_id,  mypl_util:ensure_binary(Plist#provisioninglist.provpipeline_id)},
-                  {destination,      mypl_util:ensure_binary(Plist#provisioninglist.destination)},
-                  {parts,            Plist#provisioninglist.parts},
-                  {status,           mypl_util:ensure_binary(Plist#provisioninglist.status)},
-                  {created_at,       mypl_util:ensure_binary(Plist#provisioninglist.created_at)},
-                  {provisioning_ids, [mypl_util:ensure_binary(element(1, X)) || X <- Plist#provisioninglist.provisionings]}
-                 ] ++ Plist#provisioninglist.attributes}
+            [Plist] -> format_provisioninglist_record2(Plist)
         end
     end,
     mypl_db_util:transaction(Fun).
     
+
+format_provisioninglist_record2(Plist) ->
+    {[{id ,              mypl_util:ensure_binary(Plist#provisioninglist.id)},
+      {type,             Plist#provisioninglist.type},
+      {provpipeline_id,  mypl_util:ensure_binary(Plist#provisioninglist.provpipeline_id)},
+      {destination,      mypl_util:ensure_binary(Plist#provisioninglist.destination)},
+      {parts,            Plist#provisioninglist.parts},
+      {status,           mypl_util:ensure_binary(Plist#provisioninglist.status)},
+      {created_at,       mypl_util:ensure_binary(Plist#provisioninglist.created_at)}
+      %{provisioning_ids, [mypl_util:ensure_binary(element(1, X)) || X <- Plist#provisioninglist.provisionings]}
+     % gewicht
+     % volumen
+     ] ++ Plist#provisioninglist.attributes}.
+
 
 piplinearticles_helper2([], Dict) -> Dict;
 piplinearticles_helper2([{Quantity, Product}|Tail], Dict) ->
