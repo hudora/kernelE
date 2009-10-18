@@ -39,11 +39,11 @@ sort_provpipeline(Records) ->
 % creates a key for sorting
 -spec sort_provpipeline_helper(#provpipeline{attributes::[any()]}) -> term().
 sort_provpipeline_helper(Record) ->
-    {not (proplists:get_value(fixtermin, Record#provpipeline.attributes, false) 
+    {5-Record#provpipeline.priority,
+     not (proplists:get_value(fixtermin, Record#provpipeline.attributes, false) 
           and (shouldprocess(Record) =:= yes)),
      proplists:get_value(versandtermin, Record#provpipeline.attributes, ""),
      proplists:get_value(liefertermin,  Record#provpipeline.attributes, ""), 
-     Record#provpipeline.priority,
      Record#provpipeline.tries,
      proplists:get_value(kernel_customer, Record#provpipeline.attributes, "99999")
     }.
