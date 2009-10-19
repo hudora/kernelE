@@ -20,8 +20,7 @@ update_pipeline/1,
 delete_kommiauftrag/1,
 archive_kommiauftraege/0,
 flood_requestracker/0,
-provpipeline_find_by_product/1,
-push_kommiauftrag/1
+provpipeline_find_by_product/1
 ]).
 
 %%====================================================================
@@ -29,15 +28,18 @@ push_kommiauftrag/1
 %%====================================================================
 
 %% @doc change values on an existing pipeline entry
-update_pipeline({priority, CId, Priority}) ->
+update_pipeline({priority, CId, Priority, Message}) when is_integer(Priority) ->
     Fun = fun() ->
-        [PPEntry] = mnesia:read({provpipeline, CId}),
+        [Entry] = mnesia:read({provpipeline, CId}),
         NewAttributes = [{kernel_updated_at, calendar:universal_time()}|
                          proplists:delete(priority, PPEntry#provpipeline.attributes)],
         mnesia:write(PPEntry#provpipeline{priority=Priority, attributes=NewAttributes})
+        mypl_audit:kommiauftragaudit(Entry, Message, update_pipeline, []),
     end,
     mypl_db_util:transaction(Fun),
     ok;
+update_pipeline({priority, CId, Priority}) when is_integer(Priority) ->
+    update_pipeline({priority, CId, Priority, "Prioritaet geaendert"});
 update_pipeline({fixtermin, CId, Fixtermin}) when is_boolean(Fixtermin) ->
     Fun = fun() ->
         [PPEntry] = mnesia:read({provpipeline, CId}),

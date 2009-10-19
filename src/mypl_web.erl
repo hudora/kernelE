@@ -10,6 +10,7 @@
 
 %% External API
 
+-spec start([any()]) -> any().
 start(Options) ->
     {DocRoot, Options1} = get_option(docroot, Options),
     Loop = fun (Req) ->
@@ -17,9 +18,11 @@ start(Options) ->
            end,
     mochiweb_http:start([{name, ?MODULE}, {loop, Loop} | Options1]).
 
+-spec stop() -> any().
 stop() ->
     mochiweb_http:stop(?MODULE).
 
+-spec loop(atom(),_) -> any().
 loop(Req, DocRoot) ->
     "/" ++ Path = Req:get(path),
     case Req:get(method) of
@@ -48,7 +51,16 @@ loop(Req, DocRoot) ->
                         unknown -> send_json(Req, 404, <<"unknown Kommischein">>);
                         Info -> send_json(Req, Info)
                     end;
-
+                
+                "pick" ->
+                    Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
+                                myjson:encode([list_to_binary(X) || X <- mypl_db_query:pick_list()])});
+                [$p,$i,$c,$k,$/|PickId] ->
+                    case mypl_db_query:pick_info2(PickId) of
+                        unknown -> send_json(Req, 404, <<"unknown Pick">>);
+                        Info -> send_json(Req, Info)
+                    end; 
+                
                 "location" ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                 myjson:encode([list_to_binary(X) || X <- mypl_db_query:location_list()])});
@@ -69,8 +81,7 @@ loop(Req, DocRoot) ->
                     end;
                 
                 "movement" ->
-                    Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
-                                myjson:encode([list_to_binary(X) || X <- mypl_db_query:movement_list()])});
+                    send_json(Req, myjson:encode([list_to_binary(X) || X <- mypl_db_query:movement_list()]));
                 % /movement/1235
                 [$m,$o,$v,$e,$m,$e,$n,$t,$/|MovementId] ->
                     case mypl_db_query:movement_info(MovementId) of
@@ -78,10 +89,6 @@ loop(Req, DocRoot) ->
                         {error, Type, _Info} -> send_json(Req, 404, Type)
                     end;
                 
-                "pick" ->
-                    Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
-                                myjson:encode([list_to_binary(["/pick/"|X]) || X <- mypl_db_query:pick_list()])});
-                % /pick/12345
                 
                 
                 %"statistik" ->
@@ -94,6 +101,18 @@ loop(Req, DocRoot) ->
             end;
         'POST' ->
             case Path of
+                [$k,$o,$m,$m,$i,$s,$c,$h,$e,$i,$n,$/|KommischeinNrEtc] ->
+                    RPath = lists:reverse(KommischeinNrEtc),
+                    [$p,$r,$i,$o,$r,$i,$t,$y,$/|KommischeinNr] = RPath,
+                    case mypl_prov_query:provisioninglist_info2(KommischeinNr) of
+                        unknown -> send_json(Req, 404, <<"unknown Kommischein">>);
+                        _Info -> 
+                            Body = Req:recv_body(),
+                            Props = myjson:decode(Body),
+                            Priority = proplists:get_value(priority, Props, 2),
+                            mypl_prov_special:update_pipeline({priority, KommischeinNr, Priority}),
+                            send_json(Req, 201, {[{priority, Priority}]})
+                    end;
                 _ ->
                     Req:not_found()
             end;
