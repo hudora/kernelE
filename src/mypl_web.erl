@@ -30,9 +30,12 @@ loop(Req, DocRoot) ->
             case Path of
                 "" ->
                     Req:respond({200, [{"Content-Type", "text/plain"}], list_to_binary([
-                                        "try: /location /unit /movement /pick /kommiauftrag /kommischein"
+                                        "try: /statistics /location /unit /movement /pick /kommiauftrag /kommischein"
                                         ])});
                 
+                "statistics" ->
+                    send_json(Req, {mypl_statistics:statistics()});
+
                 % kommiauftrag (provpipeline)
                 "kommiauftrag" ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
