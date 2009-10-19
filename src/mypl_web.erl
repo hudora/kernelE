@@ -104,16 +104,17 @@ loop(Req, DocRoot) ->
             end;
         'POST' ->
             case Path of
-                [$k,$o,$m,$m,$i,$s,$c,$h,$e,$i,$n,$/|KommischeinNrEtc] ->
-                    RPath = lists:reverse(KommischeinNrEtc),
-                    [$p,$r,$i,$o,$r,$i,$t,$y,$/|KommischeinNr] = RPath,
-                    case mypl_prov_query:provisioninglist_info2(KommischeinNr) of
-                        unknown -> send_json(Req, 404, <<"unknown Kommischein">>);
+                [$k,$o,$m,$m,$i,$a,$u,$f,$t,$r,$a,$g,$/|KommiauftragNrEtc] ->
+                    RPath = lists:reverse(KommiauftragNrEtc),                     
+                    [$y,$t,$i,$r,$o,$i,$r,$p,$/|KommiauftragNrReverse] = RPath,
+                    KommiauftragNr = lists:reverse(KommiauftragNrReverse),
+                    case mypl_prov_query:provpipeline_info(KommiauftragNr) of
+                        unknown -> send_json(Req, 404, <<"unknown Kommiauftrag">>);
                         _Info -> 
                             Body = Req:recv_body(),
-                            Props = myjson:decode(Body),
-                            Priority = proplists:get_value(priority, Props, 2),
-                            mypl_prov_special:update_pipeline({priority, KommischeinNr, Priority}),
+                            {Props} = myjson:decode(Body),
+                            Priority = proplists:get_value(<<"priority">>, Props, 2),
+                            mypl_prov_special:update_pipeline({priority, KommiauftragNr, Priority}),
                             send_json(Req, 201, {[{priority, Priority}]})
                     end;
                 _ ->

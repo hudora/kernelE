@@ -32,9 +32,9 @@ update_pipeline({priority, CId, Priority, Message}) when is_integer(Priority) ->
     Fun = fun() ->
         [Entry] = mnesia:read({provpipeline, CId}),
         NewAttributes = [{kernel_updated_at, calendar:universal_time()}|
-                         proplists:delete(priority, PPEntry#provpipeline.attributes)],
-        mnesia:write(PPEntry#provpipeline{priority=Priority, attributes=NewAttributes})
-        mypl_audit:kommiauftragaudit(Entry, Message, update_pipeline, []),
+                         proplists:delete(priority, Entry#provpipeline.attributes)],
+        mnesia:write(Entry#provpipeline{priority=Priority, attributes=NewAttributes}),
+        mypl_audit:kommiauftragaudit(Entry, Message, update_pipeline, [])
     end,
     mypl_db_util:transaction(Fun),
     ok;
