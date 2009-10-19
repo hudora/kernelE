@@ -36,11 +36,11 @@
 -export([count_product/1, count_products/0,
          open_movements_for_product/1, find_floor_units_for_product/1,
          unit_list/0, unit_info/1, location_list/0, location_info/1,
-         movement_list/0, movement_info/1, pick_list/0, pick_info/1]).
+         movement_list/0, movement_info/1, pick_list/0, pick_info/1, pick_info2/1]).
 
 % @private
--spec count_product_helper([#unit{quantity::integer(),pick_quantity::integer()}],
-                           integer(),integer(),integer()) -> {integer(),integer(),integer(),integer()}.
+-spec count_product_helper([#unit{}], non_neg_integer(), non_neg_integer(), non_neg_integer())
+    -> {non_neg_integer(),integer(),non_neg_integer(),non_neg_integer()}.
 count_product_helper([], Fquantity, Pquantity, Mquantity) -> 
     {Fquantity, Fquantity - Pquantity - Mquantity, Pquantity, Mquantity};
 count_product_helper(Units, Fquantity, Pquantity, Mquantity) ->
@@ -56,8 +56,8 @@ count_product_helper(Units, Fquantity, Pquantity, Mquantity) ->
 %% four quantities Full_quantity, Available_quantity, Pick_quantity, Movement_quantity are returned.
 %% 
 %% E.g. count_product("10001") -> {{ 36, 19, 0, 17}, ["NVE031233412431234", "NVE0313443215435435"]}
--spec count_product(mypl_db:content()) -> {{Full_quantity::integer(), Available_quantity::integer(),
-                                            Pick_quantity::integer(), Movement_quantity::integer()},
+-spec count_product(mypl_db:content()) -> {{Full_quantity::non_neg_integer(), Available_quantity::non_neg_integer(),
+                                            Pick_quantity::non_neg_integer(), Movement_quantity::non_neg_integer()},
                                             [[]|mypl_db:muID()]}.
 count_product(Product) ->
     Fun = fun() ->
@@ -68,7 +68,7 @@ count_product(Product) ->
     
 
 % @private
--spec count_products_helper([#unit{quantity::integer(),pick_quantity::integer()}],
+-spec count_products_helper([#unit{}],
                             Dict::term(), Dict::term(), Dict::term()) -> 
                             [{mypl_db:content(),integer(),integer(),integer(),integer()}].
 count_products_helper([], Fdict, Pdict, Mdict) ->
@@ -151,7 +151,7 @@ unit_list() ->
 -spec unit_info(mypl_db:muiID()) -> {ok, mypl_db:attributes()}|{'error', any(), any()}.
 unit_info(Mui) -> 
     Fun = fun() ->
-        case mypl_db_util:mui_to_unit_archive_trans(Mui) of
+        case mypl_db_util:mui_to_unit(Mui) of
             {error, Reason, Info} ->
                 {error, Reason, Info};
             Unit ->
@@ -246,7 +246,7 @@ movement_info(MovementId) ->
                                             | 'product' | 'quantity' | 'to_location',_},...].
 movement_info_helper(Movement) ->
     % TODO: this breaks if the unit in't available anymore.
-    Unit = mypl_db_util:mui_to_unit_archive(Movement#movement.mui),
+    Unit = mypl_db_util:mui_to_unit(Movement#movement.mui),
     Quantity = Unit#unit.quantity,
     Product = Unit#unit.product,
     [{id ,            Movement#movement.id},
@@ -293,7 +293,7 @@ pick_info(PickId) ->
 -spec pick_info_helper(#pick{}) -> [{'attributes' | 'created_at' | 'from_location' | 'from_unit' | 'id'
                                      | 'product' | 'quantity', _},...].
 pick_info_helper(Pick) -> 
-    Unit = mypl_db_util:mui_to_unit_archive(Pick#pick.from_unit),
+    Unit = mypl_db_util:mui_to_unit(Pick#pick.from_unit),
     [{id ,           Pick#pick.id},
      {from_unit,     Pick#pick.from_unit},
      {from_location, Unit#unit.location},
@@ -304,6 +304,32 @@ pick_info_helper(Pick) ->
     ].
     
 
+%% @doc gets a proplist with information concerning a pick
+-spec pick_info2(_) -> mypl_db:jsondict()|unknown_pick.
+pick_info2(PickId) ->
+    Fun = fun() ->
+        case mnesia:read({pick, PickId}) of
+            [Pick] ->
+                {Proplist} = format_pick_record2(Pick),
+                {ok, {Proplist ++ [{status, open}]}};
+            [] ->
+                unknown_pick
+        end
+    end,
+    {atomic, Ret} = mnesia:transaction(Fun),
+    Ret.
+    
+
+-spec format_pick_record2(#pick{}) -> mypl_db:jsondict().
+format_pick_record2(Pick) ->
+    Unit = mypl_db_util:mui_to_unit(Pick#pick.from_unit),
+    mypl_util:proplist_cleanup_binary2({[{id, Pick#pick.id},
+                                        {from_unit, Pick#pick.from_unit},
+                                        {from_location, Unit#unit.location},
+                                        {menge, Pick#pick.quantity},
+                                        {artnr, Unit#unit.product},
+                                        {created_at, Pick#pick.created_at}
+                                       ] ++ Pick#pick.attributes}).
 
 % ~~ Unit tests
 -ifdef(EUNIT).

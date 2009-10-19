@@ -34,7 +34,9 @@ update_pipeline({priority, CId, Priority, Message}) when is_integer(Priority) ->
         NewAttributes = [{kernel_updated_at, calendar:universal_time()}|
                          proplists:delete(priority, Entry#provpipeline.attributes)],
         mnesia:write(Entry#provpipeline{priority=Priority, attributes=NewAttributes}),
-        mypl_audit:kommiauftragaudit(Entry, Message, update_pipeline, [])
+        mypl_audit:kommiauftragaudit(Entry, Message, update_pipeline, []),
+        mypl_requesttracker:flush(), % sicherstellen, dass nicht alte Umlagerungen "im Weg" sind.
+        flood_requestracker([Entry])
     end,
     mypl_db_util:transaction(Fun),
     ok;
@@ -69,16 +71,6 @@ update_pipeline({versandtermin, CId, Versandtermin}) ->
     ok.
     
 
-%% @doc Sets the shipping date to a past value to push the entry to the front of the pipeline.
-push_kommiauftrag(CId) ->
-    update_pipeline({versandtermin, CId, <<"2001-01-01">>}),
-    Fun = fun() ->
-        mnesia:read({provpipeline, CId})
-    end,
-    [PPEntry] = mypl_db_util:transaction(Fun),
-    mypl_requesttracker:flush(), % sicherstellen, dass nicht alte Umlagerungen "im Weg" sind.
-    flood_requestracker([PPEntry]).
-    
 
 %% @spec delete_kommiauftrag(CId::string()) -> ok|error
 %% @doc removes an unprocessed order from the provisioningpipeline

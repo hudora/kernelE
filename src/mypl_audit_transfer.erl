@@ -67,7 +67,8 @@ transfer_archive(Key) ->
                     erlang:display(Record#archive.body),
                     erlang:display({vv1, Other, Record}),
                     erlang:display({vv2, Record}),
-                    erlang:display({vv3, Body})
+                    erlang:display({vv3, Body}),
+                    ok
             end
     end.
     

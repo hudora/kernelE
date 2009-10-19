@@ -45,7 +45,7 @@
 %%% @type heigthMM() = integer().
 %%%     Heigth of an Unit or Location im mm. If unsure it is suggested that you choose 1950.
 %%%
--type quantity() :: pos_integer().
+-type quantity() :: non_neg_integer().
 -type content() :: nonempty_string().
 %%% @type content() = string().
 %%%     Opaque ID for an product. Artikelnummer/Item Number/SKU or EAN.
@@ -56,8 +56,11 @@
 %%%
 %%% @type unitRecord() = tuple().
 %%%     A record describing a Unit.
+-type jsondict() :: {[{atom()|binary(),integer()|float()|atom(),string()|binary()}]}.
+%%% Hudora specific encoding of proplists for JSON
 
 
+-spec init_table_info({'aborted',{'already_exists', atom()}} | {'atomic','ok'}, atom()) -> {'aborted',{'already_exists',_}} | {'atomic','ok'}.
 init_table_info(Status, TableName) ->
     case Status of
         {atomic, ok} ->
@@ -658,16 +661,17 @@ commit_pick(PickId) ->
                 ok;
             true ->
                 Unit = mypl_db_util:mui_to_unit(Pick#pick.from_unit),
-                NewUnit = Unit#unit{quantity=Unit#unit.quantity - Pick#pick.quantity,
-                                    pick_quantity=Unit#unit.pick_quantity - Pick#pick.quantity},
+                NewQuantity = Unit#unit.quantity - Pick#pick.quantity,
                 if
-                    NewUnit#unit.quantity < 0 ->
+                    NewQuantity < 0 ->
                         % this really shouldn't happen
                         error_logger:error_msg("Negative amount on unit: ~w ~s ~s",
                                                [Pick#pick.quantity, PickId, Unit#unit.mui]),
                         {error, not_enough_goods, {Pick#pick.quantity, PickId, Unit#unit.mui}};
                     true ->
                         % update Unit
+                        NewUnit = Unit#unit{quantity=NewQuantity,
+                                            pick_quantity=Unit#unit.pick_quantity - Pick#pick.quantity},
                         ok = mnesia:write(NewUnit),
                         mypl_audit:archive(Pick#pick{attributes=Pick#pick.attributes
                                                      ++ [{committed_at, mypl_util:timestamp()}]},
@@ -705,13 +709,14 @@ rollback_pick(PickId) ->
         % get Pick for PickId
         [Pick] = mnesia:read({pick, PickId}),
         Unit = mypl_db_util:mui_to_unit(Pick#pick.from_unit),
-        NewUnit = Unit#unit{pick_quantity=Unit#unit.pick_quantity - Pick#pick.quantity},
+        NewPickQuantity = Unit#unit.pick_quantity - Pick#pick.quantity,
         if
-            NewUnit#unit.pick_quantity < 0 ->
+            NewPickQuantity < 0 ->
                 % this really shouldn't happen
                 {error, internal_error, {Pick, Unit}};
             true ->
                 % update Unit
+                NewUnit = Unit#unit{pick_quantity=NewPickQuantity},
                 ok = mnesia:write(NewUnit),
                 mypl_audit:archive(Pick#pick{attributes=Pick#pick.attributes
                                              ++ [{rolled_back_at, mypl_util:timestamp()}]},
@@ -742,7 +747,7 @@ update_pick({attributes, PickId, Attributes}) when is_list(Attributes) ->
 %% @doc move a mui in the warehouse - internal use only
 %%
 %% this assumed to be called inside a mnesia transaction
--spec teleport(#unit{},#location{allocated_by::[any()]},#location{}) -> 'ok'.
+-spec teleport(#unit{},#location{},#location{}) -> 'ok'.
 teleport(Unit, Source, Destination) ->
     % check consistency
     case {% Unit is placed on Source
@@ -784,16 +789,17 @@ correction(Uid, Mui, OldQuantity, Product, ChangeQuantity, Attributes) when is_l
                     Unit ->
                         case {Unit#unit.quantity, Unit#unit.product} of
                             {OldQuantity, Product} ->
-                                % the quantity is as expected, and the Product matcheswe can go ahead
-                                NewUnit = Unit#unit{quantity=Unit#unit.quantity + ChangeQuantity},
+                                % the quantity is as expected, and the Product matches: we can go ahead
+                                NewQuantity = Unit#unit.quantity + ChangeQuantity,
                                 if
-                                    NewUnit#unit.quantity < 0 ->
+                                    NewQuantity < 0 ->
                                         % this really shouldn't happen
                                         error_logger:error_msg("Negative amount on unit during correction: ~w ~w ~w ~s",
                                                                [ChangeQuantity, Uid, Unit#unit.mui]),
-                                        {error, not_enough_goods, {NewUnit#unit.quantity, Product, Uid, Mui}};
+                                        {error, not_enough_goods, {NewQuantity, Product, Uid, Mui}};
                                     true ->
                                         % update Unit
+                                        NewUnit = Unit#unit{quantity=Unit#unit.quantity + ChangeQuantity},
                                         ok = mnesia:write(NewUnit),
                                         if
                                             NewUnit#unit.quantity =:= 0 ->
@@ -973,10 +979,6 @@ mypl_disbanding_test() ->
     ?assertMatch({ok, {1, "a0002"}}, commit_pick(Pick1)),
     % now mui1 should be gone
     ?assertMatch({error, _, _}, mypl_db_util:mui_to_unit_trans(Mui)),
-    Unit = mypl_db_util:mui_to_unit_archive_trans(Mui),
-    ?assertMatch(unit, element(1, Unit)),
-    % ... but unit info should still work
-    ?assertMatch({ok, _}, mypl_db_query:unit_info(Mui)),
     
     ?assertMatch({ok, "mui2"}, store_at_location("010101", "mui2", 1, "a0003", 1950)),
     ?assertMatch({ok, _Movement2}, init_movement_to_good_location("mui2")),

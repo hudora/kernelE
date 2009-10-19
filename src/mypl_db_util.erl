@@ -23,7 +23,7 @@
 
 %% API
 -export([do/1, do_trans/1, transaction/1, get_mui_location/1,
-         mui_to_unit/1, mui_to_unit_archive/1, mui_to_unit_archive_trans/1, mui_to_unit_trans/1,
+         mui_to_unit/1, mui_to_unit_trans/1,
          unit_picks/1, unit_movement/1, unit_moving/1, unit_movable/1, sort_units_by_age/1,
          sort_units_by_age_and_distance/2,
          find_empty_location/1, find_empty_location_nice/1, best_location/1, best_locations/2,
@@ -31,9 +31,11 @@
 
 %% @private
 %% @doc helper function for wraping {@link qlc} queries in an {@link mnesia} transaction.
+-spec do(_) -> any().
 do(Q) ->
     qlc:e(Q).
 
+-spec do_trans(_) -> any().
 do_trans(Q) ->
     F = fun() -> qlc:e(Q) end,
     {atomic, Val} = mnesia:transaction(F),
@@ -47,7 +49,7 @@ transaction(Fun) when is_function(Fun)->
 
 % @private
 %% @doc finds the location where a unit is currently placed
--spec get_mui_location(mypl_db:muID()) -> #location{allocated_by::[any()]}.
+-spec get_mui_location(mypl_db:muID()) -> #location{}.
 get_mui_location(Mui) ->
     Unit = mui_to_unit(Mui),
     Unit#unit.location,
@@ -58,7 +60,7 @@ get_mui_location(Mui) ->
         [Location] ->
             case [X || X <- Location#location.allocated_by, X =:= Unit#unit.mui] of
                 [] ->
-                    % we found a unit without a location - fix it py putting it onto FEHLER
+                    % we found a unit without a location - fix it by putting it onto FEHLER
                     % we have to use a different process to escape the failing transaction
                     spawn(fun() -> mypl_integrity:orphaned_unit(Unit) end),
                     % exit wit an error
@@ -97,39 +99,6 @@ mui_to_unit_trans(Mui) ->
     end,
     mypl_db_util:transaction(Fun).
     
-
-%% @private
-%% @doc like mui_to_unit() but pulls the unit from the archive if needed
-%% This expect to be called within a transaction
--spec mui_to_unit_archive(mypl_db:muiID()) ->
-    #unit{}|{'error', 'unknown_mui', {mypl_db:muiID()}|{mypl_db:muiID(),_}}.
-mui_to_unit_archive(Mui) ->
-    case mui_to_unit(Mui) of
-        {error, _, _} ->
-            % not found in the active database - check archive
-            case mypl_audit:get_from_archive(unit, Mui) of
-                [] ->
-                    {error, unknown_mui, {Mui}};
-                [Unit] ->
-                    Unit#unit{attributes=Unit#unit.attributes ++ [{status, archived}]};
-                Wrong ->
-                    {error, unknown_mui, {Mui, Wrong}}
-            end;
-        Unit ->
-            Unit
-    end.
-    
-
-%% @private
-%% @doc like mui_to_unit_archive() but does not neet to be called from within a transaction
--spec mui_to_unit_archive_trans(mypl_db:muiID()) -> #unit{}|{'error', 'unknown_mui', term()}.
-mui_to_unit_archive_trans(Mui) ->
-    Fun = fun() ->
-        mui_to_unit_archive(Mui)
-    end,
-    mypl_db_util:transaction(Fun).
-
-
 
 %% @private
 %% @doc returns the movement record for a unit or false if unit is not moving.
@@ -180,6 +149,7 @@ unit_movable(Unit) ->
 
 %% @doc Sort units by age but ignore differences of just a few days
 %% the secondary sorting criteria ist quantity
+-spec sort_units_by_age([#unit{}]) -> [#unit{}].
 sort_units_by_age(Units) ->
     lists:sort(fun(A, B) ->
                   {{A1, A2, _}, _, _} = A#unit.created_at,
@@ -191,6 +161,7 @@ sort_units_by_age(Units) ->
 %% @doc Sort units by distance and age but ignore differences
 %% of just a few days/meters
 %% also pefer units with lower quantity
+-spec sort_units_by_age_and_distance(mypl_db:locationName(), [#unit{}]) -> [#unit{}].
 sort_units_by_age_and_distance(Locname, Units) ->
     lists:sort(fun(A, B) when is_record(A, unit) and is_record(B, unit) ->
                   {{A1, A2, _}, _, _} = A#unit.created_at,
@@ -326,7 +297,7 @@ read_location(Locname) when is_list(Locname)->
 
 %% @private
 %% @doc returns a list of all movable units for a product
--spec find_movable_units(mypl_db:content()) -> [#unit{}].
+-spec find_movable_units(Product :: nonempty_string()) -> []|[#unit{}].
 find_movable_units(Product) -> 
     Candidates = [X || X <- mnesia:match_object(#unit{product = Product, _ = '_'}), X#unit.pick_quantity =< 0],
     lists:filter(fun(X) -> mypl_db_util:unit_movable(X) =:= yes end, Candidates).

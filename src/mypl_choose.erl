@@ -224,8 +224,13 @@ find_oldest_units_of(Quantities, Units) when is_list(Quantities), is_list(Units)
 %% By using find_retrieval_candidates/2 and find_pick_candidates/3 the best combination
 %% to get a certain amound of goods out of the warehouse is analysed.
 %% Returns {error, no_fit} or {ok, retrievals, picks}
+-spec find_provisioning_candidates(non_neg_integer(),nonempty_string())
+    -> {ok, [mypl_db:muiID()], [{Quantiy::integer(), mypl_db:muiID()}]}.
 find_provisioning_candidates(Quantity, Product) ->
     find_provisioning_candidates(Quantity, Product, "X").
+
+-spec find_provisioning_candidates(non_neg_integer(),nonempty_string(),_)
+    -> {ok, [mypl_db:muiID()], [{Quantiy::integer(), mypl_db:muiID()}]}.
 find_provisioning_candidates(Quantity, Product, Priority) ->
     % check for full MUIs which can be retrieved
     case find_retrieval_candidates(Quantity, Product) of
@@ -382,6 +387,8 @@ get_mui_quantity(Mui) ->
 %%
 %% Example:
 %% {ok, [MovementID1, MovementID2], [PickId3]} = init_provisionings_multi([{9, "a0009"}, {6, "a0010"}])
+-spec init_provisionings_multi([{Quantiy::integer(), Product::string()}], list())
+    -> {ok, [mypl_db:movementID()], [mypl_db:pickID()]}.
 init_provisionings_multi(L, Attributes) ->
     init_provisionings_multi(L, Attributes, "X").
 init_provisionings_multi(L, Attributes, Priority) ->
@@ -407,6 +414,7 @@ init_provisionings_multi(L, Attributes, Priority) ->
     
 
 %% @see init_provisionings_multi/2
+%% @deprecated
 init_provisionings_multi(L) ->
     init_provisionings_multi(L, []).
 

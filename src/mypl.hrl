@@ -8,120 +8,120 @@
 % Record definitions
 
 % dies stellt einen Lagerplatz im Regal dar.
--record(location, {name,             % platznummer
-                   height,           % platzhöhe in mm
-                   floorlevel,       % kann der platz ohne Stapler bedient werden?
-                   allocated_by,     % liste der muis, die diesen platz belegen
-                   reserved_for,     % liste der muis, die auf dem weg zu diesem platz sind
-                   preference,       % plätze mit höherer preference werden bevorzugt befüllt, sollte zwischen 0-9 liegen
-                   info,             % anmerkungen
-                   attributes        % Liste von attributen: [
-                                     % no_picks - von diesm Platz darf nicht komissioniert werden (z.B. EINLAG)
-                                     %            keine picks und retrievals
-                                     % ]
-                   }).    
+-record(location, {name :: nonempty_string(),           % platznummer
+                   height :: pos_integer(),             % platzhöhe in mm
+                   floorlevel :: bool(),                % kann der platz ohne Stapler bedient werden?
+                   allocated_by :: [nonempty_string()], % liste der muis, die diesen platz belegen
+                   reserved_for :: [nonempty_string()], % liste der muis, die auf dem weg zu diesem platz sind
+                   preference :: 0..9,                  % plätze mit höherer preference werden bevorzugt befüllt, sollte zwischen 0-9 liegen
+                   info :: string(),                    % anmerkungen
+                   attributes                           % Liste von attributen: [
+                                                        % no_picks - von diesm Platz darf nicht komissioniert werden (z.B. EINLAG)
+                                                        %            keine picks und retrievals
+                                                        % ]
+                   }).
 
 
 % dies stellt eine palette dar
--record(unit, {mui,             % eindeutige Numer, z.B. NVE,
-               quantity,        % einkeiten des produkts
-               product,         % ArtNr
-               height,          % Höhe in mm
-               pick_quantity,
-               location,        % Zeiger auf den Location name
+-record(unit, {mui :: nonempty_string(),             % eindeutige Numer, z.B. NVE,
+               quantity :: non_neg_integer(),          % Einheiten des Produkts
+               product :: nonempty_string(),         % ArtNr
+               height :: nonempty_string(),          % Höhe in mm
+               pick_quantity :: non_neg_integer(),
+               location,                             % Zeiger auf den Location name
                attributes,
                created_at
                }).
 
 
--record(movement, {id,
-                   mui,
-                   from_location,
-                   to_location,
+-record(movement, {id :: nonempty_string(),
+                   mui :: nonempty_string(),
+                   from_location :: nonempty_string(),
+                   to_location :: nonempty_string(),
                    created_at,
                    attributes   % list of tuples to be used by the client application
                    }).
 
 
--record(pick, {id,              % eindeutiger bezeichner
-               product,         % product das gepickt werden soll
-               quantity,        % menge, die gepickt werden soll
-               from_unit,       % unit von der gepickt werden soll
+-record(pick, {id :: nonempty_string(),        % eindeutiger bezeichner
+               product :: nonempty_string(),   % product das gepickt werden soll
+               quantity :: pos_integer(),      % menge, die gepickt werden soll
+               from_unit :: nonempty_string(), % unit von der gepickt werden soll
                created_at,
                attributes
                }).
 
 % keeps IDs to detect dupes in store_at_location_multi
--record(multistorage, {id,
-                      muis,
+-record(multistorage, {id :: nonempty_string(),
+                      muis :: [nonempty_string()],
                       attributes,
                       created_at}).
     
 
 % keep information about changes in stock ("Korrekturbuchungen")
--record(correction, {id,
-                    old_quantity,
-                    product,
-                    mui,
-                    location,
-                    change_quantity,
-                    text,
-                    attributes,
-                    created_at}).
+-record(correction, {id :: nonempty_string(),
+                     old_quantity :: 0|pos_integer(),
+                     product :: nonempty_string(),
+                     mui :: nonempty_string(),
+                     location :: nonempty_string(),
+                     change_quantity :: pos_integer(),
+                     text :: string(),
+                     attributes,
+                     created_at}).
     
 
 % orders to be provisioned
--record(provpipeline, {id,
-                       priority,          % the higher the number the higher the priority, typically 1-9
+-record(provpipeline, {id :: nonempty_string(),
+                       priority :: 0..9,         % the higher the number the higher the priority
                        orderlines,
-                       weigth,
-                       volume,
-                       status,            % new, processing, provisioned
-                       tries,             % how often we tried to find a match for that pick
-                       provisioninglists, % retrievallists and picklists
-                       attributes         % propertylist
+                       weigth :: 0|pos_integer(),
+                       volume :: float(),
+                       status :: atom(),         % new, processing, provisioned
+                       tries :: 0|pos_integer(), % how often we tried to find a match for that pick
+                       provisioninglists,        % retrievallists and picklists
+                       attributes                % propertylist
                       }).
     
 
 % list of the already given out provisioninglist entries
--record(provisioninglist, {id,
-                           type,
-                           provpipeline_id,
-                           destination,
+-record(provisioninglist, {id :: nonempty_string(),
+                           type :: atom(),
+                           provpipeline_id :: nonempty_string(),
+                           destination :: nonempty_string(),
                            attributes,
-                           parts,
+                           parts :: pos_integer(),
                            provisionings,
-                           status,
+                           status :: atom(),
                            created_at
                           }).
 
 -record(pickpipeline,
-            {id,
-             provpipelineid,
+            {id :: nonempty_string(),
+             provpipelineid :: nonempty_string(),
              pickids,
              retrievalids
             }).
 
 -record(retrievalpipeline, 
-            {id,
-             provpipelineid,
+            {id :: nonempty_string(),
+             provpipelineid :: nonempty_string(),
              retrievalids,
              pickids
             }).
 
 -record(provpipeline_processing,
-            {id,
-             provpipelineid,
+            {id :: nonempty_string(),
+             provpipelineid :: nonempty_string(),
              retrievalids,
              pickids
             }).
 
 % archiviert units, movements und picks
--record(archive, {id,           % eindeutiger Bezeichner
+-record(archive, {id :: nonempty_string(),  % eindeutiger Bezeichner
                   created_at,
-                  archived_by,  % wodurch wurde der Datensatz archiviert
-                  type,
-                  body_id,
+                  archived_by :: atom(),    % wodurch wurde der Datensatz archiviert
+                  type :: atom(),
+                  body_id :: nonempty_string(),
                   body
                   }).
 
@@ -176,12 +176,12 @@
 
 
 % speichert alle Unitbewegungen zu Protokollzwecken - auch als provpipeline bekannt
--record(kommiauftragaudit, {id,           % eindeutiger Bezeichner
-                            komminr,      % aus softm
-                            auftrnr,      % aus softm
-                            customer,     % aus softm
-                            text,         % text describing the transaction
-                            transaction,  % kommischeinid
+-record(kommiauftragaudit, {id :: nonempty_string(),      % eindeutiger Bezeichner
+                            komminr :: nonempty_string(), % aus softm
+                            auftrnr :: string(),          % aus softm
+                            customer :: string(),         % aus softm
+                            text :: string(),             % text describing the transaction
+                            transaction :: string(),      % kommischeinid
                             references,   % list of tuples to be used by the client application, not used by the myPL kernel
                             created_at
                             }).

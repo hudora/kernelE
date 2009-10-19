@@ -6,9 +6,9 @@
 ERL := erl
 ERLC := $(ERL)c
 
-INCLUDE_DIRS := ../include $(wildcard ../deps/*/include) ../deps/rabbitmq-erlang-client/deps
+INCLUDE_DIRS := ../include $(wildcard ../deps/*/include) ../deps/rabbitmq-erlang-client/deps ../deps/rabbitmq-erlang-client/include
 EBIN_DIRS := $(wildcard ../deps/*/ebin)
-ERLC_FLAGS := -W $(INCLUDE_DIRS:../%=-I ../%) $(EBIN_DIRS:%=-pa %)
+ERLC_FLAGS := -W $(INCLUDE_DIRS:../%=-I ../%) $(EBIN_DIRS:%=-pa %) +warn_missing_spec
 
 ifndef no_debug_info
   ERLC_FLAGS += +debug_info

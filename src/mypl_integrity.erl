@@ -18,6 +18,7 @@
          kommiauftrag_defekt/0,
          kommischein_defekt/0,
          orphaned_units/0,
+         orphaned_unit/1,
          orphaned_pickpipeline/0,
          orphaned_retrievalpipeline/0]).
 

@@ -23,6 +23,7 @@
 %% Function: start_link() -> {ok,Pid} | ignore | {error,Error}
 %% Description: Starts the server
 %%--------------------------------------------------------------------
+-spec start_link() -> {ok,pid()} | ignore | {error,_}.
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
@@ -52,6 +53,7 @@ zwitscher(Format, Args) ->
 %%                         {stop, Reason}
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
+-spec init([]) -> {'ok',#state{}}.
 init([]) ->
     Connection = amqp_connection:start_network(#amqp_params{username = <<"mypl">>,
                                                             password = <<"iajoQuoomu6Woosh7Ief">>,
@@ -69,6 +71,7 @@ init([]) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
+-spec handle_call(_,_,_) -> {'reply',{'error','badrequest'},_}.
 handle_call(_Req, _From, State) ->
     {reply, {error, badrequest}, State}.
 
@@ -78,6 +81,7 @@ handle_call(_Req, _From, State) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
+-spec handle_cast({'zwitscher', {binary()|string()}},#state{}) -> {'noreply',#state{}}.
 handle_cast({zwitscher, {Tweet}}, State) ->
     Publish = #'basic.publish'{exchange = <<"zwitscher">>, routing_key = <<"zwitscher">>},
     Data = list_to_binary(lists:flatten(myjson:encode({[{text, mypl_util:ensure_binary(Tweet)},
@@ -95,6 +99,7 @@ handle_cast({zwitscher, {Tweet}}, State) ->
 %%                                       {stop, Reason, State}
 %% Description: Handling all non call/cast messages
 %%--------------------------------------------------------------------
+-spec handle_info(_,_) -> {'noreply',_}.
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -106,13 +111,14 @@ handle_info(_Info, State) ->
 %% The return value is ignored.
 %%--------------------------------------------------------------------
 -spec terminate(_,#state{}) -> #state{}.
-terminate(_Reason, _State) ->
-    ok.
+terminate(_Reason, State) ->
+    State.
 
 %%--------------------------------------------------------------------
 %% Func: code_change(OldVsn, State, Extra) -> {ok, NewState}
 %% Description: Convert process state when code is changed
 %%--------------------------------------------------------------------
+-spec code_change(_,_,_) -> {'ok',_}.
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 

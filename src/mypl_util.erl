@@ -8,11 +8,12 @@
 -export([get_config/2, serial/0, oid/0, generate_mui/0,
          timestamp/0, timestamp2binary/0, timestamp2binary/1, ensure_binary/1,
          proplist_cleanup/1, proplist_cleanup_binary/1,
+         proplist_cleanup_binary2/1,
          combine_until_fit/2, choose/2, choose/3, nearest/2, nearest/3, spawn_and_register/2, log/5]).
 
 
-%% @spec get_config(atom(), val()) -> val()
 %% @doc Get some configuration value from the applications environment.
+-spec get_config(atom(),_) -> any().
 get_config(Name, Default) ->
     case application:get_env(Name) of
         undefined ->
@@ -21,11 +22,11 @@ get_config(Name, Default) ->
             Value
     end.
 
-%% @spec oid() -> string()
 %% @doc generate unique object ID
 %% this ID should be unique across all processes
 %% it also should sort in ascending order
 %% @end
+-spec oid() -> nonempty_string().
 oid() ->
     {MS,S,US} = erlang:now(),
     % add , "-", atom_to_list(node()) for a distributed environment
@@ -36,12 +37,14 @@ oid() ->
 %% @doc generate a nice object ID
 %% this ID should be unique across all processes and across all erlang nodes
 %% it also should sort in ascending order
+-spec serial() -> nonempty_string().
 serial() ->
     mypl_nveserver:make_oid().
     
 
 %% @spec generate_mui() -> string()
 %% @doc generate a UUID for use with MUIs
+-spec generate_mui() -> nonempty_string().
 generate_mui() ->
     mypl_nveserver:make_nve().
     
@@ -61,14 +64,17 @@ micro_now() ->
 %% '''
 %% > timestamp().
 %% {{2007,10,14},{11,58,39},691267}}'''
+-spec timestamp() -> {{pos_integer(),1..12,1..31},{byte(),byte(),byte()},non_neg_integer()}.
 timestamp() ->
     {Date, Time} = calendar:universal_time(),
     {_, _, MS} = erlang:now(),
     {Date, Time, MS}.
 % TODO: replace all formating code scattered arround kernel with this function
+-spec timestamp2binary() -> binary().
 timestamp2binary() ->
     timestamp2binary(timestamp()).
 
+-spec timestamp2binary({{_,_,_},{_,_,_}} | {{_,_,_},{_,_,_},_}) -> binary().
 timestamp2binary({{Year,Month,Day},{Hour,Minute,Second}}) ->
     timestamp2binary({{Year,Month,Day},{Hour,Minute,Second},0});
 timestamp2binary({{Year,Month,Day},{Hour,Minute,Second},Ms}) ->
@@ -76,6 +82,7 @@ timestamp2binary({{Year,Month,Day},{Hour,Minute,Second},Ms}) ->
                                                [Year, Month, Day, Hour, Minute, Second, Ms]))).
 
 %% @doc converts a list (or a timestamp) to binary.
+-spec ensure_binary(atom() | binary() | maybe_improper_list(binary() | maybe_improper_list(any(),binary() | []) | byte(),binary() | []) | {maybe_improper_list(any(),[] | {_})} | {{_,_,_},{_,_,_}} | {{_,_,_},{_,_,_},_}) -> binary() | maybe_improper_list(any(),[] | {maybe_improper_list(any(),[] | {_}) | {_}}) | {maybe_improper_list(any(),[] | {_}) | {maybe_improper_list(any(),[] | {_}) | {_}}}.
 ensure_binary({{Year,Month,Day},{Hour,Minute,Second}}) ->
     timestamp2binary({{Year,Month,Day},{Hour,Minute,Second},0});
 ensure_binary({{Year,Month,Day},{Hour,Minute,Second},Ms}) ->
@@ -101,6 +108,7 @@ ensure_binary(Str) when is_binary(Str)->
 %%  {auftragsnummer, 647105},
 %%  {liefertermin, &lt;&lt;"2007-12-03">>}]
 %% mainly for fixing data gotten via json
+-spec proplist_cleanup([any()]) -> [{_,_}].
 proplist_cleanup(L) ->
     lists:map(fun([Name, Value]) when is_atom(Name) -> 
                    proplist_cleanup_helper({Name, Value});
@@ -138,6 +146,19 @@ proplist_cleanup_binary([H|T]) ->
     [H|proplist_cleanup_binary(T)].
 
 
+-spec proplist_cleanup_binary2({[{atom(),atom()|binary()|number()| {[{atom(),atom()|binary()|number()|{any()}}]} }]}) 
+    -> {[{atom(),binary()|number()|{[{atom(),binary()|number()|{any()}}]}}]}.
+proplist_cleanup_binary2({[]}) ->
+    {[]};
+proplist_cleanup_binary2({[{K, V}|T]}) when is_atom(K) and is_number(V) ->
+    {[{K, V}|proplist_cleanup_binary2(T)]};
+proplist_cleanup_binary2({[{K, {[VH|VT]}}|T]}) when is_atom(K) ->
+    {[{K, proplist_cleanup_binary2({[VH|VT]})}|proplist_cleanup_binary2(T)]};
+proplist_cleanup_binary2({[{K, V}|T]}) when is_atom(K) ->
+    {[{K, mypl_util:ensure_binary(V)}|proplist_cleanup_binary2(T)]};
+proplist_cleanup_binary2({[{K}|T]}) when is_atom(K) ->
+    {[{K, true}|proplist_cleanup_binary2(T)]}.
+
 %% @spec combine_until_fit(Quantity::integer(), [Value::integer()]) -> [{Takefrom::integer(), Value::integer()}]
 %% @doc Takes from Values until Quantity is reached.
 %%
@@ -148,6 +169,7 @@ proplist_cleanup_binary([H|T]) ->
 %% [{5,5},{6,6},{4,7}]'''
 %% > combine_until_fit(12,[6,6]).
 %% [{6,6},{6,6}]'''
+-spec combine_until_fit(_,maybe_improper_list()) -> [{pos_integer(),pos_integer()}].
 combine_until_fit(_, []) -> [];
 combine_until_fit(Quantity, [H|_]) when H >= Quantity ->
     [{Quantity, H}];
@@ -222,19 +244,18 @@ permutator(L, Quantity, Maxtime) when is_list(L), is_integer(Quantity), is_integ
             lists:filter(fun(X) -> lists:sum(X) =:= BestQuantity end, CorrectSorted)
     end.
 
-%% @spec nearest([integer()], integer(), integer()) -> [[integer()]]
 %% @see nearest/2
 %% @doc get the permutation which ist nearest to Quantity.
 %%
 %% Like {@link choose/2} but without the requrement of an exact match.
 %% If it takes more than Maxtime seconds, then the computation is stopped.
+-spec nearest([any()],integer(),integer()) -> [[integer()]].
 nearest(L, Quantity, Maxtime) when is_list(L), is_integer(Quantity), is_integer(Maxtime) ->
     case permutator(L, Quantity, Maxtime) of
         [] -> [];
         [H|_] -> H
     end.
 
-%% @spec nearest([integer()], integer()) -> [[integer()]]
 %% @doc get the permutation which ist nearest to Quantity.
 %%
 %% Like {@link choose/2} but without the requrement of an exact match.
@@ -246,6 +267,7 @@ nearest(L, Quantity, Maxtime) when is_list(L), is_integer(Quantity), is_integer(
 %% > nearest([2,4,6], 7)
 %% [2,4]'''
 %% Computation aborts after 2 seconds
+-spec nearest([any()],integer()) -> [[integer()]].
 nearest(L, Quantity) when is_list(L), is_integer(Quantity) ->
     nearest(L, Quantity, 2).
 
@@ -254,6 +276,7 @@ nearest(L, Quantity) when is_list(L), is_integer(Quantity) ->
 %% @doc choose with explicit timeout.
 %%
 %% If it takes more than Maxtime seconds, then the computation is stopped.
+-spec choose([number()],integer(),pos_integer()) -> [any()].
 choose(L, Quantity, Maxtime) when is_list(L), is_integer(Quantity), is_integer(Maxtime) ->
     case lists:sum(L) of
         X when X < Quantity ->
@@ -286,13 +309,14 @@ choose(L, Quantity, Maxtime) when is_list(L), is_integer(Quantity), is_integer(M
 %% > choose([1,1,1,1,2,2,3,3,3,4,5,6,7], 5, 10).
 %% [[1,1,1,2],[1,2,2],[1,1,3],[2,3],[1,4],[5]]'''
 %% With choose/2 the computation is aborted after 2 seconds.
+-spec choose([number()],integer()) -> [any()].
 choose(L, Quantity) when is_list(L), is_integer(Quantity) ->
     choose(L, Quantity, 2).
 
 
 % This is based on http://www.nabble.com/Programming-Erlang-Exercise-8.11-t4485540.html
 % Re: Programming Erlang Exercise 8.11 by Ladislav Lenart Sep 20, 2007; 09:47am
-
+-spec spawn_and_register(atom(),fun(() -> any())) -> 'already_running' | {'ok',pid()}.
 spawn_and_register(Atom, Fun) when is_atom(Atom), is_function(Fun, 0) -> 
     Sender = self(), 
     Fun2 = fun() -> 
@@ -321,6 +345,7 @@ spawn_and_register(Atom, Fun) when is_atom(Atom), is_function(Fun, 0) ->
 %%%   Level = debug|dbg | normal|inf | warn|wrn | error|err
 %%%   Params = [term()]
 %%% @end
+-spec log(_,_,'dbg' | 'debug' | 'err' | 'error' | 'inf' | 'normal' | 'warn' | 'wrn',[any()],[any()]) -> 'ok'.
 log(Module, Line, debug, Msg, Params) ->
     io:format(
         "Debug:~p:~p: " ++ Msg ++ "~n",

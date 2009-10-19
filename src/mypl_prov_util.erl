@@ -37,7 +37,7 @@ sort_provpipeline(Records) ->
 
 % @private
 % creates a key for sorting
--spec sort_provpipeline_helper(#provpipeline{attributes::[any()]}) -> term().
+-spec sort_provpipeline_helper(#provpipeline{}) -> term().
 sort_provpipeline_helper(Record) ->
     {5-Record#provpipeline.priority,
      not (proplists:get_value(fixtermin, Record#provpipeline.attributes, false) 

@@ -24,7 +24,7 @@ provpipeline_info/1,             %% Kommiauftrag
 format_pipeline_record2/1,
 provisioninglist_list/0,
 provisioninglist_info/1,         %% Kommischein
-provisioninglist_info2/1,        
+provisioninglist_info2/1,
 format_provisioninglist_record2/1,
 pipelinearticles/0
 ]).

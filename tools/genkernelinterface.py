@@ -66,7 +66,6 @@ funcdefs = [
 
 ('mypl_prov_special', 'delete_kommiauftrag', 'CId', []),
 ('mypl_prov_special', 'update_pipeline', 'JsonList', []),
-('mypl_prov_special', 'push_kommiauftrag', 'CId', []),
 
 ('mypl_audit', 'get_articleaudit', 'Product', ['async']),
 ('mypl_audit', 'get_unitaudit', 'Mui', ['async']),

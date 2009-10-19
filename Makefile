@@ -22,7 +22,11 @@ doc:
 
 .PHONY: check
 check:
-	dialyzer $(INCLUDE_DIRS:../%=-I ../%) $(EBIN_DIRS:%=-pa %) --src -c src
+	dialyzer --verbose $(INCLUDE_DIRS:../%=-I ./%) $(EBIN_DIRS:%=-pa %) -Wunderspecs --src -c src
+
+typer:
+	(cd src;$(MAKE) typer)
+
 
 # Upload documentation
 .PHONY: upload

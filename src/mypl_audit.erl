@@ -46,7 +46,7 @@
 %%% auditlog - to be called whenever goods enter or leave the warehouse
 %%%
 
-
+-spec run_me_once() -> 'ok'.
 run_me_once() ->
     % Tables kept in RAM with disk based backing
     mypl_db:init_table_info(mnesia:create_table(articleaudit, [{disc_copies, [node()]}, {attributes, record_info(fields, articleaudit)}]), articleaudit),
@@ -62,7 +62,8 @@ run_me_once() ->
     ok.
 
 
-%% @doc returns all audit recodes related to an article
+%% @doc returns all audit records related to an article
+%% @deprecated
 get_articleaudit(Product) ->
     Records = mypl_db_util:do_trans(qlc:q([X || X <- mnesia:table(articleaudit),
                                                 X#articleaudit.product =:= Product])),
@@ -70,6 +71,7 @@ get_articleaudit(Product) ->
     
 
 %% @private
+%% @deprecated
 get_articleaudit_helper(Aaudit) ->
     [
      {quantity,    Aaudit#articleaudit.quantity},
@@ -127,39 +129,46 @@ get_unitaudit_helper(Uaudit) ->
 %% @doc dump information about changes of stock.
 %%
 %% Transaction can be an movementID or an pickID.
+-spec articleaudit(integer(),nonempty_string(),string(),nonempty_string(),string(),mypl_db:jsondict()) -> ok.
 articleaudit(Quantity, Product, Text, Mui, Transaction, References) ->
     Fun = fun() ->
             mnesia:write(#articleaudit{id="a" ++ mypl_util:oid(), quantity=Quantity, product=Product,
                                        text=Text, mui=Mui, transaction=Transaction,
                                        references=References, created_at=calendar:universal_time()})
           end,
-    mnesia:transaction(Fun).
+    {atomic, _} = mnesia:transaction(Fun),
+    ok.
     
 
 %% @private
 %% @spec articleaudit(integer(), product(), string(), muiID(), all()) -> {ok, atomic}
 %% @doc dump information about changes of stock
+-spec articleaudit(integer(),nonempty_string(),string(),nonempty_string(),any()) -> ok.
 articleaudit(Quantity, Product, Text, Mui, Transaction) ->
     articleaudit(Quantity, Product, Text, Mui, Transaction, []).
 
 %% @private
 %% @spec articleaudit(integer(), product(), string(), muiID()) -> {ok, atomic}
 %% @doc dump information about changes of stock
+-spec articleaudit(integer(),nonempty_string(),string(),nonempty_string()) -> ok.
 articleaudit(Quantity, Product, Text, Mui) ->
     articleaudit(Quantity, Product, Text, Mui, undefined).
     
 
+-spec unitaudit_mui(nonempty_string(),string()) -> ok.
 unitaudit_mui(Mui, Text) ->
     Fun = fun() ->
             mnesia:write(#unitaudit{id="A" ++ mypl_util:oid(),
                                     mui=Mui, text=Text, created_at=calendar:universal_time()})
           end,
-    mnesia:transaction(Fun).
+    {atomic, _} = mnesia:transaction(Fun),
+    ok.
     
 
 %% @private
 %% @spec unitaudit(unitRecord(), string(), string(), externalReferences()) -> {ok, atomic}
 %% @doc to be called whenever Units are moved in the warehouse.
+-spec unitaudit(#unit{},string(),string(),mypl_db:jsondict()) -> ok.
 unitaudit(Unit, Text, Transaction, References) ->
     Id = "A" ++ mypl_util:oid(),
     Fun = fun() ->
@@ -168,23 +177,27 @@ unitaudit(Unit, Text, Transaction, References) ->
                                 text=Text, transaction=Transaction,
                                 references=References, created_at=calendar:universal_time()})
     end,
-    mnesia:transaction(Fun).
+    {atomic, _} = mnesia:transaction(Fun),
+    ok.
     
 
 %% @spec unitaudit(unitRecord(), string(), string()) -> {ok, atomic}
 %% @doc to be called whenever Units are moved in the warehouse.
+-spec unitaudit(#unit{},string(),string()) -> ok.
 unitaudit(Unit, Text, Transaction) ->
     unitaudit(Unit, Text, Transaction, []).
     
 
 %% @spec unitaudit(unitRecord(), string()) -> {ok, atomic}
 %% @doc to be called whenever Units are moved in the warehouse.
+-spec unitaudit(#unit{},string()) -> ok.
 unitaudit(Unit, Text) ->
-    unitaudit(Unit, Text, undefined).
+    unitaudit(Unit, Text, "").
     
 
 %% @spec kommiauftragaudit(provpipelineRecord(), string(), string(), externalReferences()) -> {ok, atomic}
 %% @doc to be called whenever Units are moved in the warehouse.
+-spec kommiauftragaudit(#provpipeline{},string(),string(),mypl_db:jsondict()) -> ok.
 kommiauftragaudit(Kommiauftrag, Text, Transaction, References) ->
     Id = "K" ++ mypl_util:oid(),
     Auftragsnummer = proplists:get_value(auftragsnummer, Kommiauftrag#provpipeline.attributes, []),
@@ -198,9 +211,11 @@ kommiauftragaudit(Kommiauftrag, Text, Transaction, References) ->
                                         references=References,
                                         created_at=calendar:universal_time()})
     end,
-    mnesia:transaction(Fun).
+    {atomic, _} = mnesia:transaction(Fun),
+    ok.
 
 %% @doc archives an Unit, Movement, Pick when it is deleted.
+-spec archive(tuple(), atom()) -> 'ok'.
 archive(Object, Archivaltype) ->
     Fun = fun() ->
         mnesia:dirty_write(#archive{id="R" ++ mypl_util:oid() ++ element(2, Object),
@@ -215,17 +230,21 @@ archive(Object, Archivaltype) ->
 
 
 %% @doc retrives the entry with type and id from the archive
+
+%% @deprecated
 get_from_archive(Type, Id) ->
     [X#archive.body || X <- mnesia:dirty_match_object(#archive{body_id = Id, type = Type, _ = '_'})].
     
 
 %% doc get all entries if type generated in the last 5 days
+%% @deprecated
 get_recent_from_archive(Type) when is_atom(Type) ->
     {Date, _} = calendar:now_to_datetime(erlang:now()),
     {Start, {0,0,0}, 0} = calendar:gregorian_days_to_date(calendar:date_to_gregorian_days(Date) - 5),
     mypl_db_util:do_trans(qlc:q([X#archive.body || X <- mnesia:table(archive),
                                                    X#archive.type =:= Type,
                                                    X#archive.created_at > Start]));
+%% @deprecated
 get_recent_from_archive(Type) ->
     get_recent_from_archive(erlang:list_to_atom(Type)).
     
