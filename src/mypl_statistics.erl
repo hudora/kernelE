@@ -38,5 +38,33 @@ statistics() ->
      {provlists_prepared,       length(mypl_prov_query:provpipeline_list_prepared())},
      {provpipeline_processing,  length(mypl_prov_query:provpipeline_list_processing())},
      {open_movements,           length(mypl_db_query:movement_list())},
-     {open_picks,               length(mypl_db_query:pick_list())}
+     {open_picks,               length(mypl_db_query:pick_list())},
+     {oldest_movement,          oldest_movement()},
+     {oldest_pick,              oldest_pick()}
      ].
+
+oldest_movement() ->
+    mypl_util:ensure_binary(lists:min([get_age_for_movement(X) || X <- mypl_db_query:movement_list()])).
+    
+
+get_age_for_movement(MovementId) ->
+    case mnesia:dirty_read({movement, MovementId}) of
+        [] ->
+            "2030-01-01 00:00:00.0Z"; % far in the future
+        [Movement] ->
+            erlang:display(Movement#movement.created_at),
+            Movement#movement.created_at
+    end.
+
+oldest_pick() ->
+    mypl_util:ensure_binary(lists:min([get_age_for_pick(X) || X <- mypl_db_query:pick_list()])).
+    
+
+get_age_for_pick(PickId) ->
+    case mnesia:dirty_read({pick, PickId}) of
+        [] ->
+            "2030-01-01 00:00:00.0Z"; % far in the future
+        [Pick] ->
+            erlang:display(Pick#pick.created_at),
+            Pick#pick.created_at
+    end.
