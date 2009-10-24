@@ -65,7 +65,7 @@ loop(Req, DocRoot) ->
                         unknown -> send_json(Req, 404, <<"unknown movement">>);
                         Info -> send_json(Req, Info)
                     end;
-
+                
                 "pick" ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                 myjson:encode([list_to_binary(X) || X <- mypl_db_query:pick_list()])});
@@ -84,7 +84,7 @@ loop(Req, DocRoot) ->
                         unknown -> send_json(Req, 404, <<"unknown Unit">>);
                         Info -> send_json(Req, Info)
                     end;
-
+                
                 "location" ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                 myjson:encode([list_to_binary(X) || X <- mypl_db_query:location_list()])});
@@ -94,8 +94,16 @@ loop(Req, DocRoot) ->
                         {error, Type, _Info} -> send_json(Req, 404, Type)
                     end; 
                 
-                
-                
+                "product" ->
+                    Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
+                                myjson:encode([mypl_util:ensure_binary(element(1, X)) || X <- mypl_db_query:count_products()])});
+                [$p,$r,$o,$d,$u,$c,$t,$/|Product] ->
+                    {{FullQuantity,AvailableQuantity,PickQuantity,MovementQuantity},Muis} = mypl_db_query:count_product(Product),
+                    send_json(Req, {myjson:encode({[{full_quantity, FullQuantity},
+                                                    {available_quantity,AvailableQuantity},
+                                                    {pick_quantity,PickQuantity},
+                                                    {movement_quantity,MovementQuantity},
+                                                    {muis, [mypl_util:ensure_binary(X) || X <- Muis]}]})});
                 
                 
                 %"statistik" ->
