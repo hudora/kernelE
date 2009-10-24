@@ -25,6 +25,7 @@ stop() ->
 -spec loop(atom(),_) -> any().
 loop(Req, DocRoot) ->
     "/" ++ Path = Req:get(path),
+    %erlang:display({Path}),
     case Req:get(method) of
         Method when Method =:= 'GET'; Method =:= 'HEAD' ->
             case Path of
@@ -55,6 +56,16 @@ loop(Req, DocRoot) ->
                         Info -> send_json(Req, Info)
                     end;
                 
+                "movement" ->
+                    Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
+                                 myjson:encode([list_to_binary(X) || X <- mypl_db_query:movement_list()])});
+                % /movement/1235
+                [$m,$o,$v,$e,$m,$e,$n,$t,$/|MovementId] ->
+                    case mypl_db_query:movement_info2(MovementId) of
+                        unknown -> send_json(Req, 404, <<"unknown movement">>);
+                        Info -> send_json(Req, Info)
+                    end;
+
                 "pick" ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                 myjson:encode([list_to_binary(X) || X <- mypl_db_query:pick_list()])});
@@ -64,6 +75,16 @@ loop(Req, DocRoot) ->
                         Info -> send_json(Req, Info)
                     end; 
                 
+                "unit" ->
+                    Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
+                                myjson:encode([list_to_binary(X) || X <- mypl_db_query:unit_list()])});
+                % /unit/123456789012345678
+                [$u,$n,$i,$t,$/|UnitId] ->
+                    case mypl_db_query:unit_info2(UnitId) of
+                        unknown -> send_json(Req, 404, <<"unknown Unit">>);
+                        Info -> send_json(Req, Info)
+                    end;
+
                 "location" ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                 myjson:encode([list_to_binary(X) || X <- mypl_db_query:location_list()])});
@@ -73,24 +94,7 @@ loop(Req, DocRoot) ->
                         {error, Type, _Info} -> send_json(Req, 404, Type)
                     end; 
                 
-                "unit" ->
-                    Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
-                                myjson:encode([list_to_binary(X) || X <- mypl_db_query:unit_list()])});
-                % /unit/123456789012345678
-                [$u,$n,$i,$t,$/|UnitId] ->
-                    case mypl_db_query:unit_info(UnitId) of
-                        {ok, Info} -> send_json(Req, {mypl_util:proplist_cleanup_binary(Info)});
-                        {error, Type, _Info} -> send_json(Req, 404, Type)
-                    end;
                 
-                "movement" ->
-                    send_json(Req, myjson:encode([list_to_binary(X) || X <- mypl_db_query:movement_list()]));
-                % /movement/1235
-                [$m,$o,$v,$e,$m,$e,$n,$t,$/|MovementId] ->
-                    case mypl_db_query:movement_info(MovementId) of
-                        {ok, Info} -> send_json(Req, {mypl_util:proplist_cleanup_binary(Info)});
-                        {error, Type, _Info} -> send_json(Req, 404, Type)
-                    end;
                 
                 
                 
@@ -114,7 +118,9 @@ loop(Req, DocRoot) ->
                             Body = Req:recv_body(),
                             {Props} = myjson:decode(Body),
                             Priority = proplists:get_value(<<"priority">>, Props, 2),
-                            mypl_prov_special:update_pipeline({priority, KommiauftragNr, Priority}),
+                            Explanation = proplists:get_value(<<"explanation">>, Props,
+                                             <<"Prioritaet geaendert">>),
+                         mypl_prov_special:update_pipeline({priority, KommiauftragNr, Priority, Explanation}),
                             send_json(Req, 201, {[{priority, Priority}]})
                     end;
                 _ ->

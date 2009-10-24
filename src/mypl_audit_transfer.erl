@@ -105,21 +105,16 @@ save_movement(Key, Record, Body, ArchivedAt) ->
     ok = mnesia:dirty_delete(archive, Key).
     
 
-save_unit(Key, Record, Body, ArchivedAt) ->
+save_unit(Key, Record, Unit, ArchivedAt) ->
+    {Proplist} = mypl_prov_query:format_unit_record2(Unit),
     save_into_couchdb("mypl_archive",
-            Body#unit.mui ++ "-" ++ Record#archive.id,
+            Unit#unit.mui ++ "-" ++ Record#archive.id,
             [{type, <<"unit">>},
-             {oid, mypl_util:ensure_binary(Body#unit.mui)},
-             {mui, mypl_util:ensure_binary(Body#unit.mui)},
-             {quantity, Body#unit.quantity},
-             {product, mypl_util:ensure_binary(Body#unit.product)},
-             {attributes, {mypl_util:proplist_cleanup_binary(Body#unit.attributes)}},
-             {location, mypl_util:ensure_binary(Body#unit.location)},
-             {height, Body#unit.height},
+             {oid, mypl_util:ensure_binary(Unit#unit.mui)},
              {archived_by, mypl_util:ensure_binary(Record#archive.archived_by)},
              {archived_at, ArchivedAt},
-             {created_at, mypl_util:timestamp2binary(Body#unit.created_at)}
-            ]),
+             {created_at, mypl_util:timestamp2binary(Unit#unit.created_at)}
+            ] ++ Proplist),
     ok = mnesia:dirty_delete(archive, Key).
     
 

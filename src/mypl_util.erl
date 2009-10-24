@@ -146,18 +146,24 @@ proplist_cleanup_binary([H|T]) ->
     [H|proplist_cleanup_binary(T)].
 
 
--spec proplist_cleanup_binary2({[{atom(),atom()|binary()|number()| {[{atom(),atom()|binary()|number()|{any()}}]} }]}) 
-    -> {[{atom(),binary()|number()|{[{atom(),binary()|number()|{any()}}]}}]}.
-proplist_cleanup_binary2({[]}) ->
-    {[]};
-proplist_cleanup_binary2({[{K, V}|T]}) when is_atom(K) and is_number(V) ->
-    {[{K, V}|proplist_cleanup_binary2(T)]};
-proplist_cleanup_binary2({[{K, {[VH|VT]}}|T]}) when is_atom(K) ->
-    {[{K, proplist_cleanup_binary2({[VH|VT]})}|proplist_cleanup_binary2(T)]};
-proplist_cleanup_binary2({[{K, V}|T]}) when is_atom(K) ->
-    {[{K, mypl_util:ensure_binary(V)}|proplist_cleanup_binary2(T)]};
-proplist_cleanup_binary2({[{K}|T]}) when is_atom(K) ->
-    {[{K, true}|proplist_cleanup_binary2(T)]}.
+proplist_cleanup_binary2({[H|T]}) ->
+    {proplist_cleanup_binary2_helper([H|T])}.
+
+proplist_cleanup_binary2_helper([]) ->
+    [];
+proplist_cleanup_binary2_helper([{K, V}|T]) when is_atom(K) and is_number(V) ->
+    [{K, V}|proplist_cleanup_binary2_helper(T)];
+proplist_cleanup_binary2_helper([{K, {{Y,M,D},{H,Min,S},Mico}}|T]) ->
+    [{K, timestamp2binary({{Y,M,D},{H,Min,S},Mico})}|proplist_cleanup_binary2_helper(T)];
+proplist_cleanup_binary2_helper([{K, {{Y,M,D},{H,Min,S}}}|T]) ->
+    [{K, timestamp2binary({{Y,M,D},{H,Min,S}})}|proplist_cleanup_binary2_helper(T)];
+proplist_cleanup_binary2_helper([{K, {[VH|VT]}}|T]) when is_atom(K) ->
+    [{K, proplist_cleanup_binary2({[VH|VT]})}|proplist_cleanup_binary2_helper(T)];
+proplist_cleanup_binary2_helper([{K, V}|T]) when is_atom(K) ->
+    [{K, mypl_util:ensure_binary(V)}|proplist_cleanup_binary2_helper(T)];
+proplist_cleanup_binary2_helper([{K}|T]) when is_atom(K) ->
+    [{K, true}|proplist_cleanup_binary2_helper(T)].
+
 
 %% @spec combine_until_fit(Quantity::integer(), [Value::integer()]) -> [{Takefrom::integer(), Value::integer()}]
 %% @doc Takes from Values until Quantity is reached.

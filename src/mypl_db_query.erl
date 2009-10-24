@@ -35,8 +35,8 @@
 
 -export([count_product/1, count_products/0,
          open_movements_for_product/1, find_floor_units_for_product/1,
-         unit_list/0, unit_info/1, location_list/0, location_info/1,
-         movement_list/0, movement_info/1, pick_list/0, pick_info/1, pick_info2/1]).
+         unit_list/0, unit_info/1, unit_info2/1, location_list/0, location_info/1,
+         movement_list/0, movement_info/1, movement_info2/1, pick_list/0, pick_info/1, pick_info2/1]).
 
 % @private
 -spec count_product_helper([#unit{}], non_neg_integer(), non_neg_integer(), non_neg_integer())
@@ -180,6 +180,41 @@ unit_info(Mui) ->
     mypl_db_util:transaction(Fun).
     
 
+unit_info2(Mui) -> 
+    Fun = fun() ->
+        case mnesia:read({unit, Mui}) of
+            [Unit] ->
+                {Proplist} = format_unit_record2(Unit),
+                {Proplist};
+            [] ->
+                unknown
+        end
+    end,
+    {atomic, Ret} = mnesia:transaction(Fun),
+    Ret.
+
+
+format_unit_record2(Unit) ->
+    case mypl_db_util:unit_movement(Unit) of
+        false ->
+            Movements = [];
+        Movement ->
+            Movements = [mypl_util:ensure_binary(Movement#movement.id)]
+    end,
+    PickIds = mypl_db_util:do(qlc:q([mypl_util:ensure_binary(X#pick.id) || X <- mnesia:table(pick), X#pick.from_unit =:= Unit#unit.mui])),
+    {Proplist} = mypl_util:proplist_cleanup_binary2({[{id, Unit#unit.mui},
+                                         {mui, Unit#unit.mui},
+                                         {quantity, Unit#unit.quantity},
+                                         {product, Unit#unit.product},
+                                         {height, Unit#unit.height},
+                                         {pick_quantity, Unit#unit.pick_quantity},
+                                         {location, Unit#unit.location},
+                                         {created_at, Unit#unit.created_at}
+                                        ] ++ mypl_util:proplist_cleanup(Unit#unit.attributes)}),
+    % mypl_util:proplist_cleanup_binary2 cant handle lists, so special-case them
+    {Proplist ++ [{picks, PickIds}, {movements, Movements}]}.
+
+
 %% @doc Get a list of all location names
 -spec location_list() -> [[]|mypl_db:locationName()].
 location_list() ->
@@ -225,14 +260,7 @@ movement_info(MovementId) ->
     Fun = fun() ->
         case mnesia:read({movement, MovementId}) of
             [] -> 
-                % not found in the active database - check archive
-                case mypl_audit:get_from_archive(movement, MovementId) of
-                    [] ->
-                        {error, unknown_movement, {MovementId}};
-                    [Movement] ->
-                        Proplist = movement_info_helper(Movement),
-                        {ok, Proplist ++ [{status, archived}]}
-                end;
+                {error, unknown_movement, {MovementId}};
             [Movement] ->
                 Proplist = movement_info_helper(Movement),
                 {ok, Proplist ++ [{status, open}]}
@@ -258,6 +286,34 @@ movement_info_helper(Movement) ->
      {quantity,       Quantity},
      {product,        Product}
     ].
+
+
+movement_info2(MovementId) -> 
+    Fun = fun() ->
+        case mnesia:read({movement, MovementId}) of
+            [Movement] ->
+                {Proplist} = format_movement_record2(Movement),
+                {Proplist ++ [{status, open}]};
+            [] ->
+                unknown
+        end
+    end,
+    {atomic, Ret} = mnesia:transaction(Fun),
+    Ret.
+
+format_movement_record2(Movement) ->
+    % TODO: this breaks if the unit in't available anymore.
+    Unit = mypl_db_util:mui_to_unit(Movement#movement.mui),
+    Quantity = Unit#unit.quantity,
+    Product = Unit#unit.product,
+    mypl_util:proplist_cleanup_binary2({[{id, Movement#movement.id},
+                                         {mui, Movement#movement.mui},
+                                         {from_location, Movement#movement.from_location},
+                                         {to_location, Movement#movement.to_location},
+                                         {created_at, Movement#movement.created_at},
+                                         {menge, Quantity},
+                                         {artnr, Product}
+                                        ] ++ Movement#movement.attributes}).
 
 
 %% @doc gets a List with all pick_list IDs
@@ -305,15 +361,15 @@ pick_info_helper(Pick) ->
     
 
 %% @doc gets a proplist with information concerning a pick
--spec pick_info2(_) -> mypl_db:jsondict()|unknown_pick.
+-spec pick_info2(_) -> mypl_db:jsondict()|unknown.
 pick_info2(PickId) ->
     Fun = fun() ->
         case mnesia:read({pick, PickId}) of
             [Pick] ->
                 {Proplist} = format_pick_record2(Pick),
-                {ok, {Proplist ++ [{status, open}]}};
+                {Proplist ++ [{status, open}]};
             [] ->
-                unknown_pick
+                unknown
         end
     end,
     {atomic, Ret} = mnesia:transaction(Fun),
@@ -322,6 +378,7 @@ pick_info2(PickId) ->
 
 -spec format_pick_record2(#pick{}) -> mypl_db:jsondict().
 format_pick_record2(Pick) ->
+    % TODO: this breaks if the unit in't available anymore.
     Unit = mypl_db_util:mui_to_unit(Pick#pick.from_unit),
     mypl_util:proplist_cleanup_binary2({[{id, Pick#pick.id},
                                         {from_unit, Pick#pick.from_unit},

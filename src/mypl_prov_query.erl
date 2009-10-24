@@ -164,8 +164,8 @@ format_provisioninglist_record2(Plist) ->
       {destination,      mypl_util:ensure_binary(Plist#provisioninglist.destination)},
       {parts,            Plist#provisioninglist.parts},
       {status,           mypl_util:ensure_binary(Plist#provisioninglist.status)},
-      {created_at,       mypl_util:ensure_binary(Plist#provisioninglist.created_at)}
-      %{provisioning_ids, [mypl_util:ensure_binary(element(1, X)) || X <- Plist#provisioninglist.provisionings]}
+      {created_at,       mypl_util:ensure_binary(Plist#provisioninglist.created_at)},
+      {provisioning_ids, [mypl_util:ensure_binary(element(1, X)) || X <- Plist#provisioninglist.provisionings]}
      % gewicht
      % volumen
      ] ++ Plist#provisioninglist.attributes}.
