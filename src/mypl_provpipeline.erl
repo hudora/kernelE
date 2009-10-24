@@ -218,12 +218,16 @@ get_picklist(Attributes) when is_list(Attributes) ->
 generate_picklist(PPEntry, Id, PickIds, Attributes, NumParts) ->
     % calculate volume for the Picklist and update pick attributes
     Positions = lists:map(fun(PickId) ->
-                              ok = mypl_db:update_pick({attributes, PickId, [{kernel_published_at, calendar:universal_time()},
-                                                                             {kernel_provisioninglist_id, Id}|Attributes]}),
-                              {ok, PickInfo} = mypl_db_query:pick_info(PickId),
-                              {proplists:get_value(quantity, PickInfo),
-                               proplists:get_value(product, PickInfo)}
-                           end, PickIds),
+        ok = mypl_db:update_pick({attributes, PickId,
+                                  [{kernel_published_at, calendar:universal_time()},
+                                   {kernel_provisioninglist_id, Id}, % redundant, remove in future
+                                   {kernel_kommischein_id, Id},
+                                   {kernel_kommiauftrag_id, PPEntry#provpipeline.id}
+                                   |Attributes]}),
+        {ok, PickInfo} = mypl_db_query:pick_info(PickId),
+        {proplists:get_value(quantity, PickInfo),
+         proplists:get_value(product, PickInfo)}
+    end, PickIds),
     VolumeAttributes = mypl_volumes:volume_proplist(Positions),
     
     % generate provisioninglist records
@@ -251,59 +255,9 @@ generate_picklist(PPEntry, Id, PickIds, Attributes, NumParts) ->
     mnesia:write(#provpipeline_processing{id=Id, provpipelineid=PPEntry#provpipeline.id,
                                           pickids=PickIds, retrievalids=[]}),
     mnesia:write(PPEntry#provpipeline{provisioninglists=[Picklist#provisioninglist.id|PPEntry#provpipeline.provisioninglists]}),
-    % fixme: this has to return a list of provisioninglists - has to be fixed in python too
     Picklist.
     
 
-broken_get_picklists(Attributes) when is_list(Attributes) ->
-    Picklist = get_picklist(Attributes),
-    % this code is for batching several provisionings into one  - it is fairly specific tailored
-    % to provisionings consisting of a single position. This function can duplicate such a provisioning
-    % see if weight and volume are low enough to bundle this with an other pick.
-    Volume = proplists:get_value(volume, Picklist#provisioninglist.attributes),
-    Weight = proplists:get_value(weight, Picklist#provisioninglist.attributes),
-    case {Picklist#provisioninglist.provisionings, 
-          Volume > -1, Volume < (?MAXVOLUMEPERPICKLIST div 2),
-          Weight > -1, Weight < (?MAXWEIGHTPERPICKLIST div 2)} of
-        {[_], true, true, true, true} ->
-            Fun = fun() ->
-                [{_, Mui, _FromLocation, Quantity, Product, Attributes}] = Picklist#provisioninglist.provisionings,
-                Unit = mypl_db_util:mui_to_unit(Mui),
-                % check if enough is available on the Unit
-                case {(Unit#unit.quantity - Unit#unit.pick_quantity) > Quantity} of
-                    {true} ->
-                        % ... Yes We can try a double Pick
-                        Candidates = mypl_prov_special:provpipeline_find_by_product({Quantity, Product}),
-                        case Candidates of 
-                            [] ->
-                                % no potential double picks available
-                                [format_provisioninglist(Picklist)];
-                            [PPEntry|_] ->
-                                % we can generate an additional pick for ppline entry
-                                io:format("DoublePicks: ~w~n", [PPEntry]),
-                                % convert a Provisioning to a Picklist
-                                {ok, PickId} = mypl_db:init_pick(Quantity, Mui, [{kernel_provpipeline_id, PPEntry#provpipeline.id},
-                                                                                 {kernel_allocated_at, calendar:universal_time()}]),
-                                % mark the order in the pipeline as beeing processed and save the Pick-/Retrievalids
-                                mnesia:write(PPEntry#provpipeline{status=processing,
-                                                                  attributes=[{kernel_retrievals, []},
-                                                                              {kernel_picks, [PickId]}
-                                                                              |PPEntry#provpipeline.attributes]}),
-                                Id = "p" ++ mypl_util:serial(),
-                                SecondPicklist = generate_picklist(PPEntry, Id, [PickId], Attributes, 1),
-                                [format_provisioninglist(Picklist), format_provisioninglist(SecondPicklist)]
-                        end;
-                    _ ->
-                        % no enough available on the unit, return the first picklist
-                        [format_provisioninglist(Picklist)]
-                end
-            end,
-            mypl_db_util:transaction(Fun);
-        _ ->
-            % no candidates for aggregation, return the first picklist
-            [format_provisioninglist(Picklist)]
-    end.
-    
 get_picklists(Attributes) when is_list(Attributes) ->
     Picklist = get_picklist(Attributes),
     [format_provisioninglist(Picklist)].
@@ -339,12 +293,16 @@ get_retrievallists(Attributes) when is_list(Attributes) ->
                         [PPEntry] = mnesia:read({provpipeline, R#retrievalpipeline.provpipelineid}),
                         % Volume for the Picklist
                         Positions=lists:map(fun(RetrievalId) ->
-                                                {ok, MovementInfo} = mypl_db_query:movement_info(RetrievalId),
-                                                ok = mypl_db:update_movement({attributes, RetrievalId, [{kernel_published_at, calendar:universal_time()},
-                                                                                                        {kernel_provisioninglist_id, Id}|Attributes]}),
-                                                {proplists:get_value(quantity, MovementInfo),
-                                                 proplists:get_value(product, MovementInfo)}
-                                             end, R#retrievalpipeline.retrievalids),
+                               {ok, MovementInfo} = mypl_db_query:movement_info(RetrievalId),
+                               ok = mypl_db:update_movement({attributes, RetrievalId,
+                                                            [{kernel_published_at, calendar:universal_time()},
+                                                             {kernel_provisioninglist_id, Id},
+                                                             {kernel_kommischein_id, Id},
+                                                             {kernel_kommiauftrag_id, PPEntry#provpipeline.id}
+                                                             |Attributes]}),
+                               {proplists:get_value(quantity, MovementInfo),
+                                proplists:get_value(product, MovementInfo)}
+                            end, R#retrievalpipeline.retrievalids),
                         VolumeAttributes = mypl_volumes:volume_proplist(Positions),
                         
                         Retrievallist = #provisioninglist{id=Id, type=retrievallist,
@@ -536,6 +494,7 @@ commit_retrievallist(Id, Attributes, Lines) when is_list(Attributes) ->
     commit_anything(Id, Attributes, Lines).
 
 % never call if something consists of picklists AND retrievallists
+% @depreciated
 delete_provisioninglist(Id) ->
     Fun = fun() ->
         [Processing] = mnesia:read({provpipeline_processing, Id}),
