@@ -15,7 +15,7 @@ TIMEOUT = 39999 # timeout parameter in ms fuer gen_server:call/3
 
 # Dies definiert der öffentliche API. Aus dem Code werden die diversen Schnittstellen erstellt
 funcdefs = [
-('mypl_db', 'backup', '', []),
+#('mypl_db', 'backup', '', []),
 ('mypl_db', 'init_location', 'Locname, Height, Floorlevel, Preference, Info, Attributes', []),
 ('mypl_db', 'store_at_location', 'Locname, Mui, Quantity, Product, Height', []),
 ('mypl_db', 'store_at_location_multi', 'JsonList', []),
@@ -33,23 +33,36 @@ funcdefs = [
 ('mypl_db', 'correction', 'JsonList', []),
 ('mypl_db', 'update_unit', 'JsonList', []),
 
-('mypl_db_query', 'count_product', 'Product', []),
-('mypl_db_query', 'count_products', '', ['async']),
-('mypl_db_query', 'unit_list', '', ['async']),
-('mypl_db_query', 'unit_info', 'Mui', ['async']),
-('mypl_db_query', 'location_list', '', ['async']),
-('mypl_db_query', 'location_info', 'Locname', []),
-('mypl_db_query', 'movement_list', '', ['async']),
-('mypl_db_query', 'movement_info', 'MovementId', ['async']),
-('mypl_db_query', 'pick_list', '', ['async']),
-('mypl_db_query', 'pick_info', 'PickId', ['async']),
+# TODO: move to http
+('mypl_db_query',       'count_product', 'Product', []),
+('mypl_db_query',       'count_products', '', ['async']),
+('mypl_db_query',       'unit_list', '', ['async']),
+('mypl_db_query',       'unit_info', 'Mui', ['async']),
+('mypl_db_query',       'location_list', '', ['async']),
+('mypl_db_query',       'location_info', 'Locname', []),
+('mypl_db_query',       'movement_list', '', ['async']),
+('mypl_db_query',       'movement_info', 'MovementId', ['async']),
+('mypl_db_query',       'pick_list', '', ['async']),
+('mypl_db_query',       'pick_info', 'PickId', ['async']),
+('mypl_abcserver',      'get_abc', '', ['async']),
+('mypl_abcserver',      'get_abcclass', 'Product', ['async']),
+('mypl_requesttracker', 'dump_requests', '', []),
+('mypl_statistics',     'statistics', '', ['async']),
+('mypl_statistics',     'bewegungen', '', ['async']),
+('mypl_prov_query',     'provpipeline_info', 'CId', []),
+('mypl_prov_query',     'provpipeline_list_new', '', ['async']),
+('mypl_prov_query',     'provpipeline_list_processing', '', ['async']),
+('mypl_prov_query',     'provpipeline_list_prepared', '', ['async']),
+('mypl_prov_query',     'provisioninglist_list', '', ['async']),
+('mypl_prov_query',     'provisioninglist_info', 'CId', []),
 
 ('mypl_db_util', 'find_empty_location_nice', 'Height', []),
 
+# TODO: is this needed?
 ('mypl_choose', 'find_provisioning_candidates', 'Quantity, Product', ['async']),
 ('mypl_choose', 'find_provisioning_candidates_multi', 'JsonList', ['async']),
-('mypl_choose', 'init_provisionings_multi', 'JsonList', ['async']),
 
+# TODO: rename
 ('mypl_provpipeline', 'insert_pipeline', 'JsonList', []),
 ('mypl_provpipeline', 'commit_picklist', 'CId', []),
 ('mypl_provpipeline', 'commit_retrievallist', 'CId', []),
@@ -57,33 +70,14 @@ funcdefs = [
 ('mypl_provpipeline', 'get_retrievallists', '', ['async']),
 ('mypl_provpipeline', 'get_movementlist', '', ['async']),
 
-('mypl_prov_query', 'provpipeline_info', 'CId', []),
-('mypl_prov_query', 'provpipeline_list_new', '', ['async']),
-('mypl_prov_query', 'provpipeline_list_processing', '', ['async']),
-('mypl_prov_query', 'provpipeline_list_prepared', '', ['async']),
-('mypl_prov_query', 'provisioninglist_list', '', ['async']),
-('mypl_prov_query', 'provisioninglist_info', 'CId', []),
-
 ('mypl_prov_special', 'delete_kommiauftrag', 'CId', []),
 ('mypl_prov_special', 'update_pipeline', 'JsonList', []),
-
-('mypl_audit', 'get_articleaudit', 'Product', ['async']),
-('mypl_audit', 'get_unitaudit', 'Mui', ['async']),
-('mypl_audit', 'get_articlecorrection', 'Product', ['async']),
-('mypl_audit', 'get_recent_from_archive', 'Type', ['async']),
-
-('mypl_abcserver', 'get_abc', '', ['async']),
-('mypl_abcserver', 'get_abcclass', 'Product', ['async']),
 
 ('mypl_nveserver', 'make_oid', '', []),
 ('mypl_nveserver', 'make_nve', '', []),
 
-('mypl_requesttracker', 'dump_requests', '', []),
 
 ('mypl_volumes', 'feed_eap', 'Product, Prod_ve1, Prod_exportpackage, Export_pallet, Prod_x, Prod_y, Prod_z, Prod_g, Ve1_x, Ve1_y, Ve1_z, Ve1_g, Export_x, Export_y, Export_z, Export_g', []),
-
-('mypl_statistics', 'statistics', '', ['async']),
-('mypl_statistics', 'bewegungen', '', ['async']),
 ]
 
 
