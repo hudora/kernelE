@@ -145,7 +145,8 @@ save_kommischein(Key, Record, Kommischein, ArchivedAt) -> % Kommischein
                                    end,
                                    Kommischein#provisioninglist.provisionings)},
          {archived_by, mypl_util:ensure_binary(Record#archive.archived_by)},
-         {archived_at, ArchivedAt}
+         {archived_at, ArchivedAt},
+         {type, provisioninglist}
          ] ++ Proplist),
     ok = mnesia:dirty_delete(archive, Key).
 

@@ -507,7 +507,7 @@ delete_provisioninglist(Id) ->
                       {ok, _} = mypl_db:rollback_retrieval(RId)
                   end,
                   Processing#provpipeline_processing.retrievalids),
-        mnesia:delete({provpipeline_processing, Id}),        
+        mnesia:delete({provpipeline_processing, Id}),
         
         % mark in provpipeline as done
         % todo mark provisioninglist as done

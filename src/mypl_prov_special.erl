@@ -17,7 +17,7 @@
 %% API
 -export([
 update_pipeline/1,
-delete_kommiauftrag/1,
+delete_kommiauftrag/2,
 archive_kommiauftraege/0,
 flood_requestracker/0,
 provpipeline_find_by_product/1
@@ -72,26 +72,31 @@ update_pipeline({versandtermin, CId, Versandtermin}) ->
     
 
 
-%% @spec delete_kommiauftrag(CId::string()) -> ok|error
 %% @doc removes an unprocessed order from the provisioningpipeline
 %%
 %% Returns `aborted' if the order can't be removed because it is currently processed.
 %% Returns `ok' if the order has been successfully removed
-%% @TODO: fixme
-delete_kommiauftrag(CId) ->
+%% @TODO: send message
+delete_kommiauftrag(KommiauftragNr, Message) ->
+    % erlang:display({Kommiauftragnr, Message}),
     Fun = fun() ->
-        [Entry] = mnesia:read({provpipeline, CId}),
-        if 
-            Entry#provpipeline.status /= new ->
-                % we can't delete something which is not new
-                {error, cant_delete_already_open, {CId, Entry}};
-            true ->
-                mypl_audit:kommiauftragaudit(Entry,
-                                             "Auf Anforderung des Clients gelöscht.",
-                                             delete_kommiauftrag, []),
-                mypl_audit:archive(Entry, delete),
-                mnesia:delete({provpipeline, CId}),
-                ok
+        case mnesia:read({provpipeline, KommiauftragNr}) of
+            [Entry] ->
+                if 
+                    Entry#provpipeline.status /= new ->
+                        % we can't delete something which is not new
+                        cant_delete_already_open;
+                    true ->
+                        mypl_to_ic:nullen(KommiauftragNr, Entry#provpipeline.orderlines),
+                        mypl_audit:kommiauftragaudit(Entry,
+                                                     Message,
+                                                     delete_kommiauftrag, []),
+                        %mypl_audit:archive(Entry, delete),
+                        %mnesia:delete({provpipeline, Kommiauftragnr}),
+                        ok
+                end;
+            [] ->
+                unknown
         end
     end,
     mypl_db_util:transaction(Fun).

@@ -31,7 +31,7 @@ loop(Req, DocRoot) ->
             case Path of
                 "" ->
                     Req:respond({200, [{"Content-Type", "text/plain"}], list_to_binary([
-                                        "try: /statistics /location /unit /movement /pick /kommiauftrag /kommischein"
+                                        "try: /statistics /location /unit /movement /pick /kommiauftrag /kommischein /product"
                                         ])});
                 
                 "statistics" ->
@@ -130,6 +130,18 @@ loop(Req, DocRoot) ->
                                              <<"Prioritaet geaendert">>),
                          mypl_prov_special:update_pipeline({priority, KommiauftragNr, Priority, Explanation}),
                             send_json(Req, 201, {[{priority, Priority}]})
+                    end;
+                _ ->
+                    Req:not_found()
+            end;
+        'DELETE' ->
+            case Path of
+                [$k,$o,$m,$m,$i,$a,$u,$f,$t,$r,$a,$g,$/|KommiauftragNr] ->
+                    Message = Req:recv_body(),
+                    case mypl_prov_special:delete_kommiauftrag(KommiauftragNr, Message) of
+                        unknown -> send_json(Req, 410, <<"unknown Kommiauftrag">>);
+                        cant_delete_already_open -> send_json(Req, 403, <<"Kommiauftrag already in processing">>);
+                        ok -> send_json(Req, 204, <<"ok">>)
                     end;
                 _ ->
                     Req:not_found()

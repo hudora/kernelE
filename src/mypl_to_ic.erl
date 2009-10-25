@@ -1,14 +1,14 @@
 %% @version 0.1
-%%% Created :  Created by Maximillian Dornseif on 2009-10-13.
--module(mypl_zwitscherserver).
+%%% Created :  Created by Maximillian Dornseif on 2009-10-20.
+-module(mypl_to_ic).
 
 -behaviour(gen_server).
--define(SERVER, mypl_zwitscherserver).
+-define(SERVER, mypl_to_ic).
 
 -include("amqp_client.hrl").
 
 %% API
--export([start_link/0, zwitscher/1, zwitscher/2]).
+-export([start_link/0, nullen/3]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -27,19 +27,8 @@
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
-%-spec zwitscher(string()) -> term().
--spec zwitscher(Format :: string()) -> 'ok'.
-zwitscher(Format) ->
-    zwitscher(Format, []).
-
--spec zwitscher(Format :: string(), Args :: list()) -> 'ok'.
-zwitscher(Format, Args) ->
-    % start the server if it is not already running
-    case whereis(?SERVER) of
-        undefined -> start_link();
-        _ -> ok
-    end,
-    gen_server:cast(?SERVER, {zwitscher, {lists:flatten(io_lib:format(Format, Args))}}).
+nullen(KommiauftragNr, Positionen, Message) ->
+    gen_server:call(?SERVER, {nullen, KommiauftragNr, Positionen, Message}).
     
 
 %%====================================================================
@@ -71,9 +60,21 @@ init([]) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
--spec handle_call(_,_,_) -> {'reply',{'error','badrequest'},_}.
-handle_call(_Req, _From, State) ->
-    {reply, {error, badrequest}, State}.
+handle_call({nullen, KommiauftragNr, Positionen, Message}, _From, State) ->
+    Publish = #'basic.publish'{exchange = <<"erp.cs-wms.rueckmeldung#spezial">>, 
+                               routing_key = <<"erp.cs-wms.rueckmeldung#spezial">>},
+    Positiondict = [{[{proplists:get_value(posnr, X)},
+                      {proplists:get_value(0, X)},
+                      {proplists:get_value(artnr, X)}]} || X <- Positionen],
+    Data = list_to_binary(lists:flatten(myjson:encode({[
+                        {kommiauftragnr, KommiauftragNr},
+                        {positionen, {Positiondict}},
+                        {created_by, mypl_to_ic},
+                        {audit_trail, Message},
+                        {guid, mypl_util:ensure_binary([mypl_util:oid(), "#", atom_to_list(node())])}]}))),
+    erlang:display(Data),
+    ok = amqp_channel:call(State#state.channel, Publish, #amqp_msg{payload = Data}),
+    {reply, ok, State}.
 
 %%--------------------------------------------------------------------
 %% Function: handle_cast(Msg, State) -> {noreply, State} |
@@ -81,16 +82,8 @@ handle_call(_Req, _From, State) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
--spec handle_cast({'zwitscher', {binary()|string()}},#state{}) -> {'noreply',#state{}}.
-handle_cast({zwitscher, {Tweet}}, State) ->
-    Publish = #'basic.publish'{exchange = <<"zwitscher">>, routing_key = <<"zwitscher">>},
-    Data = list_to_binary(lists:flatten(myjson:encode({[{text, mypl_util:ensure_binary(Tweet)},
-                                        {username, <<"mypl">>},
-                                        {password, <<"mypl">>},
-                                        {created_by, mypl_zwitscherserver},
-                                        {audit_trail, <<"">>},
-                                        {guid, mypl_util:ensure_binary([mypl_util:oid(), "#", atom_to_list(node())])}]}))),
-    ok = amqp_channel:call(State#state.channel, Publish, #amqp_msg{payload = Data}),
+-spec handle_cast(_,_) -> {'noreply',_}.
+handle_cast(_Msg, State) ->
     {noreply, State}.
 
 %%--------------------------------------------------------------------
