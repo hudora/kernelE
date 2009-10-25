@@ -116,7 +116,7 @@ format_pipeline_orderlines2([Orderline|Rest]) ->
     {Quantity, Product, Attributes} = Orderline,
     [{[{menge, Quantity},
       {artnr, mypl_util:ensure_binary(Product)},
-      {auftragsposition, proplists:get_value(auftragsposition, Attributes)}
+      {posnr, proplists:get_value(auftragsposition, Attributes)}
      ] ++ Attributes}
     ] ++ format_pipeline_orderlines2(Rest).
 

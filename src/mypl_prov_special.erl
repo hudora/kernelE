@@ -87,7 +87,9 @@ delete_kommiauftrag(KommiauftragNr, Message) ->
                         % we can't delete something which is not new
                         cant_delete_already_open;
                     true ->
-                        mypl_to_ic:nullen(KommiauftragNr, Entry#provpipeline.orderlines),
+                        {Properties} = mypl_prov_query:provpipeline_info(KommiauftragNr),
+                        Orderlines = proplists:get_value(orderlines, Properties),
+                        mypl_to_ic:nullen(KommiauftragNr, Orderlines, Message),
                         mypl_audit:kommiauftragaudit(Entry,
                                                      Message,
                                                      delete_kommiauftrag, []),

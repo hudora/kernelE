@@ -83,5 +83,9 @@ init([]) ->
     Trk = {requesttracker, 
             {mypl_requesttracker, start_link, []},
             permanent, 10000, worker, [mypl_requesttracker]},
-    Processes = [Web, Api, Abc, Nve, Zwi, Net, Trk],
+    ICconn = {to_ic,
+              {mypl_to_ic, start_link, []},
+            permanent, 10000, worker, [mypl_to_ic]},
+
+    Processes = [Web, Api, Abc, Nve, Zwi, Net, Trk, ICconn],
     {ok, {{one_for_one, 30, 5}, Processes}}.

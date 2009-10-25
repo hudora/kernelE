@@ -1,5 +1,5 @@
 %% @version 0.2
-%% @copyright 2007 HUDORA GmbH
+%% @copyright 2007, 2009 HUDORA GmbH
 %% @author Maximillian Dornseif <md@hudora.de>
 %% @doc myPL/kernel-E storage Engine Query Interface
 %%
@@ -35,8 +35,10 @@
 
 -export([count_product/1, count_products/0,
          open_movements_for_product/1, find_floor_units_for_product/1,
-         unit_list/0, unit_info/1, unit_info2/1, location_list/0, location_info/1,
-         movement_list/0, movement_info/1, movement_info2/1, pick_list/0, pick_info/1, pick_info2/1]).
+         unit_list/0, unit_info/1, unit_info2/1, format_unit_record2/1,
+         location_list/0, location_info/1, location_info2/1,
+         movement_list/0, movement_info/1, movement_info2/1, 
+         pick_list/0, pick_info/1, pick_info2/1]).
 
 % @private
 -spec count_product_helper([#unit{}], non_neg_integer(), non_neg_integer(), non_neg_integer())
@@ -204,8 +206,8 @@ format_unit_record2(Unit) ->
     PickIds = mypl_db_util:do(qlc:q([mypl_util:ensure_binary(X#pick.id) || X <- mnesia:table(pick), X#pick.from_unit =:= Unit#unit.mui])),
     {Proplist} = mypl_util:proplist_cleanup_binary2({[{id, Unit#unit.mui},
                                          {mui, Unit#unit.mui},
-                                         {quantity, Unit#unit.quantity},
-                                         {product, Unit#unit.product},
+                                         {menge, Unit#unit.quantity},
+                                         {artnr, Unit#unit.product},
                                          {height, Unit#unit.height},
                                          {pick_quantity, Unit#unit.pick_quantity},
                                          {location, Unit#unit.location},
@@ -245,6 +247,29 @@ location_info(Locname) ->
     {atomic, Ret} = mnesia:transaction(Fun),
     Ret.
     
+location_info2(Locname) -> 
+    Fun = fun() ->
+        case mnesia:read({location, Locname}) of
+            [Location] ->
+                format_location_record2(Location);
+            [] ->
+                unknown
+        end
+    end,
+    {atomic, Ret} = mnesia:transaction(Fun),
+    Ret.
+
+format_location_record2(Location) ->
+    {Proplist} = mypl_util:proplist_cleanup_binary2({[
+                                         {name, Location#location.name},
+                                         {height, Location#location.height},
+                                         {floorlevel, Location#location.floorlevel},
+                                         {preference, Location#location.preference},
+                                         {info, Location#location.info}
+                                        ] ++ Location#location.attributes}),
+    % mypl_util:proplist_cleanup_binary2 cant handle lists, so special-case them 
+    {Proplist ++ [{allocated_by, [mypl_util:ensure_binary(X) || X <- Location#location.allocated_by]},
+                  {reserved_for, [mypl_util:ensure_binary(X) || X <- Location#location.reserved_for]}]}. 
 
 %% @doc gets a List with all movement IDs
 -spec movement_list() -> [[]|mypl_db:movementID()].

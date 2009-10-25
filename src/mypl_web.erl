@@ -31,11 +31,18 @@ loop(Req, DocRoot) ->
             case Path of
                 "" ->
                     Req:respond({200, [{"Content-Type", "text/plain"}], list_to_binary([
-                                        "try: /statistics /location /unit /movement /pick /kommiauftrag /kommischein /product"
+                                        "try: /statistics /abc /kommiauftrag /kommischein /location /unit /movement /pick /product\n"
                                         ])});
                 
                 "statistics" ->
                     send_json(Req, {mypl_statistics:statistics()});
+
+                "abc" ->
+                    {Araw, Braw, Craw} = mypl_abcserver:get_abc(),
+                    send_json(Req, {[{a, [[N, mypl_util:ensure_binary(A)] || {N, A} <- Araw]},
+                                     {b, [[N, mypl_util:ensure_binary(A)] || {N, A} <- Braw]},                                     
+                                     {c, [[N, mypl_util:ensure_binary(A)] || {N, A} <- Craw]}
+                                     ]});
 
                 % kommiauftrag (provpipeline)
                 "kommiauftrag" ->
@@ -89,9 +96,9 @@ loop(Req, DocRoot) ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                 myjson:encode([list_to_binary(X) || X <- mypl_db_query:location_list()])});
                 [$l,$o,$c,$a,$t,$i,$o,$n,$/|LocationId] ->
-                    case mypl_db_query:location_info(LocationId) of
-                        {ok, Info} ->  send_json(Req, {mypl_util:proplist_cleanup_binary(Info)});
-                        {error, Type, _Info} -> send_json(Req, 404, Type)
+                    case mypl_db_query:location_info2(LocationId) of
+                        unknown -> send_json(Req, 404, <<"unknown location">>);
+                        Info -> send_json(Req, Info)
                     end; 
                 
                 "product" ->
@@ -99,11 +106,12 @@ loop(Req, DocRoot) ->
                                 myjson:encode([mypl_util:ensure_binary(element(1, X)) || X <- mypl_db_query:count_products()])});
                 [$p,$r,$o,$d,$u,$c,$t,$/|Product] ->
                     {{FullQuantity,AvailableQuantity,PickQuantity,MovementQuantity},Muis} = mypl_db_query:count_product(Product),
-                    send_json(Req, {myjson:encode({[{full_quantity, FullQuantity},
-                                                    {available_quantity,AvailableQuantity},
-                                                    {pick_quantity,PickQuantity},
-                                                    {movement_quantity,MovementQuantity},
-                                                    {muis, [mypl_util:ensure_binary(X) || X <- Muis]}]})});
+                    send_json(Req, {[{artnr, mypl_util:ensure_binary(Product)},
+                                     {full_quantity, FullQuantity},
+                                     {available_quantity,AvailableQuantity},
+                                     {pick_quantity,PickQuantity},
+                                     {movement_quantity,MovementQuantity},
+                                     {muis, [mypl_util:ensure_binary(X) || X <- Muis]}]});
                 
                 
                 %"statistik" ->

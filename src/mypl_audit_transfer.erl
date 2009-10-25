@@ -106,7 +106,7 @@ save_movement(Key, Record, Body, ArchivedAt) ->
     
 
 save_unit(Key, Record, Unit, ArchivedAt) ->
-    {Proplist} = mypl_prov_query:format_unit_record2(Unit),
+    {Proplist} = mypl_db_query:format_unit_record2(Unit),
     save_into_couchdb("mypl_archive",
             Unit#unit.mui ++ "-" ++ Record#archive.id,
             [{type, <<"unit">>},

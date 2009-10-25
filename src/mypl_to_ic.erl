@@ -28,7 +28,18 @@ start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 nullen(KommiauftragNr, Positionen, Message) ->
-    gen_server:call(?SERVER, {nullen, KommiauftragNr, Positionen, Message}).
+    Positiondict = [{[{posnr, proplists:get_value(posnr, X)},
+                      {menge, 0},
+                      {artnr, proplists:get_value(artnr, X)}]} || {X} <- Positionen],
+    Data1 = [{positionen, Positiondict},
+                        {kommiauftragnr, mypl_util:ensure_binary(KommiauftragNr)},
+                        {created_by, mypl_util:ensure_binary(mypl_to_ic)},
+                        {audit_trail, mypl_util:ensure_binary(Message)},
+                        {guid, mypl_util:ensure_binary([mypl_util:oid(), "#", atom_to_list(node())])}],
+    Data2 = myjson:encode({Data1}),
+    Data3 = lists:flatten(Data2),
+    Data = list_to_binary(Data3),
+    gen_server:call(?SERVER, {nullen, Data}).
     
 
 %%====================================================================
@@ -60,19 +71,9 @@ init([]) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
-handle_call({nullen, KommiauftragNr, Positionen, Message}, _From, State) ->
+handle_call({nullen, Data}, _From, State) ->
     Publish = #'basic.publish'{exchange = <<"erp.cs-wms.rueckmeldung#spezial">>, 
                                routing_key = <<"erp.cs-wms.rueckmeldung#spezial">>},
-    Positiondict = [{[{proplists:get_value(posnr, X)},
-                      {proplists:get_value(0, X)},
-                      {proplists:get_value(artnr, X)}]} || X <- Positionen],
-    Data = list_to_binary(lists:flatten(myjson:encode({[
-                        {kommiauftragnr, KommiauftragNr},
-                        {positionen, {Positiondict}},
-                        {created_by, mypl_to_ic},
-                        {audit_trail, Message},
-                        {guid, mypl_util:ensure_binary([mypl_util:oid(), "#", atom_to_list(node())])}]}))),
-    erlang:display(Data),
     ok = amqp_channel:call(State#state.channel, Publish, #amqp_msg{payload = Data}),
     {reply, ok, State}.
 
