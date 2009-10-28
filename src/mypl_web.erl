@@ -114,8 +114,6 @@ loop(Req, DocRoot) ->
                                      {muis, [mypl_util:ensure_binary(X) || X <- Muis]}]});
                 
                 
-                %"statistik" ->
-                % puffer, fuer picks, die noch ausgegeben werden muessen
                 %pickpipeline
                 % puffer, fuer retrievals, die noch ausgegeben werden muessen
                 %retrievalpipeline

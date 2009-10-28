@@ -259,8 +259,10 @@ generate_picklist(PPEntry, Id, PickIds, Attributes, NumParts) ->
     
 
 get_picklists(Attributes) when is_list(Attributes) ->
-    Picklist = get_picklist(Attributes),
-    [format_provisioninglist(Picklist)].
+    case get_picklist(Attributes) of
+        nothing_available -> nothing_available;
+	Picklist -> [format_provisioninglist(Picklist)]
+    end.
 
 
 %% @doc formats a picklist entry according to the return value of get_picklists/0 and get_retrievallists/0
@@ -611,7 +613,6 @@ cleanup() ->
                                                X#provisioninglist.created_at < {{2009,1,1}, {0,0,0}}]))).
 cleanup2([]) -> ok;
 cleanup2([PList|T]) ->
-    erlang:display(proplists:get_value(kernel_enqueued_at, PList#provpipeline.attributes)),
     mypl_audit:archive(PList#provpipeline{status=provisioned,
                        attributes=[{commited_at, mypl_util:timestamp2binary()}
                                     |PList#provpipeline.attributes]},

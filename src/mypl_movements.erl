@@ -267,6 +267,7 @@ get_movementsuggestion_from_requesttracker(Tries) ->
                                                                   Loc#location.floorlevel =:= false
                                                         end, mypl_db_util:find_movable_units(Product))),
                 Units = collect_requesed_units(Quantity, Candidates, []),
+                erlang:display(Units),
                 Locations = mypl_db_util:best_locations(floorlevel, Units),
                 % sorting results in lowest unit_ids beeing first
                 lists:sort(lists:zip([X#unit.mui || X <- Units], [X#location.name || X <- Locations]))

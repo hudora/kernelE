@@ -78,7 +78,6 @@ update_pipeline({versandtermin, CId, Versandtermin}) ->
 %% Returns `ok' if the order has been successfully removed
 %% @TODO: send message
 delete_kommiauftrag(KommiauftragNr, Message) ->
-    % erlang:display({Kommiauftragnr, Message}),
     Fun = fun() ->
         case mnesia:read({provpipeline, KommiauftragNr}) of
             [Entry] ->
@@ -93,8 +92,8 @@ delete_kommiauftrag(KommiauftragNr, Message) ->
                         mypl_audit:kommiauftragaudit(Entry,
                                                      Message,
                                                      delete_kommiauftrag, []),
-                        %mypl_audit:archive(Entry, delete),
-                        %mnesia:delete({provpipeline, Kommiauftragnr}),
+                        mypl_audit:archive(Entry, delete),
+                        mnesia:delete({provpipeline, KommiauftragNr}),
                         ok
                 end;
             [] ->
