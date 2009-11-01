@@ -52,7 +52,6 @@ get_age_for_movement(MovementId) ->
         [] ->
             "2030-01-01 00:00:00.0Z"; % far in the future
         [Movement] ->
-            erlang:display(Movement#movement.created_at),
             Movement#movement.created_at
     end.
 
@@ -65,6 +64,5 @@ get_age_for_pick(PickId) ->
         [] ->
             "2030-01-01 00:00:00.0Z"; % far in the future
         [Pick] ->
-            erlang:display(Pick#pick.created_at),
             Pick#pick.created_at
     end.

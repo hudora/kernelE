@@ -15,7 +15,7 @@
 -export([selftest/0,
          pick_quantity_per_unit/0,
          locations_pointing_nowhere/0,
-         kommiauftrag_defekt/0,
+         %kommiauftrag_defekt/0,
          kommischein_defekt/0,
          orphaned_units/0,
          orphaned_unit/1,
@@ -81,32 +81,33 @@ orphaned_unit(Unit) ->
     end.
 
 
-kommiauftrag_defekt() ->
-    lists:all(fun(X) -> X =:= ok end, [kommiauftrag_offen_per_auftrag(Y) || Y <- mypl_prov_query:provpipeline_list()]).
-    
-
-kommiauftrag_offen_per_auftrag(AuftragId) ->
-    {Kommiauftrag} = mypl_prov_query:provpipeline_info(AuftragId),
-    Kommischeine = proplists:get_value(provisioninglists, Kommiauftrag, []),
-    Ok = lists:all(fun(X) -> X =:= true end, kommiauftrag_offen_per_auftrag_helper(Kommischeine)),
-    case Ok of
-        false ->
-            %% alle kommischeine des kommiauftrags fehlen: kommiauftrag loeschen
-            Fun = fun() ->
-                erlang:display(AuftragId),
-                [Entry] = mnesia:read({provpipeline, AuftragId}),
-                erlang:display({xxx, Entry}),
-                mypl_audit:kommiauftragaudit(Entry,
-                                             "geloescht, da keine der zugehoerigen Kommischeine existieren",
-                                             kommiauftrag_offen_per_auftrag, []),
-                erlang:display(zzz),
-                mypl_audit:archive(Entry, delete),
-                mnesia:delete({provpipeline, AuftragId})
-            end,
-            mypl_db_util:transaction(Fun);
-        _ -> ok
-    end,
-    Ok.
+%kommiauftrag_defekt() ->
+%    lists:all(fun(X) -> X =:= ok end, [kommiauftrag_offen_per_auftrag(Y) || Y <- mypl_prov_query:provpipeline_list()]).
+%    
+%
+%% This is broken. See http://intern.hudora.biz/helpdesk/tickets/609/
+%kommiauftrag_offen_per_auftrag(AuftragId) ->
+%    {Kommiauftrag} = mypl_prov_query:provpipeline_info(AuftragId),
+%    Kommischeine = proplists:get_value(provisioninglists, Kommiauftrag, []),
+%    Ok = lists:all(fun(X) -> X =:= true end, kommiauftrag_offen_per_auftrag_helper(Kommischeine)),
+%    case Ok of
+%        false ->
+%            %% alle kommischeine des kommiauftrags fehlen: kommiauftrag loeschen
+%            Fun = fun() ->
+%                erlang:display(AuftragId),
+%                [Entry] = mnesia:read({provpipeline, AuftragId}),
+%                erlang:display({xxx, Entry}),
+%                mypl_audit:kommiauftragaudit(Entry,
+%                                             "geloescht, da keine der zugehoerigen Kommischeine existieren",
+%                                             kommiauftrag_offen_per_auftrag, []),
+%                erlang:display(zzz),
+%                mypl_audit:archive(Entry, delete),
+%                mnesia:delete({provpipeline, AuftragId})
+%            end,
+%            mypl_db_util:transaction(Fun);
+%        _ -> ok
+%    end,
+%    Ok.
     
 
 kommiauftrag_offen_per_auftrag_helper([]) -> [];
@@ -256,7 +257,7 @@ run_a_test(Testname) ->
     io:format("~w   ~f s   ~w~n", [Testname, TimeSec, Res]).
     
 selftest() ->
-    TestList = [kommischein_defekt, kommiauftrag_defekt,
+    TestList = [kommischein_defekt,
                 pick_quantity_per_unit, locations_pointing_nowhere,
                 orphaned_units, orphaned_pickpipeline, orphaned_retrievalpipeline],
     lists:map(fun(X) -> run_a_test(X) end, TestList),
