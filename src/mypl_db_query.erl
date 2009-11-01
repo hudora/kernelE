@@ -331,7 +331,7 @@ format_movement_record2(Movement) ->
     Unit = mypl_db_util:mui_to_unit(Movement#movement.mui),
     Quantity = Unit#unit.quantity,
     Product = Unit#unit.product,
-    mypl_util:proplist_cleanup_binary2({[{id, Movement#movement.id},
+    mypl_util:proplist_cleanup_binary2({[{oid, Movement#movement.id},
                                          {mui, Movement#movement.mui},
                                          {from_location, Movement#movement.from_location},
                                          {to_location, Movement#movement.to_location},
@@ -405,12 +405,12 @@ pick_info2(PickId) ->
 format_pick_record2(Pick) ->
     % TODO: this breaks if the unit in't available anymore.
     Unit = mypl_db_util:mui_to_unit(Pick#pick.from_unit),
-    mypl_util:proplist_cleanup_binary2({[{id, Pick#pick.id},
-                                        {from_unit, Pick#pick.from_unit},
-                                        {from_location, Unit#unit.location},
-                                        {menge, Pick#pick.quantity},
-                                        {artnr, Unit#unit.product},
-                                        {created_at, Pick#pick.created_at}
+    mypl_util:proplist_cleanup_binary2({[{oid, Pick#pick.id},
+                                         {from_unit, Pick#pick.from_unit},
+                                         {from_location, Unit#unit.location},
+                                         {menge, Pick#pick.quantity},
+                                         {artnr, Unit#unit.product},
+                                         {created_at, Pick#pick.created_at}
                                        ] ++ Pick#pick.attributes}).
 
 % ~~ Unit tests

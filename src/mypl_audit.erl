@@ -157,6 +157,7 @@ articleaudit(Quantity, Product, Text, Mui) ->
 
 -spec unitaudit_mui(nonempty_string(),string()) -> ok.
 unitaudit_mui(Mui, Text) ->
+    mypl_log:log("MUI ~s: ~s", [Mui, Text], {[{level, unitaudit}]}), 
     Fun = fun() ->
             mnesia:write(#unitaudit{id="A" ++ mypl_util:oid(),
                                     mui=Mui, text=Text, created_at=calendar:universal_time()})
@@ -170,6 +171,7 @@ unitaudit_mui(Mui, Text) ->
 %% @doc to be called whenever Units are moved in the warehouse.
 -spec unitaudit(#unit{},string(),string(),mypl_db:jsondict()) -> ok.
 unitaudit(Unit, Text, Transaction, References) ->
+    mypl_log:log("MUI ~s: ~s", [Unit#unit.mui, Text], {[{level, unitaudit}]}), 
     Id = "A" ++ mypl_util:oid(),
     Fun = fun() ->
         mnesia:write(#unitaudit{id=Id,

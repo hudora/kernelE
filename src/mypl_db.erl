@@ -547,25 +547,28 @@ commit_movement(MovementId) ->
 -spec rollback_movement(movementID()) -> {'ok', locationName()}.
 rollback_movement(MovementId) ->
     Fun = fun() ->
-        [Movement] = mnesia:read({movement, MovementId}),
-        % get unit for Mui & get current location of mui
-        Unit = mypl_db_util:mui_to_unit(Movement#movement.mui),
-        Source = mypl_db_util:get_mui_location(Movement#movement.mui),
-        % fix destination
-        Destination = mypl_db_util:read_location(Movement#movement.to_location),
-        Newdestination = Destination#location{reserved_for=lists:filter(fun(X) -> X /= Unit#unit.mui end,
-                                                                        Destination#location.reserved_for)},
-        ok = mnesia:write(Newdestination),
-        mypl_audit:archive(Movement#movement{attributes=Movement#movement.attributes
-                                             ++ [{rolled_back_at, mypl_util:timestamp()}]},
-                           rollback_movement),
-        ok = mnesia:delete({movement, MovementId}),
-        mypl_audit:unitaudit(Unit, "Umlagerung von " ++ Source#location.name ++ " nach "
-                      ++ Destination#location.name ++ " abgebrochen", Movement#movement.id),
-        Source#location.name
+        case mnesia:read({movement, MovementId}) of
+            [Movement] ->
+                % get unit for Mui & get current location of mui
+                Unit = mypl_db_util:mui_to_unit(Movement#movement.mui),
+                Source = mypl_db_util:get_mui_location(Movement#movement.mui),
+                % fix destination
+                Destination = mypl_db_util:read_location(Movement#movement.to_location),
+                Newdestination = Destination#location{reserved_for=lists:filter(fun(X) -> X /= Unit#unit.mui end,
+                                                                                Destination#location.reserved_for)},
+                ok = mnesia:write(Newdestination),
+                mypl_audit:archive(Movement#movement{attributes=Movement#movement.attributes
+                                                     ++ [{rolled_back_at, mypl_util:timestamp()}]},
+                                   rollback_movement),
+                ok = mnesia:delete({movement, MovementId}),
+                mypl_audit:unitaudit(Unit, "Umlagerung von " ++ Source#location.name ++ " nach "
+                              ++ Destination#location.name ++ " abgebrochen", Movement#movement.id),
+                {ok, Source#location.name};
+            [] ->
+                {error, unknown}
+        end
     end,
-    {atomic, Ret} = mnesia:transaction(Fun),
-    {ok, Ret}.
+    mypl_db_util:transaction(Fun).
     
 
 %% @doc update the attributes of a movement
@@ -652,50 +655,53 @@ init_pick(Quantity, Mui, Attributes) when is_integer(Quantity) ->
 commit_pick(PickId) ->
     Fun = fun() ->
         % get Pick for PickId
-        [Pick] = mnesia:read({pick, PickId}),
-        % hack to fix picks with quantity = 0 (where do they come from?)
-        if
-            Pick#pick.quantity =:= 0 ->
-                ok = mnesia:delete({pick, PickId}),
-                ?WARNING("deleted empty Pick '~w'", [PickId]),
-                ok;
-            true ->
-                Unit = mypl_db_util:mui_to_unit(Pick#pick.from_unit),
-                NewQuantity = Unit#unit.quantity - Pick#pick.quantity,
+        case mnesia:read({pick, PickId}) of
+            [Pick] ->
+                % hack to fix picks with quantity = 0 (where do they come from?)
                 if
-                    NewQuantity < 0 ->
-                        % this really shouldn't happen
-                        error_logger:error_msg("Negative amount on unit: ~w ~s ~s",
-                                               [Pick#pick.quantity, PickId, Unit#unit.mui]),
-                        {error, not_enough_goods, {Pick#pick.quantity, PickId, Unit#unit.mui}};
-                    true ->
-                        % update Unit
-                        NewUnit = Unit#unit{quantity=NewQuantity,
-                                            pick_quantity=Unit#unit.pick_quantity - Pick#pick.quantity},
-                        ok = mnesia:write(NewUnit),
-                        mypl_audit:archive(Pick#pick{attributes=Pick#pick.attributes
-                                                     ++ [{committed_at, mypl_util:timestamp()}]},
-                                           commit_pick),
+                    Pick#pick.quantity =:= 0 ->
                         ok = mnesia:delete({pick, PickId}),
-                        mypl_audit:articleaudit(-1 * Pick#pick.quantity, Pick#pick.product,
-                                                "Pick auf " ++ Unit#unit.mui, Unit#unit.mui, PickId),
-                        mypl_audit:unitaudit(Unit, "Pick von " ++ integer_to_list(Pick#pick.quantity) 
-                                             ++ " committed. neuer Bestand " ++ integer_to_list(NewUnit#unit.quantity),
-                                             PickId),
+                        ?WARNING("deleted empty Pick '~w'", [PickId]),
+                        ok;
+                    true ->
+                        Unit = mypl_db_util:mui_to_unit(Pick#pick.from_unit),
+                        NewQuantity = Unit#unit.quantity - Pick#pick.quantity,
                         if
-                            NewUnit#unit.quantity =:= 0 ->
-                                % disband unit since it is empty now
-                                disband_unit(NewUnit);
-                            true -> 
-                                ok
-                        end,
-                        mypl_abcserver:feed(pick, Pick, Unit#unit.location),
-                    {Pick#pick.quantity, Pick#pick.product}
-                end
-            end
+                            NewQuantity < 0 ->
+                                % this really shouldn't happen
+                                error_logger:error_msg("Negative amount on unit: ~w ~s ~s",
+                                                       [Pick#pick.quantity, PickId, Unit#unit.mui]),
+                                {error, not_enough_goods, {Pick#pick.quantity, PickId, Unit#unit.mui}};
+                            true ->
+                                % update Unit
+                                NewUnit = Unit#unit{quantity=NewQuantity,
+                                                    pick_quantity=Unit#unit.pick_quantity - Pick#pick.quantity},
+                                ok = mnesia:write(NewUnit),
+                                mypl_audit:archive(Pick#pick{attributes=Pick#pick.attributes
+                                                             ++ [{committed_at, mypl_util:timestamp()}]},
+                                                   commit_pick),
+                                ok = mnesia:delete({pick, PickId}),
+                                mypl_audit:articleaudit(-1 * Pick#pick.quantity, Pick#pick.product,
+                                                        "Pick auf " ++ Unit#unit.mui, Unit#unit.mui, PickId),
+                                mypl_audit:unitaudit(Unit, "Pick von " ++ integer_to_list(Pick#pick.quantity) 
+                                                     ++ " committed. neuer Bestand " ++ integer_to_list(NewUnit#unit.quantity),
+                                                     PickId),
+                                if
+                                    NewUnit#unit.quantity =:= 0 ->
+                                        % disband unit since it is empty now
+                                        disband_unit(NewUnit);
+                                    true -> 
+                                        ok
+                                end,
+                                mypl_abcserver:feed(pick, Pick, Unit#unit.location),
+                            {ok, {Pick#pick.quantity, Pick#pick.product}}
+                        end
+                    end;
+            [] ->
+                {errorn, unknown}
+        end
     end,
-    {atomic, Ret} = mnesia:transaction(Fun),
-    {ok, Ret}.
+    mypl_db_util:transaction(Fun).
     
 
 %% @see init_pick/2
@@ -707,28 +713,31 @@ commit_pick(PickId) ->
 rollback_pick(PickId) ->
     Fun = fun() ->
         % get Pick for PickId
-        [Pick] = mnesia:read({pick, PickId}),
-        Unit = mypl_db_util:mui_to_unit(Pick#pick.from_unit),
-        NewPickQuantity = Unit#unit.pick_quantity - Pick#pick.quantity,
-        if
-            NewPickQuantity < 0 ->
-                % this really shouldn't happen
-                {error, internal_error, {Pick, Unit}};
-            true ->
-                % update Unit
-                NewUnit = Unit#unit{pick_quantity=NewPickQuantity},
-                ok = mnesia:write(NewUnit),
-                mypl_audit:archive(Pick#pick{attributes=Pick#pick.attributes
-                                             ++ [{rolled_back_at, mypl_util:timestamp()}]},
-                                   rollback_pick),
-                ok = mnesia:delete({pick, PickId}),
-                mypl_audit:unitaudit(Unit, "Pick von " ++ integer_to_list(Pick#pick.quantity) 
-                                     ++ " abgebrochen.", PickId),
-            {Pick#pick.quantity, Pick#pick.product}
+        case mnesia:read({pick, PickId}) of
+            [Pick] ->
+                Unit = mypl_db_util:mui_to_unit(Pick#pick.from_unit),
+                NewPickQuantity = Unit#unit.pick_quantity - Pick#pick.quantity,
+                if
+                    NewPickQuantity < 0 ->
+                        % this really shouldn't happen
+                        {error, internal_error, {Pick, Unit}};
+                    true ->
+                        % update Unit
+                        NewUnit = Unit#unit{pick_quantity=NewPickQuantity},
+                        ok = mnesia:write(NewUnit),
+                        mypl_audit:archive(Pick#pick{attributes=Pick#pick.attributes
+                                                     ++ [{rolled_back_at, mypl_util:timestamp()}]},
+                                           rollback_pick),
+                        ok = mnesia:delete({pick, PickId}),
+                        mypl_audit:unitaudit(Unit, "Pick von " ++ integer_to_list(Pick#pick.quantity) 
+                                             ++ " abgebrochen.", PickId),
+                    {ok, {Pick#pick.quantity, Pick#pick.product}}
+                end;
+            [] ->
+                {error, unknown}
         end
     end,
-    {atomic, Ret} = mnesia:transaction(Fun),
-    {ok, Ret}.
+    mypl_db_util:transaction(Fun).
     
 
 %% @doc update attributes of a pick

@@ -45,7 +45,13 @@ loop(Req, DocRoot) ->
                                      ]});
                 
                 "requesttracker" ->
-                    send_json(Req, {mypl_requestracker:dump()});
+                    Data = [{[{artnr, mypl_util:ensure_binary(ArtNr)},
+                              {menge, Quantity},
+                              {lastseen, mypl_util:ensure_binary(Timestamp)},
+                              {priority, mypl_util:ensure_binary(lists:flatten(io_lib:format("~p", [Priority])))}
+                             ]}
+                              || {ArtNr, Quantity, Timestamp, Priority} <- mypl_requesttracker:dump_requests()],
+                    send_json(Req, Data);
                 
                 % kommiauftrag (provpipeline)
                 "kommiauftrag" ->
@@ -152,6 +158,14 @@ loop(Req, DocRoot) ->
                         cant_delete_already_open -> send_json(Req, 403, <<"Kommiauftrag already in processing">>);
                         ok -> send_json(Req, 204, <<"ok">>)
                     end;
+
+                % /movement/1235 fuehrt ein rollback aus
+                [$m,$o,$v,$e,$m,$e,$n,$t,$/|MovementId] ->
+                    case mypl_db:rollback_movement(MovementId) of
+                        {error, unknown} -> send_json(Req, 404, <<"unknown movement">>);
+                        {ok, _} -> send_json(Req, 204, <<"ok">>)
+                    end;
+
                 _ ->
                     Req:not_found()
             end;

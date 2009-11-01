@@ -75,6 +75,9 @@ init([]) ->
     Zwi = {zwitscherserver, 
            {mypl_zwitscherserver, start_link, []},
            permanent, 10000, worker, [mypl_zwitscherserver]},
+    Log = {loggingserver, 
+           {mypl_log, start_link, []},
+           permanent, 10000, worker, [mypl_log]},
     Net = {tcp_server,
            {generic_tcp_server, start_link, 
             [mypl_tcp_session, Host, Port, [list, {active, false}, {packet, line}, {reuseaddr, true}], []]
@@ -87,5 +90,5 @@ init([]) ->
               {mypl_to_ic, start_link, []},
             permanent, 10000, worker, [mypl_to_ic]},
 
-    Processes = [Web, Api, Abc, Nve, Zwi, Net, Trk, ICconn],
+    Processes = [Web, Api, Abc, Nve, Zwi, Log, Net, Trk, ICconn],
     {ok, {{one_for_one, 30, 5}, Processes}}.

@@ -30,7 +30,7 @@ start_link() ->
 
 -spec log(string(), [any()], {list()}) -> 'ok'.
 log(Format, Args, {Attributes}) ->
-    Data1 = [{message, lists:flatten(io_lib:format(Format, Args))},
+    Data1 = [{message, mypl_util:ensure_binary(lists:flatten(io_lib:format(Format, Args)))},
              {created_at, mypl_util:timestamp2binary()},
              {created_by, mypl_util:ensure_binary(mypl_log)},
              {audit_trail, <<"">>},
@@ -38,7 +38,7 @@ log(Format, Args, {Attributes}) ->
     Data2 = myjson:encode({lists:merge(Data1, Attributes)}),
     Data3 = lists:flatten(Data2),
     Data = list_to_binary(Data3),
-    gen_server:cast(?SERVER, {log, {Data}}).
+    gen_server:call(?SERVER, {log, {Data}}).
     
 
 %%====================================================================
@@ -70,7 +70,7 @@ init([]) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
-handle_call({log, Data}, _From, State) ->
+handle_call({log, {Data}}, _From, State) ->
     Publish = #'basic.publish'{exchange = <<"log#mypl">>,
                                routing_key = <<"log#mypl">>},
     ok = amqp_channel:call(State#state.channel, Publish, #amqp_msg{payload = Data}),
