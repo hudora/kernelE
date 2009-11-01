@@ -194,10 +194,6 @@ handle_command("find_provisioning_candidates", _Parameters, State) ->
     NewQuantity = convertPositiveInteger(Quantity),
     NewProduct = convertString(Product),
     {noreply, reply(220, rfc4627:encode(mypl_server:find_provisioning_candidates(NewQuantity,NewProduct)), reset_buffers(State))};
-handle_command("find_provisioning_candidates_multi", _Parameters, State) ->
-    % implementation for find_provisioning_candidates_multi,
-    {ok, NewJsonList, _} = rfc4627:decode(_Parameters),
-    {noreply, reply(220, rfc4627:encode(mypl_server:find_provisioning_candidates_multi(NewJsonList)), reset_buffers(State))};
 handle_command("insert_pipeline", _Parameters, State) ->
     % implementation for insert_pipeline,
     {ok, NewJsonList, _} = rfc4627:decode(_Parameters),
@@ -300,7 +296,6 @@ provisioninglist_list
 provisioninglist_info CId
 find_empty_location_nice Height
 find_provisioning_candidates Quantity,Product
-find_provisioning_candidates_multi JsonList
 insert_pipeline JsonList
 commit_picklist CId
 commit_retrievallist CId

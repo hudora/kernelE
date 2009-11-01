@@ -27,12 +27,15 @@
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
+-spec nullen(string(), [{}, ...], string()|binary()) -> ok.
+
 nullen(KommiauftragNr, Positionen, Message) ->
     Positiondict = [{[{posnr, proplists:get_value(posnr, X)},
                       {menge, 0},
                       {artnr, proplists:get_value(artnr, X)}]} || {X} <- Positionen],
     Data1 = [{positionen, Positiondict},
                         {kommiauftragnr, mypl_util:ensure_binary(KommiauftragNr)},
+                        {created_at, mypl_util:timestamp2binary()},
                         {created_by, mypl_util:ensure_binary(mypl_to_ic)},
                         {audit_trail, mypl_util:ensure_binary(Message)},
                         {guid, mypl_util:ensure_binary([mypl_util:oid(), "#", atom_to_list(node())])}],

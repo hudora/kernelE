@@ -60,7 +60,6 @@ funcdefs = [
 
 # TODO: is this needed?
 ('mypl_choose', 'find_provisioning_candidates', 'Quantity, Product', ['async']),
-('mypl_choose', 'find_provisioning_candidates_multi', 'JsonList', ['async']),
 
 # TODO: rename
 ('mypl_provpipeline', 'insert_pipeline', 'JsonList', []),

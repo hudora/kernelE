@@ -1,14 +1,15 @@
 %% @version 0.1
-%%% Created :  Created by Maximillian Dornseif on 2009-10-13.
--module(mypl_zwitscherserver).
+%% @doc push log messages to queue vor writing to disk
+%%% Created :  Created by Maximillian Dornseif on 2009-10-20.
+-module(mypl_log).
 
 -behaviour(gen_server).
--define(SERVER, mypl_zwitscherserver).
+-define(SERVER, mypl_log).
 
 -include("amqp_client.hrl").
 
 %% API
--export([start_link/0, zwitscher/1, zwitscher/2]).
+-export([start_link/0, log/3]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -27,20 +28,17 @@
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
-%-spec zwitscher(string()) -> term().
--spec zwitscher(Format :: string()) -> 'ok'.
-zwitscher(Format) ->
-    zwitscher(Format, []).
-
--spec zwitscher(Format::string(), Args::list()) -> 'ok'.
-
-zwitscher(Format, Args) ->
-    % start the server if it is not already running
-    case whereis(?SERVER) of
-        undefined -> start_link();
-        _ -> ok
-    end,
-    gen_server:cast(?SERVER, {zwitscher, {lists:flatten(io_lib:format(Format, Args))}}).
+-spec log(string(), [any()], {list()}) -> 'ok'.
+log(Format, Args, {Attributes}) ->
+    Data1 = [{message, lists:flatten(io_lib:format(Format, Args))},
+             {created_at, mypl_util:timestamp2binary()},
+             {created_by, mypl_util:ensure_binary(mypl_log)},
+             {audit_trail, <<"">>},
+             {guid, mypl_util:ensure_binary([mypl_util:oid(), "#", atom_to_list(node())])}],
+    Data2 = myjson:encode({lists:merge(Data1, Attributes)}),
+    Data3 = lists:flatten(Data2),
+    Data = list_to_binary(Data3),
+    gen_server:cast(?SERVER, {log, {Data}}).
     
 
 %%====================================================================
@@ -72,9 +70,11 @@ init([]) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
--spec handle_call(_,_,_) -> {'reply',{'error','badrequest'},_}.
-handle_call(_Req, _From, State) ->
-    {reply, {error, badrequest}, State}.
+handle_call({log, Data}, _From, State) ->
+    Publish = #'basic.publish'{exchange = <<"log.#mypl">>,
+                               routing_key = <<"log.#mypl">>},
+    ok = amqp_channel:call(State#state.channel, Publish, #amqp_msg{payload = Data}),
+    {reply, ok, State}.
 
 %%--------------------------------------------------------------------
 %% Function: handle_cast(Msg, State) -> {noreply, State} |
@@ -82,17 +82,8 @@ handle_call(_Req, _From, State) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
--spec handle_cast({'zwitscher', {binary()|string()}},#state{}) -> {'noreply',#state{}}.
-handle_cast({zwitscher, {Tweet}}, State) ->
-    Publish = #'basic.publish'{exchange = <<"zwitscher">>, routing_key = <<"zwitscher">>},
-    Data = list_to_binary(lists:flatten(myjson:encode({[{text, mypl_util:ensure_binary(Tweet)},
-                                        {username, <<"mypl">>},
-                                        {password, <<"mypl">>},
-                                        {created_by, mypl_zwitscherserver},
-                                        {created_at, mypl_util:timestamp2binary()},
-                                        {audit_trail, <<"">>},
-                                        {guid, mypl_util:ensure_binary([mypl_util:oid(), "#", atom_to_list(node())])}]}))),
-    ok = amqp_channel:call(State#state.channel, Publish, #amqp_msg{payload = Data}),
+-spec handle_cast(_,_) -> {'noreply',_}.
+handle_cast(_Msg, State) ->
     {noreply, State}.
 
 %%--------------------------------------------------------------------

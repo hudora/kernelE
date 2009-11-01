@@ -224,8 +224,6 @@ find_oldest_units_of(Quantities, Units) when is_list(Quantities), is_list(Units)
 %% By using find_retrieval_candidates/2 and find_pick_candidates/3 the best combination
 %% to get a certain amound of goods out of the warehouse is analysed.
 %% Returns {error, no_fit} or {ok, retrievals, picks}
--spec find_provisioning_candidates(non_neg_integer(),nonempty_string())
-    -> {ok, [mypl_db:muiID()], [{Quantiy::integer(), mypl_db:muiID()}]}.
 find_provisioning_candidates(Quantity, Product) ->
     find_provisioning_candidates(Quantity, Product, "X").
 
@@ -310,6 +308,10 @@ deduper(L) ->
 %% @TODO: scheinbar wird diese funktion immer zweimal aufgerufen
 find_provisioning_candidates_multi(L1) ->
     find_provisioning_candidates_multi(L1, "X").
+
+-spec find_provisioning_candidates_multi([{Quantiy::integer(),Product::string()}], term()) -> 
+    {'error','no_fit'} | {'ok',[mypl_db:muiID()],[{integer(), mypl_db:muiID()}]}.
+
 find_provisioning_candidates_multi(L1, Priority) ->
     % multipleoccurances of the same Article in L1 are aggregated into a single occurance
     L = deduper(L1),
@@ -359,9 +361,10 @@ reorder_provisioning_candidates_multi(Retrievalcandidates, Pickcandidates) ->
                         true ->
                             % all retrievals have a volume bleow ?RETRIEVALTOPICKVOLUME,
                             % change them to picks.
-                            {ok, [], Pickcandidates ++ mypl_db_util:transaction(fun() ->
-                                                           [get_mui_quantity(X) || X <- Retrievalcandidates]
-                                                       end)}
+                            {ok, [], lists:merge(Pickcandidates,
+                                                 mypl_db_util:transaction(fun() ->
+                                                                 [get_mui_quantity(X) || X <- Retrievalcandidates]
+                                                              end))}
                     end
             end
     end.
@@ -378,9 +381,6 @@ get_mui_quantity(Mui) ->
 
 
 
-%% @spec init_provisionings_multi([{Quantiy::integer(), Product::string()}], Attributes) -> 
-%%       {ok, [mypl_db:movementID()], [mypl_db:pickID()]}
-%%      Attributes = [{name, value}]
 %% @see find_provisioning_candidates/2
 %% @doc calls {@link find_provisioning_candidates/2} for more than a single product.
 %% Takes advantage of multi-processor system.
@@ -391,6 +391,11 @@ get_mui_quantity(Mui) ->
     -> {ok, [mypl_db:movementID()], [mypl_db:pickID()]}.
 init_provisionings_multi(L, Attributes) ->
     init_provisionings_multi(L, Attributes, "X").
+    
+
+-spec init_provisionings_multi([{Quantiy::integer(),Product::string()}],[any()], term()) -> 
+    {error, no_fit} | {'ok',[mypl_db:movementID()], [mypl_db:pickID()]}.
+
 init_provisionings_multi(L, Attributes, Priority) ->
     case find_provisioning_candidates_multi(L, Priority) of
         {error, no_fit} ->

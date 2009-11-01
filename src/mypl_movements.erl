@@ -50,7 +50,7 @@
          get_movementsuggestion_from_floorcleaner/0,
          get_movementsuggestion_from_unwanted_locations/0, 
          show_movementsuggestions/0,
-         create_automatic_movements/0, create_automatic_movements/1, more_than_one_floorunit/0]).
+         create_automatic_movements/1, more_than_one_floorunit/0]).
 -compile(export_all).
 
 
@@ -267,13 +267,14 @@ get_movementsuggestion_from_requesttracker(Tries) ->
                                                                   Loc#location.floorlevel =:= false
                                                         end, mypl_db_util:find_movable_units(Product))),
                 Units = collect_requesed_units(Quantity, Candidates, []),
-                erlang:display(Units),
                 Locations = mypl_db_util:best_locations(floorlevel, Units),
                 % sorting results in lowest unit_ids beeing first
+                % TODO: better choose the oldest
                 lists:sort(lists:zip([X#unit.mui || X <- Units], [X#location.name || X <- Locations]))
             end,
             case mypl_db_util:transaction(Fun) of
                 [] ->
+                    % retry
                     get_movementsuggestion_from_requesttracker(Tries-1);
                 [H|_] ->
                     [H]
@@ -281,9 +282,9 @@ get_movementsuggestion_from_requesttracker(Tries) ->
     end.
 
 get_movementsuggestion_from_requesttracker() ->
-    % we do 7 tries since get_movementsuggestion_from_requesttracker() might return []
+    % we do 17 tries since get_movementsuggestion_from_requesttracker() might return []
     % if there are currently no movable units of an product.
-    get_movementsuggestion_from_requesttracker(7).
+    get_movementsuggestion_from_requesttracker(17).
     
 
 % [] == no units at floorlevel 
@@ -386,18 +387,20 @@ init_automovements(Attributes) ->
                             %end;
                             {ok, []};
                         L3 ->
+                            mypl_log:log("Movements für Requesttracker initialisiert", [], {Attributes}),
                             {ok, init_movements(L3, [{mypl_notify_requesttracker},
                                                      {reason, requesttracker}|Attributes])}
                     end;
                 L2 ->
+                    mypl_log:log("Movements für Floorcleaner initialisiert", [], {Attributes}),
                     {ok, init_movements(L2, [{reason, floorcleaner}|Attributes])}
             end;
         L1 ->
+            mypl_log:log("Movements für Unwanted Location Cleaner initialisiert", [], {Attributes}),
             {ok, init_movements(L1, [{reason, unwanted_locations}|Attributes])}
     end.
     
 
-%% @spec init_movements([{Mui, Destination}], attributes()) -> [mypl_db:movementID()]
 %% @see mypl_db:init_movement/2
 %% @doc call init_movement/2 for several movements at once
 init_movements(L, Attributes) when is_list(L), is_list(Attributes) ->
@@ -411,11 +414,9 @@ init_movements(L, Attributes) when is_list(L), is_list(Attributes) ->
     mypl_db_util:transaction(Fun).
     
 
-create_automatic_movements() ->
-    create_automatic_movements([]).
 %% @doc create one or more movements which make the warehouse a better place ...
-%% 
 %% ... by cleaning it up and optimizing.
+-spec create_automatic_movements(list()) -> {ok, [mypl_db:movementID(), ...]}.
 create_automatic_movements(Attributes) ->
     init_automovements(Attributes).
 
@@ -450,8 +451,7 @@ test_init() ->
     mypl_db:init_location("010302", 2000, false, 8, []),
     mypl_db:init_location("010303", 2000, false, 9, []),
     ok.
-
-    
+ 
 
 %%% @hidden
 get_movementsuggestion_test() ->

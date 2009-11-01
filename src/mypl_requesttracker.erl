@@ -13,7 +13,7 @@
 -define(SERVER, mypl_requesttracker).
 
 %% API
--export([start_link/0, start/0, stop/0, in/2, in/3, out/0, movement_done/2, dump_requests/0, flush/0]).
+-export([start_link/0, start/0, stop/0, in/3, out/0, movement_done/2, dump_requests/0, flush/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -35,25 +35,27 @@ start() ->
     gen_server:start({local, ?SERVER}, ?MODULE, [], []). 
 
 %% @doc inform the requesttrackerquesttracker than an specific quantity of a product is needed for picking
-in(Quantity, Product) -> 
-    gen_server:cast(?SERVER, {in, {Quantity, Product, "X"}}).
-in(Quantity, Product, Priority) -> 
+-spec in(Quantity::integer(), Product::string(), term()) -> 'ok'.
+in(Quantity, Product, Priority) when is_integer(Quantity) ->
     gen_server:cast(?SERVER, {in, {Quantity, Product, Priority}}).
 
-%% @spec out() -> {ok, {Quantity, Product}}|{empty}
 %% @doc get the next product which should be moved to floorlevel for picking
+-spec out() -> {ok, {Quantity::integer(), Product::string()}}|{empty}.
 out() -> 
     gen_server:call(?SERVER, {out}). 
 
 %% @doc inform the requesttracker that a unit of a specific floorlevel has been moved to floorlevel
+-spec movement_done(Quantity::integer(), Product::string()) -> 'ok'.
 movement_done(Quantity, Product) ->
     gen_server:cast(?SERVER, {movement_done, {Quantity, Product}}). 
 
 %% @doc get a list of all data inside the requesttracker
+-spec dump_requests() ->  []|[{Product::string(),Quantity::integer(),Timestamp::term(),Priority::term()}, ...].
 dump_requests() ->
     gen_server:call(?SERVER, {dump_requests}). 
 
-%% @doc delete requesttrackerentries
+%% @doc delete qll requesttrackerentries
+-spec flush() -> ok.
 flush() ->
     gen_server:call(?SERVER, {flush}). 
 
