@@ -407,6 +407,7 @@ refill_pipeline(Type) ->
 
 refill_pipeline(_Type, []) -> no_fit;
 refill_pipeline(Type, Candidates) ->
+    mypl_log:log("refill_pipeline ~w", [Type], {[{level, debug}]}),
     [Entry|CandidatesTail] = Candidates,
     Orderlines = [{Quantity, Product} || {Quantity, Product, _Attributes} <- Entry#provpipeline.orderlines],
     Priority = mypl_prov_util:sort_provpipeline_helper(Entry),
@@ -499,6 +500,7 @@ commit_retrievallist(Id, Attributes, Lines) when is_list(Attributes) ->
 % never call if something consists of picklists AND retrievallists
 % @depreciated
 delete_provisioninglist(Id) ->
+    mypl_log:log("delete_provisioninglist ~w", [Id], {[{level, debug}]}),
     Fun = fun() ->
         [Processing] = mnesia:read({provpipeline_processing, Id}),
         % commit all related pick and retrieval ids
@@ -524,6 +526,7 @@ delete_provisioninglist(Id) ->
 
 % TODO: better name: commit provisioninglist
 commit_anything(Id, Attributes, _Lines) when is_list(Attributes) ->
+    mypl_log:log("commit_anything ~w / ~w", [Id, Attributes], {[{level, debug}]}),
     Fun = fun() ->
         [Processing] = mnesia:read({provpipeline_processing, Id}),
         % commit all related pick and retrieval ids

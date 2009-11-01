@@ -25,25 +25,28 @@ stop() ->
 -spec loop(atom(),_) -> any().
 loop(Req, DocRoot) ->
     "/" ++ Path = Req:get(path),
-    %erlang:display({Path}),
+    mypl_log:log("~s ~s", [Req:get(method), Req:get(path)], {[{level, http}]}),
     case Req:get(method) of
         Method when Method =:= 'GET'; Method =:= 'HEAD' ->
             case Path of
                 "" ->
                     Req:respond({200, [{"Content-Type", "text/plain"}], list_to_binary([
-                                        "try: /statistics /abc /kommiauftrag /kommischein /location /unit /movement /pick /product\n"
+                                        "try: /statistics /abc /requesttracker\n/kommiauftrag /kommischein /location /unit /movement /pick /product\n"
                                         ])});
                 
                 "statistics" ->
                     send_json(Req, {mypl_statistics:statistics()});
-
+                
                 "abc" ->
                     {Araw, Braw, Craw} = mypl_abcserver:get_abc(),
                     send_json(Req, {[{a, [[N, mypl_util:ensure_binary(A)] || {N, A} <- Araw]},
                                      {b, [[N, mypl_util:ensure_binary(A)] || {N, A} <- Braw]},                                     
                                      {c, [[N, mypl_util:ensure_binary(A)] || {N, A} <- Craw]}
                                      ]});
-
+                
+                "requesttracker" ->
+                    send_json(Req, {mypl_requestracker:dump()});
+                
                 % kommiauftrag (provpipeline)
                 "kommiauftrag" ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],

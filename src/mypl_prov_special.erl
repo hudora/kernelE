@@ -29,6 +29,7 @@ provpipeline_find_by_product/1
 
 %% @doc change values on an existing pipeline entry
 update_pipeline({priority, CId, Priority, Message}) when is_integer(Priority) ->
+    mypl_log:log("update_pipeline(priority, ~w, ~w, ~w)", [CId, Priority, Message], {[{level, info}]}),
     Fun = fun() ->
         [Entry] = mnesia:read({provpipeline, CId}),
         NewAttributes = [{kernel_updated_at, calendar:universal_time()}|

@@ -71,8 +71,8 @@ init([]) ->
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
 handle_call({log, Data}, _From, State) ->
-    Publish = #'basic.publish'{exchange = <<"log.#mypl">>,
-                               routing_key = <<"log.#mypl">>},
+    Publish = #'basic.publish'{exchange = <<"log#mypl">>,
+                               routing_key = <<"log#mypl">>},
     ok = amqp_channel:call(State#state.channel, Publish, #amqp_msg{payload = Data}),
     {reply, ok, State}.
 

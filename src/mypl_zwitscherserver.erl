@@ -84,6 +84,7 @@ handle_call(_Req, _From, State) ->
 %%--------------------------------------------------------------------
 -spec handle_cast({'zwitscher', {binary()|string()}},#state{}) -> {'noreply',#state{}}.
 handle_cast({zwitscher, {Tweet}}, State) ->
+    mypl_log:log("zwitscher: ~s", [Tweet], {[]}),
     Publish = #'basic.publish'{exchange = <<"zwitscher">>, routing_key = <<"zwitscher">>},
     Data = list_to_binary(lists:flatten(myjson:encode({[{text, mypl_util:ensure_binary(Tweet)},
                                         {username, <<"mypl">>},

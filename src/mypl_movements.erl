@@ -387,16 +387,16 @@ init_automovements(Attributes) ->
                             %end;
                             {ok, []};
                         L3 ->
-                            mypl_log:log("Movements für Requesttracker initialisiert", [], {Attributes}),
+                            mypl_log:log("Movements für Requesttracker initialisiert: ~w", [L3], {Attributes}),
                             {ok, init_movements(L3, [{mypl_notify_requesttracker},
                                                      {reason, requesttracker}|Attributes])}
                     end;
                 L2 ->
-                    mypl_log:log("Movements für Floorcleaner initialisiert", [], {Attributes}),
+                    mypl_log:log("Movements für Floorcleaner initialisiert: ~w", [L2], {Attributes}),
                     {ok, init_movements(L2, [{reason, floorcleaner}|Attributes])}
             end;
         L1 ->
-            mypl_log:log("Movements für Unwanted Location Cleaner initialisiert", [], {Attributes}),
+            mypl_log:log("Movements für Unwanted Location Cleaner initialisiert: ~w", [L1], {Attributes}),
             {ok, init_movements(L1, [{reason, unwanted_locations}|Attributes])}
     end.
     
