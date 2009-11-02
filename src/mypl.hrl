@@ -83,6 +83,18 @@
                       }).
     
 
+% nachfolger von provpipeline
+-record(kommiauftrag, {id :: nonempty_string(),
+                       priority :: 0..9,         % the higher the number the higher the priority
+                       orderlines,
+                       retrieved,
+                       status :: atom(),         % new, processing, provisioned
+                       tries :: 0|pos_integer(), % how often we tried to find a match for that pick
+                       provisioninglists,        % retrievallists and picklists
+                       attributes                % propertylist
+                      }).
+    
+
 % list of the already given out provisioninglist entries
 -record(provisioninglist, {id :: nonempty_string(),
                            type :: atom(),
@@ -94,6 +106,19 @@
                            status :: atom(),
                            created_at
                           }).
+    
+
+% nachfolger von provisioninglist
+-record(kommischein, {id :: nonempty_string(),
+                      type :: atom(),
+                      provpipeline_id :: nonempty_string(),
+                      destination :: nonempty_string(),
+                      attributes,
+                      provisionings,
+                      status :: atom(),
+                      created_at
+                    }).
+    
 
 -record(pickpipeline,
             {id :: nonempty_string(),

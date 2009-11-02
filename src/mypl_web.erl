@@ -83,7 +83,6 @@ loop(Req, DocRoot) ->
                 _ ->
                     Req:respond({501, [], []})
             end;
-        
         [$k,$o,$m,$m,$i,$a,$u,$f,$t,$r,$a,$g,$/|KommiauftragNr] ->
             case Req:get(method) of
                 Method when Method =:= 'GET'; Method =:= 'HEAD' ->
@@ -125,7 +124,6 @@ loop(Req, DocRoot) ->
                 _ ->
                     Req:respond({501, [], []})
             end;
-        
         [$k,$o,$m,$m,$i,$s,$c,$h,$e,$i,$n,$/|KommischeinNr] ->
             case Req:get(method) of
                 Method when Method =:= 'GET'; Method =:= 'HEAD' ->
@@ -142,11 +140,19 @@ loop(Req, DocRoot) ->
                 Method when Method =:= 'GET'; Method =:= 'HEAD' ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                  myjson:encode([list_to_binary(X) || X <- mypl_db_query:movement_list()])});
+                'POST' ->
+                    Body = Req:recv_body(),
+                    {Props} = myjson:decode(Body),
+                    case mypl_movements:create_automatic_movement(Props) of
+                        nothing_available ->
+                            send_json(Req, 404, <<"nothing available">>);
+                        MovementId ->
+                            % TODO: add location header
+                            send_json(Req, 201, mypl_db_query:movement_info2(MovementId))
+                    end;
                 _ ->
                     Req:respond({501, [], []})
             end;
-        
-        % /movement/1235
         [$m,$o,$v,$e,$m,$e,$n,$t,$/|MovementId] ->
             case Req:get(method) of
                 Method when Method =:= 'GET'; Method =:= 'HEAD' ->
@@ -155,7 +161,7 @@ loop(Req, DocRoot) ->
                         Info -> send_json(Req, Info)
                     end;
                 'DELETE' ->
-                    % fuehrt ein rollback aus
+                    % fuehrt ein Rollback aus
                     case mypl_db:rollback_movement(MovementId) of
                         {error, unknown} -> send_json(Req, 404, <<"unknown movement">>);
                         {ok, _} -> send_json(Req, 204, <<"ok">>)
@@ -192,8 +198,6 @@ loop(Req, DocRoot) ->
                 _ ->
                     Req:respond({501, [], []})
             end;
-        
-        % /unit/123456789012345678
         [$u,$n,$i,$t,$/|UnitId] ->
             case Req:get(method) of
                 Method when Method =:= 'GET'; Method =:= 'HEAD' ->

@@ -50,6 +50,7 @@
          get_movementsuggestion_from_floorcleaner/0,
          get_movementsuggestion_from_unwanted_locations/0, 
          show_movementsuggestions/0,
+         create_automatic_movement/1,
          create_automatic_movements/1, more_than_one_floorunit/0]).
 -compile(export_all).
 
@@ -420,6 +421,18 @@ init_movements(L, Attributes) when is_list(L), is_list(Attributes) ->
 create_automatic_movements(Attributes) ->
     init_automovements(Attributes).
 
+
+%% @doc create ONLY one movement which make the warehouse a better place ...
+create_automatic_movement(Attributes) ->
+    case create_automatic_movements(Attributes) of
+        {ok, []} ->
+            nothing_available;
+        {ok, [Movement|Tail]} ->
+            % in case thre was generated more than one movement - rollback the unwanted movements
+            [mypl_db:rollback_movement(X) || X <- Tail],
+            Movement
+        end.
+    
 
 % ~~ Unit tests
 -ifdef(EUNIT).
