@@ -33,7 +33,6 @@
 % See {@link sort_provpipeline/1} for details of the approach to sorting.
 
 -module(mypl_provpipeline).
--define(SERVER, mypl_provpipeline).
 
 -include_lib("stdlib/include/qlc.hrl").
 -include("mypl.hrl").
@@ -67,6 +66,10 @@ run_me_once() ->
     mnesia:create_table(provisioninglist, [{disc_copies, [node()]},
                                        {attributes, record_info(fields, provisioninglist)}
                                       ]),
+    % nachfolger von provisioninglist
+    %mnesia:create_table(kommischein, [{disc_copies, [node()]},
+    %                                  {attributes, record_info(fields, provisioninglist)}
+    %                                 ]),
     % puffer, fuer picks, die noch ausgegeben werden muessen
     mnesia:create_table(pickpipeline, [{disc_copies, [node()]},
                                        {attributes, record_info(fields, pickpipeline)}
@@ -391,9 +394,13 @@ choose_next_retrieval() ->
     
     
 %% @doc adds entries to the pickpipeline
-refill_pickpipeline() -> refill_pipeline(picks).
+refill_pickpipeline() ->
+    mypl_log:log("refill_pickpipeline", [], {[{level, debug}]}),
+    refill_pipeline(picks).
 %% @doc adds entries to the pickpipeline
-refill_retrievalpipeline() -> refill_pipeline(retrievals).
+refill_retrievalpipeline() ->
+    mypl_log:log("refill_retrievalpipeline", [], {[{level, debug}]}),
+    refill_pipeline(retrievals).
     
 
 refill_pipeline(Type) ->
@@ -406,9 +413,7 @@ refill_pipeline(Type) ->
     
 
 refill_pipeline(_Type, []) -> no_fit;
-refill_pipeline(Type, Candidates) ->
-    mypl_log:log("refill_pipeline ~w", [Type], {[{level, debug}]}),
-    [Entry|CandidatesTail] = Candidates,
+refill_pipeline(Type, [Entry|CandidatesTail]) ->
     Orderlines = [{Quantity, Product} || {Quantity, Product, _Attributes} <- Entry#provpipeline.orderlines],
     Priority = mypl_prov_util:sort_provpipeline_helper(Entry),
     case mypl_choose:find_provisioning_candidates_multi(Orderlines, Priority) of
@@ -526,7 +531,7 @@ delete_provisioninglist(Id) ->
 
 % TODO: better name: commit provisioninglist
 commit_anything(Id, Attributes, _Lines) when is_list(Attributes) ->
-    mypl_log:log("commit_anything ~w / ~w", [Id, Attributes], {[{level, debug}]}),
+    mypl_log:log("commit_anything ~s / ~w", [Id, Attributes], {[{level, debug}]}),
     Fun = fun() ->
         [Processing] = mnesia:read({provpipeline_processing, Id}),
         % commit all related pick and retrieval ids

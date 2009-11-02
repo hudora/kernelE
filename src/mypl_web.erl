@@ -110,7 +110,7 @@ loop(Req, DocRoot) ->
                             Priority = proplists:get_value(<<"priority">>, Props, 2),
                             Explanation = proplists:get_value(<<"explanation">>, Props,
                                              <<"Prioritaet geaendert">>),
-                         mypl_prov_special:update_pipeline({priority, KommiauftragNrStripped, Priority, Explanation}),
+                            mypl_prov_special:update_pipeline({priority, KommiauftragNrStripped, Priority, Explanation}),
                             send_json(Req, 201, {[{priority, Priority}]})
                     end;
                 _ ->
@@ -200,6 +200,21 @@ loop(Req, DocRoot) ->
                     case mypl_db_query:unit_info2(UnitId) of
                         unknown -> send_json(Req, 404, <<"unknown Unit">>);
                         Info -> send_json(Req, Info)
+                    end;
+                'POST' ->
+                    case mypl_db_query:unit_info2(UnitId) of
+                        unknown -> send_json(Req, 404, <<"unknown Unit">>);
+                        _Info ->
+                            Body = Req:recv_body(),
+                            {Props} = myjson:decode(Body),
+                            case proplists:get_value(<<"height">>, Props, undefined) of
+                                undefined ->
+                                    Req:respond({400, [{"Content-Type", "text/plain"}],
+                                                "Parameter 'height' is missing."});
+                                Height ->
+                                    mypl_db:update_unit({height, UnitId, Height}),
+                                    send_json(Req, 201, mypl_db_query:unit_info2(UnitId))
+                            end
                     end;
                 _ ->
                     Req:respond({501, [], []})
