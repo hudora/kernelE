@@ -36,13 +36,11 @@ update_pipeline({priority, CId, Priority, Message}) when is_integer(Priority) ->
                          proplists:delete(priority, Entry#provpipeline.attributes)],
         mnesia:write(Entry#provpipeline{priority=Priority, attributes=NewAttributes}),
         mypl_audit:kommiauftragaudit(Entry, Message, update_pipeline, []),
-        mypl_requesttracker:flush(), % sicherstellen, dass nicht alte Umlagerungen "im Weg" sind.
-        flood_requestracker([Entry])
+        mypl_requesttracker:flush() % sicherstellen, dass nicht alte Umlagerungen "im Weg" sind.
+        % todo: refill requesttracker
     end,
     mypl_db_util:transaction(Fun),
     ok;
-update_pipeline({priority, CId, Priority}) when is_integer(Priority) ->
-    update_pipeline({priority, CId, Priority, "Prioritaet geaendert"});
 update_pipeline({fixtermin, CId, Fixtermin}) when is_boolean(Fixtermin) ->
     Fun = fun() ->
         [PPEntry] = mnesia:read({provpipeline, CId}),

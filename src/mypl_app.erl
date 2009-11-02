@@ -1,6 +1,5 @@
 %% @version 0.2
-%% @author author <author@example.com>
-%% @copyright YYYY author.
+%% @copyright 2007 Maximillian Dornsief.
 
 %% @doc Callbacks for the mypl application.
 
@@ -21,8 +20,6 @@ start(_Type, _StartArgs) ->
     mypl_integrity:selftest(),
     % start supervisor
     Ret = mypl_sup:start_link(),
-    % fill requestracker at startup
-    mypl_prov_special:flood_requestracker(),
     Ret.
 
 %% @spec stop(_State) -> ServerRet

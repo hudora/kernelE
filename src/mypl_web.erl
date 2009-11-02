@@ -17,34 +17,52 @@ start(Options) ->
                    ?MODULE:loop(Req, DocRoot)
            end,
     mochiweb_http:start([{name, ?MODULE}, {loop, Loop} | Options1]).
+    
 
 -spec stop() -> any().
 stop() ->
     mochiweb_http:stop(?MODULE).
+    
 
 -spec loop(atom(),_) -> any().
 loop(Req, DocRoot) ->
     "/" ++ Path = Req:get(path),
     mypl_log:log("~s ~s", [Req:get(method), Req:get(path)], {[{level, http}]}),
-    case Req:get(method) of
-        Method when Method =:= 'GET'; Method =:= 'HEAD' ->
-            case Path of
-                "" ->
+    case Path of
+        "" ->
+            case Req:get(method) of
+                Method when Method =:= 'GET'; Method =:= 'HEAD' ->
                     Req:respond({200, [{"Content-Type", "text/plain"}], list_to_binary([
-                                        "try: /statistics /abc /requesttracker\n/kommiauftrag /kommischein /location /unit /movement /pick /product\n"
+                                        "try: /statistics /abc /requesttracker\n"
+                                        "/kommiauftrag /kommischein /location /unit /movement /pick /product\n"
                                         ])});
-                
-                "statistics" ->
+                _ ->
+                    Req:respond({501, [], []})
+            end;
+        
+        "statistics" ->
+            case Req:get(method) of
+                Method when Method =:= 'GET'; Method =:= 'HEAD' ->
                     send_json(Req, {mypl_statistics:statistics()});
-                
-                "abc" ->
+                _ ->
+                    Req:respond({501, [], []})
+            end;
+        
+        "abc" ->
+            case Req:get(method) of
+                Method when Method =:= 'GET'; Method =:= 'HEAD' ->
                     {Araw, Braw, Craw} = mypl_abcserver:get_abc(),
                     send_json(Req, {[{a, [[N, mypl_util:ensure_binary(A)] || {N, A} <- Araw]},
                                      {b, [[N, mypl_util:ensure_binary(A)] || {N, A} <- Braw]},                                     
                                      {c, [[N, mypl_util:ensure_binary(A)] || {N, A} <- Craw]}
                                      ]});
-                
-                "requesttracker" ->
+                _ ->
+                    Req:respond({501, [], []})
+            end;
+        
+        "requesttracker" ->
+            case Req:get(method) of
+                Method when Method =:= 'GET'; Method =:= 'HEAD' ->
                     Data = [{[{artnr, mypl_util:ensure_binary(ArtNr)},
                               {menge, Quantity},
                               {lastseen, mypl_util:ensure_binary(Timestamp)},
@@ -52,68 +70,173 @@ loop(Req, DocRoot) ->
                              ]}
                               || {ArtNr, Quantity, Timestamp, Priority} <- mypl_requesttracker:dump_requests()],
                     send_json(Req, Data);
-                
-                % kommiauftrag (provpipeline)
-                "kommiauftrag" ->
+                _ ->
+                    Req:respond({501, [], []})
+            end;
+        
+        % kommiauftrag (provpipeline)
+        "kommiauftrag" ->
+            case Req:get(method) of
+                Method when Method =:= 'GET'; Method =:= 'HEAD' ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                 myjson:encode([list_to_binary(X) || X <- mypl_prov_query:provpipeline_list()])});
-                [$k,$o,$m,$m,$i,$a,$u,$f,$t,$r,$a,$g,$/|KommiauftragNr] ->
+                _ ->
+                    Req:respond({501, [], []})
+            end;
+        
+        [$k,$o,$m,$m,$i,$a,$u,$f,$t,$r,$a,$g,$/|KommiauftragNr] ->
+            case Req:get(method) of
+                Method when Method =:= 'GET'; Method =:= 'HEAD' ->
                     case mypl_prov_query:provpipeline_info(KommiauftragNr) of
                         unknown -> send_json(Req, 404, <<"unknown Kommiauftrag">>);
                         Info -> send_json(Req, Info)
                     end;
-
-                "kommischein" ->
+                'DELETE' ->
+                    Message = Req:recv_body(),
+                    case mypl_prov_special:delete_kommiauftrag(KommiauftragNr, Message) of
+                        unknown -> send_json(Req, 410, <<"unknown Kommiauftrag">>);
+                        cant_delete_already_open -> send_json(Req, 403, <<"Kommiauftrag already in processing">>);
+                        ok -> send_json(Req, 204, <<"ok">>)
+                    end;
+                'POST' ->
+                    RPath = lists:reverse(KommiauftragNr),
+                    [$y,$t,$i,$r,$o,$i,$r,$p,$/|KommiauftragNrReverse] = RPath,
+                    KommiauftragNrStripped = lists:reverse(KommiauftragNrReverse),
+                    case mypl_prov_query:provpipeline_info(KommiauftragNrStripped) of
+                        unknown -> send_json(Req, 404, <<"unknown Kommiauftrag">>);
+                        _Info -> 
+                            Body = Req:recv_body(),
+                            {Props} = myjson:decode(Body),
+                            Priority = proplists:get_value(<<"priority">>, Props, 2),
+                            Explanation = proplists:get_value(<<"explanation">>, Props,
+                                             <<"Prioritaet geaendert">>),
+                         mypl_prov_special:update_pipeline({priority, KommiauftragNrStripped, Priority, Explanation}),
+                            send_json(Req, 201, {[{priority, Priority}]})
+                    end;
+                _ ->
+                    Req:respond({501, [], []})
+            end;
+        
+        "kommischein" ->
+            case Req:get(method) of
+                Method when Method =:= 'GET'; Method =:= 'HEAD' ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                 myjson:encode([list_to_binary(X) || X <- mypl_prov_query:provisioninglist_list()])});
-                [$k,$o,$m,$m,$i,$s,$c,$h,$e,$i,$n,$/|KommischeinNr] ->
+                _ ->
+                    Req:respond({501, [], []})
+            end;
+        
+        [$k,$o,$m,$m,$i,$s,$c,$h,$e,$i,$n,$/|KommischeinNr] ->
+            case Req:get(method) of
+                Method when Method =:= 'GET'; Method =:= 'HEAD' ->
                     case mypl_prov_query:provisioninglist_info2(KommischeinNr) of
                         unknown -> send_json(Req, 404, <<"unknown Kommischein">>);
                         Info -> send_json(Req, Info)
                     end;
-                
-                "movement" ->
+                _ ->
+                    Req:respond({501, [], []})
+            end;
+        
+        "movement" ->
+            case Req:get(method) of
+                Method when Method =:= 'GET'; Method =:= 'HEAD' ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                  myjson:encode([list_to_binary(X) || X <- mypl_db_query:movement_list()])});
-                % /movement/1235
-                [$m,$o,$v,$e,$m,$e,$n,$t,$/|MovementId] ->
+                _ ->
+                    Req:respond({501, [], []})
+            end;
+        
+        % /movement/1235
+        [$m,$o,$v,$e,$m,$e,$n,$t,$/|MovementId] ->
+            case Req:get(method) of
+                Method when Method =:= 'GET'; Method =:= 'HEAD' ->
                     case mypl_db_query:movement_info2(MovementId) of
                         unknown -> send_json(Req, 404, <<"unknown movement">>);
                         Info -> send_json(Req, Info)
                     end;
-                
-                "pick" ->
+                'DELETE' ->
+                    % fuehrt ein rollback aus
+                    case mypl_db:rollback_movement(MovementId) of
+                        {error, unknown} -> send_json(Req, 404, <<"unknown movement">>);
+                        {ok, _} -> send_json(Req, 204, <<"ok">>)
+                    end;
+                _ ->
+                    Req:respond({501, [], []})
+            end;
+        
+        "pick" ->
+            case Req:get(method) of
+                Method when Method =:= 'GET'; Method =:= 'HEAD' ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                 myjson:encode([list_to_binary(X) || X <- mypl_db_query:pick_list()])});
-                [$p,$i,$c,$k,$/|PickId] ->
+                _ ->
+                    Req:respond({501, [], []})
+            end;
+        
+        [$p,$i,$c,$k,$/|PickId] ->
+            case Req:get(method) of
+                Method when Method =:= 'GET'; Method =:= 'HEAD' ->
                     case mypl_db_query:pick_info2(PickId) of
                         unknown -> send_json(Req, 404, <<"unknown Pick">>);
                         Info -> send_json(Req, Info)
                     end; 
-                
-                "unit" ->
+                _ ->
+                    Req:respond({501, [], []})
+            end;
+        
+        "unit" ->
+            case Req:get(method) of
+                Method when Method =:= 'GET'; Method =:= 'HEAD' ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                 myjson:encode([list_to_binary(X) || X <- mypl_db_query:unit_list()])});
-                % /unit/123456789012345678
-                [$u,$n,$i,$t,$/|UnitId] ->
+                _ ->
+                    Req:respond({501, [], []})
+            end;
+        
+        % /unit/123456789012345678
+        [$u,$n,$i,$t,$/|UnitId] ->
+            case Req:get(method) of
+                Method when Method =:= 'GET'; Method =:= 'HEAD' ->
                     case mypl_db_query:unit_info2(UnitId) of
                         unknown -> send_json(Req, 404, <<"unknown Unit">>);
                         Info -> send_json(Req, Info)
                     end;
-                
-                "location" ->
+                _ ->
+                    Req:respond({501, [], []})
+            end;
+        
+        "location" ->
+            case Req:get(method) of
+                Method when Method =:= 'GET'; Method =:= 'HEAD' ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                 myjson:encode([list_to_binary(X) || X <- mypl_db_query:location_list()])});
-                [$l,$o,$c,$a,$t,$i,$o,$n,$/|LocationId] ->
+                _ ->
+                    Req:respond({501, [], []})
+            end;
+        
+        [$l,$o,$c,$a,$t,$i,$o,$n,$/|LocationId] ->
+            case Req:get(method) of
+                Method when Method =:= 'GET'; Method =:= 'HEAD' ->
                     case mypl_db_query:location_info2(LocationId) of
                         unknown -> send_json(Req, 404, <<"unknown location">>);
                         Info -> send_json(Req, Info)
                     end; 
-                
-                "product" ->
+                _ ->
+                    Req:respond({501, [], []})
+            end;
+        
+        "product" ->
+            case Req:get(method) of
+                Method when Method =:= 'GET'; Method =:= 'HEAD' ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                 myjson:encode([mypl_util:ensure_binary(element(1, X)) || X <- mypl_db_query:count_products()])});
-                [$p,$r,$o,$d,$u,$c,$t,$/|Product] ->
+                _ ->
+                    Req:respond({501, [], []})
+            end;
+        
+        [$p,$r,$o,$d,$u,$c,$t,$/|Product] ->
+            case Req:get(method) of
+                Method when Method =:= 'GET'; Method =:= 'HEAD' ->
                     {{FullQuantity,AvailableQuantity,PickQuantity,MovementQuantity},Muis} = mypl_db_query:count_product(Product),
                     send_json(Req, {[{artnr, mypl_util:ensure_binary(Product)},
                                      {full_quantity, FullQuantity},
@@ -123,54 +246,11 @@ loop(Req, DocRoot) ->
                                      {muis, [mypl_util:ensure_binary(X) || X <- Muis]}]});
                 
                 
-                %pickpipeline
-                % puffer, fuer retrievals, die noch ausgegeben werden muessen
-                %retrievalpipeline
                 _ ->
-                    Req:serve_file(Path, DocRoot)
-            end;
-        'POST' ->
-            case Path of
-                [$k,$o,$m,$m,$i,$a,$u,$f,$t,$r,$a,$g,$/|KommiauftragNrEtc] ->
-                    RPath = lists:reverse(KommiauftragNrEtc),                     
-                    [$y,$t,$i,$r,$o,$i,$r,$p,$/|KommiauftragNrReverse] = RPath,
-                    KommiauftragNr = lists:reverse(KommiauftragNrReverse),
-                    case mypl_prov_query:provpipeline_info(KommiauftragNr) of
-                        unknown -> send_json(Req, 404, <<"unknown Kommiauftrag">>);
-                        _Info -> 
-                            Body = Req:recv_body(),
-                            {Props} = myjson:decode(Body),
-                            Priority = proplists:get_value(<<"priority">>, Props, 2),
-                            Explanation = proplists:get_value(<<"explanation">>, Props,
-                                             <<"Prioritaet geaendert">>),
-                         mypl_prov_special:update_pipeline({priority, KommiauftragNr, Priority, Explanation}),
-                            send_json(Req, 201, {[{priority, Priority}]})
-                    end;
-                _ ->
-                    Req:not_found()
-            end;
-        'DELETE' ->
-            case Path of
-                [$k,$o,$m,$m,$i,$a,$u,$f,$t,$r,$a,$g,$/|KommiauftragNr] ->
-                    Message = Req:recv_body(),
-                    case mypl_prov_special:delete_kommiauftrag(KommiauftragNr, Message) of
-                        unknown -> send_json(Req, 410, <<"unknown Kommiauftrag">>);
-                        cant_delete_already_open -> send_json(Req, 403, <<"Kommiauftrag already in processing">>);
-                        ok -> send_json(Req, 204, <<"ok">>)
-                    end;
-
-                % /movement/1235 fuehrt ein rollback aus
-                [$m,$o,$v,$e,$m,$e,$n,$t,$/|MovementId] ->
-                    case mypl_db:rollback_movement(MovementId) of
-                        {error, unknown} -> send_json(Req, 404, <<"unknown movement">>);
-                        {ok, _} -> send_json(Req, 204, <<"ok">>)
-                    end;
-
-                _ ->
-                    Req:not_found()
+                    Req:respond({501, [], []})
             end;
         _ ->
-            Req:respond({501, [], []})
+            Req:respond({404, [], []})
     end.
 
 %% Internal API

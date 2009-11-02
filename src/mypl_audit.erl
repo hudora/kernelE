@@ -131,6 +131,7 @@ get_unitaudit_helper(Uaudit) ->
 %% Transaction can be an movementID or an pickID.
 -spec articleaudit(integer(),nonempty_string(),string(),nonempty_string(),string(),mypl_db:jsondict()) -> ok.
 articleaudit(Quantity, Product, Text, Mui, Transaction, References) ->
+    mypl_log:log("ArtNr ~s: ~s", [Product, Text], {[{level, articleaudit}]}),
     Fun = fun() ->
             mnesia:write(#articleaudit{id="a" ++ mypl_util:oid(), quantity=Quantity, product=Product,
                                        text=Text, mui=Mui, transaction=Transaction,
@@ -201,6 +202,7 @@ unitaudit(Unit, Text) ->
 %% @doc to be called whenever Units are moved in the warehouse.
 -spec kommiauftragaudit(#provpipeline{},string(),string(),mypl_db:jsondict()) -> ok.
 kommiauftragaudit(Kommiauftrag, Text, Transaction, References) ->
+    mypl_log:log("Kommiaufrtag ~s: ~s", [Kommiauftrag, Text], {[{level, kommiauftragaudit}]}),
     Id = "K" ++ mypl_util:oid(),
     Auftragsnummer = proplists:get_value(auftragsnummer, Kommiauftrag#provpipeline.attributes, []),
     Customer = proplists:get_value(kernel_customer, Kommiauftrag#provpipeline.attributes, []),
