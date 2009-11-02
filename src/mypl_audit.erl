@@ -202,7 +202,7 @@ unitaudit(Unit, Text) ->
 %% @doc to be called whenever Units are moved in the warehouse.
 -spec kommiauftragaudit(#provpipeline{},string(),string(),mypl_db:jsondict()) -> ok.
 kommiauftragaudit(Kommiauftrag, Text, Transaction, References) ->
-    mypl_log:log("Kommiaufrtag ~s: ~s", [Kommiauftrag, Text], {[{level, kommiauftragaudit}]}),
+    mypl_log:log("Kommiaufrtag ~s: ~s", [Kommiauftrag#provpipeline.id, Text], {[{level, kommiauftragaudit}]}),
     Id = "K" ++ mypl_util:oid(),
     Auftragsnummer = proplists:get_value(auftragsnummer, Kommiauftrag#provpipeline.attributes, []),
     Customer = proplists:get_value(kernel_customer, Kommiauftrag#provpipeline.attributes, []),

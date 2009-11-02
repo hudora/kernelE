@@ -143,7 +143,7 @@ loop(Req, DocRoot) ->
                 'POST' ->
                     Body = Req:recv_body(),
                     {Props} = myjson:decode(Body),
-                    case mypl_movements:create_automatic_movement(Props) of
+                    case mypl_movements:create_automatic_movement(mypl_util:proplist_cleanup(Props)) of
                         nothing_available ->
                             send_json(Req, 404, <<"nothing available">>);
                         MovementId ->

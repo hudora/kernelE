@@ -116,6 +116,8 @@ proplist_cleanup(L) ->
                    proplist_cleanup_helper({erlang:list_to_atom(Name), Value});
                  ([Name, Value]) when is_binary(Name) -> 
                    proplist_cleanup_helper({erlang:list_to_atom(erlang:binary_to_list(Name)), Value});
+                 ({Name, Value}) when is_binary(Name) -> 
+                   proplist_cleanup_helper({erlang:list_to_atom(erlang:binary_to_list(Name)), Value});
                  ({Name, Value}) -> 
                    proplist_cleanup_helper({Name, Value}) end, L).
 
