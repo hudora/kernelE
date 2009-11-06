@@ -187,13 +187,6 @@ handle_command("find_empty_location_nice", _Parameters, State) ->
     [Height] = Tokens,
     NewHeight = convertPositiveInteger(Height),
     {noreply, reply(220, rfc4627:encode(mypl_server:find_empty_location_nice(NewHeight)), reset_buffers(State))};
-handle_command("find_provisioning_candidates", _Parameters, State) ->
-    % implementation for find_provisioning_candidates,
-    Tokens = lists:map(fun(X) -> string:strip(X) end, string:tokens(_Parameters, [$,])),
-    [Quantity,Product] = Tokens,
-    NewQuantity = convertPositiveInteger(Quantity),
-    NewProduct = convertString(Product),
-    {noreply, reply(220, rfc4627:encode(mypl_server:find_provisioning_candidates(NewQuantity,NewProduct)), reset_buffers(State))};
 handle_command("insert_pipeline", _Parameters, State) ->
     % implementation for insert_pipeline,
     {ok, NewJsonList, _} = rfc4627:decode(_Parameters),
@@ -295,7 +288,6 @@ provpipeline_list_prepared
 provisioninglist_list 
 provisioninglist_info CId
 find_empty_location_nice Height
-find_provisioning_candidates Quantity,Product
 insert_pipeline JsonList
 commit_picklist CId
 commit_retrievallist CId

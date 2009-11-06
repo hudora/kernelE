@@ -15,9 +15,8 @@
 -include_lib("stdlib/include/qlc.hrl").
 -include("mypl.hrl").
 
--export([find_provisioning_candidates/2,find_provisioning_candidates_multi/1,
-         find_provisioning_candidates/3,find_provisioning_candidates_multi/2,
-         init_provisionings_multi/1, init_provisionings_multi/2, init_provisionings_multi/3]).
+-export([find_provisioning_candidates_multi/2,
+         init_provisionings_multi/3]).
 
 
 %% solange ein retrieval under RETRIEVALTOPICKVOLUME Liter Volumen hat, wird es in einen pick umgewandelt.
@@ -31,6 +30,8 @@
 
 %% @doc
 %% To be called within a transaction.
+-spec find_pick_candidates_helper2(mypl_db:quantity(),[#unit{}]) -> 
+    {'error','no_fit'} | {'fit',[{mypl_db:quantity(),mypl_db:muID()}]}.
 find_pick_candidates_helper2(Quantity, Units) when is_integer(Quantity), is_list(Units), Quantity >= 0 ->            
     % check if we have enough stuff available to satisfy the request
     case lists:sum([X#unit.quantity - X#unit.pick_quantity || X <- Units]) of
@@ -58,6 +59,8 @@ find_pick_candidates_helper2(Quantity, Units) when is_integer(Quantity), is_list
 %%
 %% Returns `{error, no_fit}' if nothing is found.
 %% To be called within a transaction.
+-spec find_pick_candidates_helper1(mypl_db:quantity(),[#unit{}]) ->
+    {'error','no_fit'} | {'fit',[]|[{mypl_db:quantity(),mypl_db:muID()}]}.
 find_pick_candidates_helper1(Quantity, Units) when is_integer(Quantity), is_list(Units), Quantity >= 0 ->
     % sort candidates - oldest and nearest to the front are picked first
     Sorted = mypl_db_util:sort_units_by_age_and_distance(?BESTLOCATION, Units),
@@ -84,9 +87,12 @@ find_pick_candidates_helper1(Quantity, Units) when is_integer(Quantity), is_list
 %% have open picks for them. If we find a direct match resulting
 %% in the disbandment of an unit we prefer to pick from that unit. Else we pick from the oldest Unit.
 %% Returns `{error, no_fit}' if nothing is found.
+-spec find_pick_candidates(Quantity::non_neg_integer(),Product::string(),[#unit{}]) ->
+    {'error','no_fit'} | {'fit',[]|[{Quantity::non_neg_integer(),mypl_db:muID()}]}.
 find_pick_candidates(Quantity, Product, Exclude) when is_integer(Quantity), Quantity >= 0 ->
     Fun = fun() ->
-        Candidates = find_pickable_units(Product) -- Exclude,
+        % TODO: sind die nächsten Zeilen nciht doppelt gemoppelt?
+        Candidates = (find_pickable_units(Product) -- Exclude),
         FilteredCandidates = [X || X <- Candidates, not(lists:member(X#unit.mui, Exclude))],
         case [X || X <- FilteredCandidates, X#unit.quantity - X#unit.pick_quantity =:= Quantity] of
             [H|_] ->
@@ -104,8 +110,9 @@ find_pick_candidates(Quantity, Product, Exclude) when is_integer(Quantity), Quan
 %% returns a list of all units which can be picked (no no_picks attribute on location
 %% and not already fully allocated for other picks)
 %% todo? - move to mypl_db_query?
+-spec find_pickable_units(Product::nonempty_string()) -> []|[#unit{}].
 find_pickable_units(Product) ->
-    [X || X <- mnesia:match_object(#unit{product = Product, _ = '_'}), 
+    [X || X <- mnesia:match_object(#unit{product=Product, _='_'}),
           X#unit.quantity - X#unit.pick_quantity > 0,
           unit_pickable_helper(X)].
     
@@ -114,6 +121,7 @@ find_pickable_units(Product) ->
 %% TODO: shouldn't this return yes or no?
 %% @doc Checks is a unit is pickable
 %% expects to be called within a transaction
+-spec unit_pickable_helper(#unit{}) -> bool().
 unit_pickable_helper(Unit) ->
      Loc = mypl_db_util:get_mui_location(Unit#unit.mui),
      (not(lists:member({no_picks}, Loc#location.attributes))) 
@@ -121,11 +129,12 @@ unit_pickable_helper(Unit) ->
       and (mypl_db_util:unit_moving(Unit) =:= no).
      
 
-%% @spec find_retrieval_candidates_helper(Quantity::integer(), [mypl_db:muID()]) -> {ok, [mypl_db:unitRecord()]}
 %% @doc finds the best retrieval candidates to exactly match Quantity.
 %%
 %% Returns `{error, no_fit}' if no suitable match is found.
 %% WARNING: this function can take several seconds of computing to finish. It is definitively CPU-heavy.
+-spec find_retrieval_candidates_helper(mypl_db:quantity(),[#unit{}]) ->
+    {'error','no_fit'} | {'ok',[#unit{}]}.
 find_retrieval_candidates_helper(Quantity, Units) when is_integer(Quantity), is_list(Units), Quantity >= 0 ->
     CandidateQuantites = mypl_util:nearest([X#unit.quantity || X <- Units], Quantity),
     if 
@@ -138,9 +147,10 @@ find_retrieval_candidates_helper(Quantity, Units) when is_integer(Quantity), is_
     end.
     
 
-%% @spec find_retrieval_candidates(Quantity::integer(), string, [mypl_db:unitRecord()]) -> {ok, Remainder, [mypl_db:unitRecord()]}
 %% @doc finds the best retrieval candidates to exactly match Quantity.
-find_retrieval_candidates(Quantity, Product, Units) when is_integer(Quantity), Quantity >= 0, is_list(Units) ->
+-spec find_retrieval_candidates(Quantity::integer(),Product::string(),{list()},[#unit{}]) -> 
+    {'error','not_enough'} | {'ok',integer(),[#unit{}]}.
+find_retrieval_candidates(Quantity, Product, {Props}, Units) when is_integer(Quantity), Quantity >= 0, is_list(Units) ->
     {{FullQuantity, AvailableQuantity, _, _}, _} = mypl_db_query:count_product(Product),
     if
         AvailableQuantity < Quantity ->
@@ -148,8 +158,9 @@ find_retrieval_candidates(Quantity, Product, Units) when is_integer(Quantity), Q
             if
                 FullQuantity < Quantity ->
                     % this really shouldn't happen. Something is deeply broken - or isn't it?
-                    mypl_zwitscherserver:zwitscher("Nicht genug Ware fuer Retrieval ~w mal ~s (Bestand ~w) #error",
-                                             [Quantity, Product, FullQuantity]),
+                    mypl_zwitscherserver:zwitscher("~s: Nicht genug Ware fuer Retrieval ~w mal ~s am Lager #error",
+                                                   [proplists:get_value(kommiauftragnr, Props, "???????"),
+                                                   Quantity, Product, FullQuantity]),
                     {error, not_enough};
                 true ->
                     {error, not_enough}
@@ -165,13 +176,14 @@ find_retrieval_candidates(Quantity, Product, Units) when is_integer(Quantity), Q
             end
     end.
 
-%% @spec find_retrieval_candidates(Quantity::integer(), string) -> {ok, Remainder, [mypl_db:unitRecord()]}
 %% @doc finds the best retrieval candidates to exactly match Quantity.
 %%
 %% If there is a 100% fit the remainder is 0. Else the quantity given in Remainder need to found
 %% by other mens than retrieval, e.g. by Picks.
-find_retrieval_candidates(Quantity, Product) when is_integer(Quantity), Quantity >= 0 ->
-    find_retrieval_candidates(Quantity, Product, find_retrievable_units(Product)).
+-spec find_retrieval_candidates(Quantity::non_neg_integer(),Product::string(),{list()}) -> 
+    {'error','not_enough'} | {'ok',integer(),[#unit{}]}.
+find_retrieval_candidates(Quantity, Product, {Props}) when is_integer(Quantity), Quantity >= 0 ->
+    find_retrieval_candidates(Quantity, Product, {Props}, find_retrievable_units(Product)).
 
 
 %% @private
@@ -179,6 +191,7 @@ find_retrieval_candidates(Quantity, Product) when is_integer(Quantity), Quantity
 %% @doc returns a list of all units for a product which can be retrieved.
 %%
 %% (no no_picks attribute on location and no open movements)
+-spec find_retrievable_units(_) -> any().
 find_retrievable_units(Product) ->
     Fun = fun() ->
         [X || X <- mypl_db_util:find_movable_units(Product), unit_pickable_helper(X)]
@@ -187,34 +200,34 @@ find_retrievable_units(Product) ->
     
 
 %% @private
+-spec find_oldest_unit_of(Quantity::non_neg_integer(),[#unit{}],[#unit{}]) -> #unit{}.
 find_oldest_unit_of(Quantity, Units, Ignore) when is_integer(Quantity), is_list(Units), is_list(Ignore) ->
     L = [X || X <- Units, (X#unit.quantity - X#unit.pick_quantity) =:= Quantity] -- Ignore,
     case lists:keysort(#unit.created_at, L) of
-        [] -> [];
+        % [] -> []; this should not happen
         [H|_] -> H
     end.
     
 
 %% @private
+
+-spec find_oldest_units_of([non_neg_integer()],[#unit{}],[#unit{}]) -> [#unit{}].
 find_oldest_units_of([], _Units, _Ignore) -> [];
 find_oldest_units_of(Quantities, Units, Ignore) when is_list(Quantities), is_list(Units), is_list(Ignore) ->
     [H|T] = Quantities,
     Unit = find_oldest_unit_of(H, Units, Ignore),
-    % TODO:is -- Unit needed?
-    Ret = [Unit|find_oldest_units_of(T, Units, [Unit|Ignore])],
-    Ret.
+    [Unit|find_oldest_units_of(T, Units, [Unit|Ignore])].
     
+
 %% @private
-%% @spec find_oldest_units_of([integer()], [mypl_db:unitRecord()]) -> term()
-%% @doc select the oldes units matching certain quantities.
+%% @doc select the oldest units matching certain quantities.
 %%
 %% for each Quantity in Quanitits the oldest Unit matching that Quantity in Units is returned.
+-spec find_oldest_units_of([non_neg_integer(),...], [#unit{},...]) -> [#unit{}, ...].
 find_oldest_units_of(Quantities, Units) when is_list(Quantities), is_list(Units) ->
     find_oldest_units_of(Quantities, Units, []).
 
 
-%% @spec find_provisioning_candidates(integer(), string()) -> 
-%%       {ok, [mypl_db:muiID()], [{Quantiy::integer(), mypl_db:muiID()}]}
 %% @see find_retrieval_candidates/2
 %% @see find_pick_candidates/3
 %% @doc find a combination of retrievals and picks to fullfill a order
@@ -222,14 +235,12 @@ find_oldest_units_of(Quantities, Units) when is_list(Quantities), is_list(Units)
 %% By using find_retrieval_candidates/2 and find_pick_candidates/3 the best combination
 %% to get a certain amound of goods out of the warehouse is analysed.
 %% Returns {error, no_fit} or {ok, retrievals, picks}
-find_provisioning_candidates(Quantity, Product) ->
-    find_provisioning_candidates(Quantity, Product, "X").
-
--spec find_provisioning_candidates(non_neg_integer(),nonempty_string(),_)
+-spec find_provisioning_candidates(non_neg_integer(),nonempty_string(),{list()})
     -> {ok, [mypl_db:muiID()], [{Quantiy::integer(), mypl_db:muiID()}]}.
-find_provisioning_candidates(Quantity, Product, Priority) ->
+find_provisioning_candidates(Quantity, Product, {Props}) ->
+    Priority = proplists:get_value(priority, Props, "X"),
     % check for full MUIs which can be retrieved
-    case find_retrieval_candidates(Quantity, Product) of
+    case find_retrieval_candidates(Quantity, Product, {Props}) of
         {ok, 0, Candidates} ->
             % we found a direct fit
             {ok, Candidates, []};
@@ -246,7 +257,7 @@ find_provisioning_candidates(Quantity, Product, Priority) ->
                         NonFloorUnits = lists:filter(fun(X) -> Loc = mypl_db_util:get_mui_location(X#unit.mui), 
                                          Loc#location.floorlevel =:= false
                                        end, find_retrievable_units(Product)),
-                        case find_retrieval_candidates(Quantity, Product, NonFloorUnits) of
+                        case find_retrieval_candidates(Quantity, Product, {Props}, NonFloorUnits) of
                             {ok, NRemainder, NCandidates} ->
                                 case find_pick_candidates(NRemainder, Product, NCandidates) of
                                     {fit, NPickcandidates} ->
@@ -255,25 +266,21 @@ find_provisioning_candidates(Quantity, Product, Priority) ->
                                         mypl_requesttracker:in(Quantity, Product, Priority),
                                         {error, no_fit}
                                 end;
-                            {error, no_fit} ->
-                                mypl_requesttracker:in(Quantity, Product, Priority),
-                                {error, no_fit};
                             {error, not_enough} ->
-                                % this shouldn't happen
-                                {error, not_enough}
+                                % Das sollte nicht vorkommen - der Unterbestand sollte schon beim ersten
+                                % Aufruf von find_retrieval_candidates bemerkt werden.
+                                mypl_log:log("Unterbestand bei ~w mal ~s (sollte echt nicht vorkommen)",
+                                             [Quantity, Product], {[{level, debug}]}), 
+                               {error, not_enough}
                         end
                     end,
                     mypl_db_util:transaction(Fun)
             end;
-        {error, no_fit} ->
-            mypl_requesttracker:in(Quantity, Product, Priority),
-            {error, no_fit};
         {error, not_enough} ->
-            % this might happen, if to much of a certain product is on the move in the warehouse
-            mypl_requesttracker:in(Quantity, Product, Priority),
             {error, not_enough}
     end.
     
+
 deduper_dictbuilder([], Dict) -> Dict;
 deduper_dictbuilder([H|T], Dict) ->
     % disambiguate strange JSON
@@ -290,12 +297,12 @@ deduper_dictbuilder([H|T], Dict) ->
     
 % @doc converts [{4,"10195"}, {0,"14695"}, {24,"66702"}, {180,"66702"}] to [{204,"66702"},{4,"10195"}]
 % also converts list of lists into list of tuples
+-spec deduper([{integer(),string()}]) -> [{integer(),string()}].
 deduper(L) ->
     lists:map(fun({A, B}) -> {B, A};
                  ([A, B]) -> {B, A} end,
               dict:to_list(deduper_dictbuilder(L, dict:new()))).
 
-%% @spec find_provisioning_candidates_multi(list()) -> term()
 %% @see find_provisioning_candidates/2
 %% @doc calls {@link find_provisioning_candidates/2} for more than a single product.
 %% Possibly Takes advantage of multi-processor system. Returns `{ok, [retrievals], [picks]}'
@@ -304,17 +311,14 @@ deduper(L) ->
 %% Example:
 %% [{ok, [{6, Mui1a0010}], [{4, Mui2a0009}]}, ] = find_provisioning_candidates_multi([{4, "a0009"}, {6, "a0010"}])
 %% @TODO: scheinbar wird diese funktion immer zweimal aufgerufen
-find_provisioning_candidates_multi(L1) ->
-    find_provisioning_candidates_multi(L1, "X").
 
--spec find_provisioning_candidates_multi([{Quantiy::integer(),Product::string()}], term()) -> 
+-spec find_provisioning_candidates_multi([{Quantiy::integer(),Product::string()}], {list()}) -> 
     {'error','no_fit'} | {'ok',[mypl_db:muiID()],[{integer(), mypl_db:muiID()}]}.
-
-find_provisioning_candidates_multi(L1, Priority) ->
+find_provisioning_candidates_multi(L1, {Props}) ->
     % multipleoccurances of the same Article in L1 are aggregated into a single occurance
     L = deduper(L1),
     CandList = plists:map(fun({Quantity, Product}) ->
-                              find_provisioning_candidates(Quantity, Product, Priority)
+                              find_provisioning_candidates(Quantity, Product, {Props})
                           end, L),
     case lists:all(fun(Reply) -> element(1, Reply) =:= ok end, CandList) of
         false ->
@@ -330,13 +334,14 @@ find_provisioning_candidates_multi(L1, Priority) ->
     end.
     
 %% @doc this function allows policy decisions on the output of find_provisioning_candidates_multi
+-spec reorder_provisioning_candidates_multi([mypl_db:muID()],_) -> {'ok',_,[any()]}.
 reorder_provisioning_candidates_multi(Retrievalcandidates, Pickcandidates) ->
     case {Retrievalcandidates, Pickcandidates} of
         {_, []} ->
-            % alle, die nur retrievals sind unveraendert lassen
+            % alle, die nur retrievals, sind unveraendert lassen
             {ok, Retrievalcandidates, Pickcandidates};
         {[], _} ->
-            % alle, die nur picks sind unveraendert lassen
+            % alle, die nur picks sind, unveraendert lassen
             {ok, Retrievalcandidates, Pickcandidates};
         _ ->
             % check if all retrievals could also be reached by picks
@@ -367,16 +372,17 @@ reorder_provisioning_candidates_multi(Retrievalcandidates, Pickcandidates) ->
             end
     end.
     
-    
+
+-spec get_mui_volume(mypl_db:muID()) -> number().
 get_mui_volume(Mui) ->
     Unit = mypl_db_util:mui_to_unit(Mui),
     mypl_volumes:volume({Unit#unit.quantity, Unit#unit.product}).
 
-%% @doc returns {quantity, mui} for each mui
+%% @doc returns {quantity, mui} for a mui
+-spec get_mui_quantity(mypl_db:muID()) -> {Quantity::non_neg_integer(), mypl_db:muID()}.
 get_mui_quantity(Mui) ->
     Unit = mypl_db_util:mui_to_unit(Mui),
     {Unit#unit.quantity, Mui}.
-
 
 
 %% @see find_provisioning_candidates/2
@@ -385,17 +391,14 @@ get_mui_quantity(Mui) ->
 %%
 %% Example:
 %% {ok, [MovementID1, MovementID2], [PickId3]} = init_provisionings_multi([{9, "a0009"}, {6, "a0010"}])
--spec init_provisionings_multi([{Quantiy::integer(), Product::string()}], list())
-    -> {ok, [mypl_db:movementID()], [mypl_db:pickID()]}.
-init_provisionings_multi(L, Attributes) ->
-    init_provisionings_multi(L, Attributes, "X").
-    
 
--spec init_provisionings_multi([{Quantiy::integer(),Product::string()}],[any()], term()) -> 
+-spec init_provisionings_multi([{Quantiy::integer(),Product::string()}],{list()},{list()}) -> 
     {error, no_fit} | {'ok',[mypl_db:movementID()], [mypl_db:pickID()]}.
 
-init_provisionings_multi(L, Attributes, Priority) ->
-    case find_provisioning_candidates_multi(L, Priority) of
+%% Attributs sind die Attribute, die in die neuen Bewegungen gepackt werden sollen.
+%% Props sind Informationen zur Vorgangsbearbeitung
+init_provisionings_multi(L, {Attributes}, {Props}) ->
+    case find_provisioning_candidates_multi(L, {Props}) of
         {error, no_fit} ->
             {error, no_fit};
         {ok, Retrievals, Picks} ->
@@ -415,11 +418,6 @@ init_provisionings_multi(L, Attributes, Priority) ->
             Ret
     end.
     
-
-%% @see init_provisionings_multi/2
-%% @deprecated
-init_provisionings_multi(L) ->
-    init_provisionings_multi(L, []).
 
 % ~~ Unit tests
 -ifdef(EUNIT).

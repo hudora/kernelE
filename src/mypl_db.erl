@@ -255,7 +255,7 @@ store_at_location(Location, Unit) when Unit#unit.quantity > 0 ->
                 end,
             ok = mnesia:write(Newloc),
             mypl_audit:articleaudit(Unit#unit.quantity, Unit#unit.product,
-                             "Warenzugang von " ++ integer_to_list(Unit#unit.quantity) ++ "*" 
+                             "Warenzugang von " ++ integer_to_list(Unit#unit.quantity) ++ " mal " 
                              ++ Unit#unit.product ++ " auf " ++ Location#location.name, Unit#unit.mui),
             {ok, Unit#unit.mui}
         end

@@ -416,7 +416,8 @@ refill_pipeline(_Type, []) -> no_fit;
 refill_pipeline(Type, [Entry|CandidatesTail]) ->
     Orderlines = [{Quantity, Product} || {Quantity, Product, _Attributes} <- Entry#provpipeline.orderlines],
     Priority = mypl_prov_util:sort_provpipeline_helper(Entry),
-    case mypl_choose:find_provisioning_candidates_multi(Orderlines, Priority) of
+    Props = {[{kommiauftragnr, Entry#provpipeline.id}]},
+    case mypl_choose:find_provisioning_candidates_multi(Orderlines, Priority, Props) of
         {error, no_fit} ->
             % update number of tries
             mypl_db_util:transaction(fun() ->
@@ -432,9 +433,10 @@ refill_pipeline(Type, [Entry|CandidatesTail]) ->
                 ->
                     % we have got a match - add to the two queues, remove from pipeline and we are done here
                     {ok, RetrievalIds, PickIds} = mypl_choose:init_provisionings_multi(Orderlines,
-                                                         [{kernel_provpipeline_id, Entry#provpipeline.id},
-                                                          {kernel_allocated_at, calendar:universal_time()}],
-                                                          Priority),
+                                                         {[{kernel_provpipeline_id, Entry#provpipeline.id},
+                                                           {kernel_allocated_at, calendar:universal_time()}]},
+                                                         {[{priority, Priority},
+                                                           {kommiauftragnr, Entry#provpipeline.id}]}),
                     Fun = fun() ->
                         case RetrievalIds of
                             [] -> ignore;
@@ -503,7 +505,7 @@ commit_retrievallist(Id, Attributes, Lines) when is_list(Attributes) ->
     commit_anything(Id, Attributes, Lines).
 
 % never call if something consists of picklists AND retrievallists
-% @depreciated
+% depreciated
 delete_provisioninglist(Id) ->
     mypl_log:log("delete_provisioninglist ~w", [Id], {[{level, debug}]}),
     Fun = fun() ->

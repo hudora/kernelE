@@ -25,7 +25,7 @@ stop() ->
     
 
 -spec loop(atom(),_) -> any().
-loop(Req, DocRoot) ->
+loop(Req, _DocRoot) ->
     "/" ++ Path = Req:get(path),
     mypl_log:log("~s ~s", [Req:get(method), Req:get(path)], {[{level, http}]}),
     case Path of
@@ -178,7 +178,6 @@ loop(Req, DocRoot) ->
                 _ ->
                     Req:respond({501, [], []})
             end;
-        
         [$p,$i,$c,$k,$/|PickId] ->
             case Req:get(method) of
                 Method when Method =:= 'GET'; Method =:= 'HEAD' ->
@@ -232,7 +231,6 @@ loop(Req, DocRoot) ->
                 _ ->
                     Req:respond({501, [], []})
             end;
-        
         [$l,$o,$c,$a,$t,$i,$o,$n,$/|LocationId] ->
             case Req:get(method) of
                 Method when Method =:= 'GET'; Method =:= 'HEAD' ->
@@ -252,7 +250,6 @@ loop(Req, DocRoot) ->
                 _ ->
                     Req:respond({501, [], []})
             end;
-        
         [$p,$r,$o,$d,$u,$c,$t,$/|Product] ->
             case Req:get(method) of
                 Method when Method =:= 'GET'; Method =:= 'HEAD' ->

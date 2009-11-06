@@ -16,39 +16,40 @@ TIMEOUT = 39999 # timeout parameter in ms fuer gen_server:call/3
 # Dies definiert der öffentliche API. Aus dem Code werden die diversen Schnittstellen erstellt
 funcdefs = [
 #('mypl_db', 'backup', '', []),
-('mypl_db', 'init_location', 'Locname, Height, Floorlevel, Preference, Info, Attributes', []),
+('mypl_db', 'init_location', 'Locname, Height, Floorlevel, Preference, Info, Attributes', []), # PUT location/name
 ('mypl_db', 'store_at_location', 'Locname, Mui, Quantity, Product, Height', []),
 ('mypl_db', 'store_at_location_multi', 'JsonList', []),
 
-('mypl_db', 'retrieve', 'Mui', []),
+('mypl_db', 'retrieve', 'Mui', []),                  # obsolete
 ('mypl_db', 'init_movement', 'Mui, Locname', []),
 ('mypl_db', 'init_movement_to_good_location', 'Mui', []),
 ('mypl_db', 'commit_movement', 'MovementId', []),
-('mypl_db', 'rollback_movement', 'MovementId', []),
-('mypl_db', 'commit_retrieval', 'MovementId', []),
-('mypl_db', 'rollback_retrieval', 'MovementId', []),
-('mypl_db', 'init_pick', 'Quantity, Mui', []),
-('mypl_db', 'commit_pick', 'PickId', []),
-('mypl_db', 'rollback_pick', 'PickId', []),
+('mypl_db', 'rollback_movement', 'MovementId', []),  # DELETE /movemnt/oid
+('mypl_db', 'commit_retrieval', 'MovementId', []),   # obsolete
+('mypl_db', 'rollback_retrieval', 'MovementId', []), # obsolete
+('mypl_db', 'init_pick', 'Quantity, Mui', []),       # obsolete
+('mypl_db', 'commit_pick', 'PickId', []),            # obsolete
+('mypl_db', 'rollback_pick', 'PickId', []),          # obsolete
 ('mypl_db', 'correction', 'JsonList', []),
-('mypl_db', 'update_unit', 'JsonList', []),
+('mypl_db', 'update_unit', 'JsonList', []),          # POST /unit/mui
 
 # TODO: move to http
-('mypl_db_query',       'count_product', 'Product', []),
-('mypl_db_query',       'count_products', '', ['async']),
-('mypl_db_query',       'unit_list', '', ['async']),
-('mypl_db_query',       'unit_info', 'Mui', ['async']),
-('mypl_db_query',       'location_list', '', ['async']),
-('mypl_db_query',       'location_info', 'Locname', []),
-('mypl_db_query',       'movement_list', '', ['async']),
-('mypl_db_query',       'movement_info', 'MovementId', ['async']),
-('mypl_db_query',       'pick_list', '', ['async']),
-('mypl_db_query',       'pick_info', 'PickId', ['async']),
-('mypl_abcserver',      'get_abc', '', ['async']),
-('mypl_abcserver',      'get_abcclass', 'Product', ['async']),
-('mypl_requesttracker', 'dump_requests', '', []),
-('mypl_statistics',     'statistics', '', ['async']),
+('mypl_db_query',       'count_product', 'Product', []),  # GET /product/artnr
+('mypl_db_query',       'count_products', '', ['async']), # GET /product
+('mypl_db_query',       'unit_list', '', ['async']),      # GET /unit
+('mypl_db_query',       'unit_info', 'Mui', ['async']),   # GET /unit/mui
+('mypl_db_query',       'location_list', '', ['async']),  # GET /location
+('mypl_db_query',       'location_info', 'Locname', []),  # GET /location/name
+('mypl_db_query',       'movement_list', '', ['async']),  # GET /movement
+('mypl_db_query',       'movement_info', 'MovementId', ['async']), # GET /movement/oid
+('mypl_db_query',       'pick_list', '', ['async']),      # GET /pick
+('mypl_db_query',       'pick_info', 'PickId', ['async']),# GET /pick/oid
+('mypl_abcserver',      'get_abc', '', ['async']),        # GET /abc
+('mypl_abcserver',      'get_abcclass', 'Product', ['async']), # obsolete
+('mypl_requesttracker', 'dump_requests', '', []),         # GET /requesttracker
+('mypl_statistics',     'statistics', '', ['async']),     # GET /statistics
 ('mypl_statistics',     'bewegungen', '', ['async']),
+
 ('mypl_prov_query',     'provpipeline_info', 'CId', []),
 ('mypl_prov_query',     'provpipeline_list_new', '', ['async']),
 ('mypl_prov_query',     'provpipeline_list_processing', '', ['async']),
@@ -56,10 +57,7 @@ funcdefs = [
 ('mypl_prov_query',     'provisioninglist_list', '', ['async']),
 ('mypl_prov_query',     'provisioninglist_info', 'CId', []),
 
-('mypl_db_util', 'find_empty_location_nice', 'Height', []),
-
-# TODO: is this needed?
-('mypl_choose', 'find_provisioning_candidates', 'Quantity, Product', ['async']),
+('mypl_db_util', 'find_empty_location_nice', 'Height', []), # obsolete
 
 # TODO: rename
 ('mypl_provpipeline', 'insert_pipeline', 'JsonList', []),
@@ -67,12 +65,12 @@ funcdefs = [
 ('mypl_provpipeline', 'commit_retrievallist', 'CId', []),
 ('mypl_provpipeline', 'get_picklists', '', ['async']),
 ('mypl_provpipeline', 'get_retrievallists', '', ['async']),
-('mypl_provpipeline', 'get_movementlist', '', ['async']),
+('mypl_provpipeline', 'get_movementlist', '', ['async']), # neu: POST /movement
 
 ('mypl_prov_special', 'delete_kommiauftrag', 'CId', []),
 ('mypl_prov_special', 'update_pipeline', 'JsonList', []),
 
-('mypl_nveserver', 'make_oid', '', []),
+('mypl_nveserver', 'make_oid', '', []), # obsolete
 ('mypl_nveserver', 'make_nve', '', []),
 
 

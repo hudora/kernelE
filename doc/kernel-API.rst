@@ -1,4 +1,4 @@
-DRAFT $Date: 2009-10-14 12:28:19 +0200 (Wed, 14 Oct 2009) $ $Revision: 6763 $
+DRAFT $Date$ $Revision$
 
 ===================
 HTTP-API zum Kernel
@@ -6,6 +6,53 @@ HTTP-API zum Kernel
 
 Der Kernel soll in Zukunft nur noch per HTTP angesteuert werden. Als Datenformat
 wird JSON verwendet.
+
+
+Kommissionieraufträge
+=====================
+
+`GET /kommiauftrag` - Liste aller anstehenden Kommiaufträge
+-----------------------------------------------------------
+
+Listet alle im myPL anstehenden Kommiauftrge aus.
+
+::
+
+  $ curl http://hurricane.local.hudora.biz:8000/kommiauftrag
+  ["3098737","3098718","3098057","3098721", ...]
+
+`GET /kommiauftrag/{oid}` - Daten zu einem Kommiauftrag
+-------------------------------------------------------
+
+Das Datenformat selbst ist noch im Fluss ...
+
+::
+  
+  $ curl http://hurricane.local.hudora.biz:8000/kommiauftrag/3098737
+  {"kommiauftragsnr":"3098737","liefertermin":"2009-10-14","liefertermin_ab":"2009-10-14",
+   "versandtermin":"2009-10-13","versandtermin_ab":"2009-10-13",
+   "fixtermin":false,"gewicht":9510,"volumen":130.356,
+   "land":"DE","plz":"01796","info_kunde":"","auftragsnr":"1089297",
+   "kundenname":"Sport-Wolf OHG ","kundennr":"19858","tries":0,
+   "provisioninglists":[],"priority":2,"shouldprocess":"yes","status":"new",
+   "orderlines":[{"menge":18,"artnr":"83161","posnr":1,"gewicht":0,"auftragsposition":1},
+                 {"menge":12,"artnr":"83162","posnr":2,"gewicht":0,"auftragsposition":2}],
+   "kernel_customer":[49,57,56,53,56],"kernel_enqueued_at":"2009-11-02T15:16:20","anbruch":true,
+   "versandpaletten":0.1,"art":"A","paletten":0.1,
+   "kep":true}
+
+
+`DELETE /kommiauftrag/{oid}` - Kommiauftrag "Stornieren"
+--------------------------------------------------------
+
+Dies ist nur möglich, bei Kommiaufträgen, bei denen noch kein Kommischein erzeugt wurde. 
+https://cybernetics.hudora.biz/intern/trac/browser/projects/myPLfrontend/trunk/myplfrontend/bin/mypl_rueckmelde_server?rev=6904
+
+
+`POST /kommiauftrag/{oid}`
+--------------------------
+
+
 
 
 Units
@@ -183,4 +230,38 @@ werden.
 Diverses
 ========
 
-/statistics /abc /requesttracker liefert verschiedene Informationen
+
+`GET /statistics`
+-----------------
+
+::
+
+  $ curl http://hurricane.local.hudora.biz:8000/statistics
+  {"empty_pickable_locations":22,
+   "multi_floorunits":158,
+   "requesstracker_entries":4,
+   "open_movements":7, "open_picks":1,
+   "oldest_movement":"2009-10-27T10:50:04.955635Z",
+   "oldest_pick":"2009-10-23T11:12:24.275216Z"}
+
+
+`GET /abc`
+----------
+
+::
+
+  $ curl http://hurricane.local.hudora.biz:8000/abc       
+  {"a":[[522,"76666"],[464,"76686"],...],"b":[[439,"76650"],[202,"76676"],...],...}
+
+
+`GET /requesttracker`
+---------------------
+
+:: 
+
+  $ curl http://hurricane.local.hudora.biz:8000/requesttracker
+  [{"artnr":"WK61020","menge":60,"lastseen":"2009-11-02T23:14:57.628355Z","priority":"{3,true,<<\"2009-11-02\">>,<<\"2009-11-03\">>,0,\"19770\"}"},
+   {"artnr":"62100/WK","menge":300,"lastseen":"2009-11-02T23:14:57.632614Z","priority":"{3,true,<<\"2009-11-02\">>,<<\"2009-11-03\">>,0,\"19770\"}"},
+   ...]
+
+

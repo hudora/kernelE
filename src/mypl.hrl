@@ -24,7 +24,7 @@
 
 % dies stellt eine palette dar
 -record(unit, {mui :: nonempty_string(),             % eindeutige Numer, z.B. NVE,
-               quantity :: non_neg_integer(),          % Einheiten des Produkts
+               quantity :: non_neg_integer(),        % Einheiten des Produkts
                product :: nonempty_string(),         % ArtNr
                height :: nonempty_string(),          % Höhe in mm
                pick_quantity :: non_neg_integer(),
