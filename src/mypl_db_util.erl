@@ -5,7 +5,7 @@
 %% @author Maximillian Dornseif <md@hudora.de>
 %% @doc myPL/kernel-E storage Engine auxiliary functions
 %%
-%% This implements helper functions for {@link mypl_db}. The only interesting finction here is
+%% This implements helper functions for {@link mypl_db}. The only interesting function here is
 %% {@link best_location/1} which implements a policy for storing goods which freshly enter the Warehouse.
 %%
 %% @end
@@ -234,7 +234,6 @@ best_location(Unit) when is_record(Unit, unit) ->
     Locations = best_location_helper(Unit),
     case Locations of
         [] ->
-            error_logger:warning_msg("can't find a suitable location for ~w.", [Unit]),
             mypl_zwitscherserver:zwitscher("can't find a suitable location for ~s. #warn", [Unit#unit.mui]),
             no_location_available;
         [H|_] ->
@@ -246,13 +245,17 @@ best_location(Unit) when is_record(Unit, unit) ->
 -spec best_location('floorlevel'|'higherlevel',#unit{},[[]|#location{}]) -> []|#location{}.
 best_location(floorlevel, Unit, Ignore) when is_record(Unit, unit) ->
     % order by heigth, so we prefer lower locations
-    [H|_] = [X || X <- best_location_helper(Unit), X#location.floorlevel =:= true] -- Ignore,
-    H;
+    case [X || X <- best_location_helper(Unit), X#location.floorlevel =:= true] -- Ignore of
+        [] ->
+            no_location_available;
+        [H|_] ->
+            H
+    end;
 best_location(higherlevel, Unit, Ignore) when is_record(Unit, unit) ->
     % order by heigth, so we prefer lower locations
     case [X || X <- best_location_helper(Unit), X#location.floorlevel =:= false] -- Ignore of
-        [H|_] -> H;
-        [] -> []
+        [] -> [];
+        [H|_] -> H
     end.
 
 %% @doc suggest for each unit in units where it could be moved

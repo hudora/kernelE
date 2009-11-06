@@ -29,22 +29,11 @@ bewegungen2() ->
     lists:reverse(lists:sort(dict:to_list(bewegungen2_helper(Records, dict:new())))).
     
 
-statistics() ->
-    [{empty_pickable_locations, mypl_movements:count_empty_floor_locations()},
-     {multi_floorunits,         length(mypl_movements:more_than_one_floorunit())},
-     {requesstracker_entries,   length(mypl_requesttracker:dump_requests())},
-     {provpipeline_articles,    length(mypl_prov_query:pipelinearticles())},
-     {provpipeline_new,         length(mypl_prov_query:provpipeline_list_new())},
-     {provlists_prepared,       length(mypl_prov_query:provpipeline_list_prepared())},
-     {provpipeline_processing,  length(mypl_prov_query:provpipeline_list_processing())},
-     {open_movements,           length(mypl_db_query:movement_list())},
-     {open_picks,               length(mypl_db_query:pick_list())},
-     {oldest_movement,          oldest_movement()},
-     {oldest_pick,              oldest_pick()}
-     ].
-
 oldest_movement() ->
-    mypl_util:ensure_binary(lists:min([get_age_for_movement(X) || X <- mypl_db_query:movement_list()])).
+    case [get_age_for_movement(X) || X <- mypl_db_query:movement_list()] of
+        [] -> <<"">>;
+        Ages -> mypl_util:ensure_binary(lists:min(Ages))
+    end.
     
 
 get_age_for_movement(MovementId) ->
@@ -56,7 +45,10 @@ get_age_for_movement(MovementId) ->
     end.
 
 oldest_pick() ->
-    mypl_util:ensure_binary(lists:min([get_age_for_pick(X) || X <- mypl_db_query:pick_list()])).
+    case [get_age_for_pick(X) || X <- mypl_db_query:pick_list()] of
+        [] -> <<"">>;
+        Ages -> mypl_util:ensure_binary(lists:min(Ages))
+    end.
     
 
 get_age_for_pick(PickId) ->
@@ -66,3 +58,24 @@ get_age_for_pick(PickId) ->
         [Pick] ->
             Pick#pick.created_at
     end.
+
+
+get_number_of_units() ->
+    length(mnesia:dirty_all_keys(unit)).
+
+statistics() ->
+    [{empty_pickable_locations, mypl_movements:count_empty_floor_locations()},
+     {multi_floorunits,         length(mypl_movements:more_than_one_floorunit())},
+     {requesstracker_entries,   length(mypl_requesttracker:dump_requests())},
+     {provpipeline_articles,    length(mypl_prov_query:pipelinearticles())},
+     {provpipeline_new,         length(mypl_prov_query:provpipeline_list_new())},
+     {provlists_prepared,       length(mypl_prov_query:provpipeline_list_prepared())},
+     {provpipeline_processing,  length(mypl_prov_query:provpipeline_list_processing())},
+     {open_movements,           length(mypl_db_query:movement_list())},
+     {open_picks,               length(mypl_db_query:pick_list())},
+     {oldest_movement,          oldest_movement()},
+     {oldest_pick,              oldest_pick()},
+     {units,                    get_number_of_units()},
+     {products,                 length(mypl_db_query:count_products())}
+     ].
+

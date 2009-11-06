@@ -266,6 +266,8 @@ find_provisioning_candidates(Quantity, Product, {Props}) ->
                                         mypl_requesttracker:in(Quantity, Product, Priority),
                                         {error, no_fit}
                                 end;
+                            {error, no_fit} ->
+                                {error, no_fit};
                             {error, not_enough} ->
                                 % Das sollte nicht vorkommen - der Unterbestand sollte schon beim ersten
                                 % Aufruf von find_retrieval_candidates bemerkt werden.
@@ -276,7 +278,10 @@ find_provisioning_candidates(Quantity, Product, {Props}) ->
                     end,
                     mypl_db_util:transaction(Fun)
             end;
+        {error, no_fit} ->
+            {error, no_fit};
         {error, not_enough} ->
+            % this might happen, if to much of a certain product is on the move in the warehouse
             {error, not_enough}
     end.
     
