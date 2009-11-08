@@ -78,27 +78,27 @@
 
 -spec(start_link/0 :: () ->
               ({'ok', pid()} | 'ignore' | {'error', any()})).
--spec(publish/3 :: (queue_name(), message(), boolean()) -> 'ok').
+-spec(publish/3 :: (queue_name(), message(), bool()) -> 'ok').
 -spec(fetch/1 :: (queue_name()) ->
              ('empty' |
-              {message(), boolean(), ack_tag(), non_neg_integer()})).
+              {message(), bool(), ack_tag(), non_neg_integer()})).
 -spec(phantom_fetch/1 :: (queue_name()) ->
              ('empty' |
-              {msg_id(), boolean(), ack_tag(), non_neg_integer()})).
+              {msg_id(), bool(), ack_tag(), non_neg_integer()})).
 -spec(prefetch/1 :: (queue_name()) -> 'ok').
 -spec(ack/2 :: (queue_name(), [ack_tag()]) -> 'ok').
 -spec(tx_publish/1 :: (message()) -> 'ok').
--spec(tx_commit/3 :: (queue_name(), [{msg_id(), boolean(), boolean()}],
+-spec(tx_commit/3 :: (queue_name(), [{msg_id(), bool(), bool()}],
                       [ack_tag()]) ->
              'ok').
 -spec(tx_rollback/1 :: ([msg_id()]) -> 'ok').
--spec(requeue/2 :: (queue_name(), [{ack_tag(), boolean()}]) -> 'ok').
+-spec(requeue/2 :: (queue_name(), [{ack_tag(), bool()}]) -> 'ok').
 -spec(requeue_next_n/2 :: (queue_name(), non_neg_integer()) -> 'ok').
 -spec(purge/1 :: (queue_name()) -> non_neg_integer()).
 -spec(delete_queue/1 :: (queue_name()) -> 'ok').
 -spec(delete_non_durable_queues/1 :: ([queue_name()]) -> 'ok').
 -spec(len/1 :: (queue_name()) -> non_neg_integer()).
--spec(foldl/3 :: (fun ((message(), ack_tag(), boolean(), A) -> A),
+-spec(foldl/3 :: (fun ((message(), ack_tag(), bool(), A) -> A),
                   A, queue_name()) -> A).
 -spec(stop/0 :: () -> 'ok').
 -spec(stop_and_obliterate/0 :: () -> 'ok').

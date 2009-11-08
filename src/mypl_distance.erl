@@ -49,7 +49,7 @@ get_aisle(Loc) ->
     get_rownum(Loc) div 2.
 
 %% @doc are two locations in the same aisle?
--spec same_aisle(mypl_db:locationName(),mypl_db:locationName()) -> boolean().
+-spec same_aisle(mypl_db:locationName(),mypl_db:locationName()) -> bool().
 same_aisle(Loc1, Loc2) ->
     get_aisle(Loc1) =:= get_aisle(Loc2).
 

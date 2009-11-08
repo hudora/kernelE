@@ -63,7 +63,7 @@
 -spec(read/1 :: (msg_id()) -> {'ok', msg()} | 'not_found').
 -spec(peruse/2 :: (msg_id(), fun (({'ok', msg()} | 'not_found') -> 'ok')) ->
              'ok').
--spec(contains/1 :: (msg_id()) -> boolean()).
+-spec(contains/1 :: (msg_id()) -> bool()).
 -spec(remove/1 :: ([msg_id()]) -> 'ok').
 -spec(release/1 :: ([msg_id()]) -> 'ok').
 -spec(sync/2 :: ([msg_id()], fun (() -> any())) -> 'ok').

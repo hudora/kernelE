@@ -55,7 +55,7 @@
 -ifdef(use_specs).
 
 -type(msg_id() :: non_neg_integer()).
--type(msg() :: {queue_name(), pid(), msg_id(), boolean(), message()}).
+-type(msg() :: {queue_name(), pid(), msg_id(), bool(), message()}).
 
 -spec(start_link/5 ::
       (channel_number(), pid(), pid(), username(), vhost()) -> pid()).
@@ -63,8 +63,8 @@
 -spec(do/3 :: (pid(), amqp_method(), maybe(content())) -> 'ok').
 -spec(shutdown/1 :: (pid()) -> 'ok').
 -spec(send_command/2 :: (pid(), amqp_method()) -> 'ok').
--spec(deliver/4 :: (pid(), ctag(), boolean(), msg()) -> 'ok').
--spec(conserve_memory/2 :: (pid(), boolean()) -> 'ok').
+-spec(deliver/4 :: (pid(), ctag(), bool(), msg()) -> 'ok').
+-spec(conserve_memory/2 :: (pid(), bool()) -> 'ok').
 
 -endif.
 

@@ -45,18 +45,18 @@
 -type(publish_result() :: ({ok, routing_result(), [pid()]} | not_found())).
 
 -spec(publish/1 :: (delivery()) -> publish_result()).
--spec(delivery/4 :: (boolean(), boolean(), maybe(txn()), message()) ->
+-spec(delivery/4 :: (bool(), bool(), maybe(txn()), message()) ->
              delivery()). 
 -spec(message/4 :: (exchange_name(), routing_key(), properties_input(),
                     binary()) -> message()).
 -spec(message/5 :: (exchange_name(), routing_key(), properties_input(),
                     binary(), guid()) -> message()).
 -spec(message/6 :: (exchange_name(), routing_key(), properties_input(),
-                    binary(), guid(), boolean()) -> message()).
+                    binary(), guid(), bool()) -> message()).
 -spec(properties/1 :: (properties_input()) -> amqp_properties()).
 -spec(publish/4 :: (exchange_name(), routing_key(), properties_input(),
                     binary()) -> publish_result()).
--spec(publish/7 :: (exchange_name(), routing_key(), boolean(), boolean(),
+-spec(publish/7 :: (exchange_name(), routing_key(), bool(), bool(),
                     maybe(txn()), properties_input(), binary()) ->
              publish_result()).
 -spec(build_content/2 :: (amqp_properties(), binary()) -> content()).

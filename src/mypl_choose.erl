@@ -122,7 +122,7 @@ find_pickable_units(Product) ->
 %% TODO: shouldn't this return yes or no?
 %% @doc Checks is a unit is pickable
 %% expects to be called within a transaction
--spec unit_pickable_helper(#unit{}) -> boolean().
+-spec unit_pickable_helper(#unit{}) -> bool().
 unit_pickable_helper(Unit) ->
      Loc = mypl_db_util:get_mui_location(Unit#unit.mui),
      (not(lists:member({no_picks}, Loc#location.attributes))) 

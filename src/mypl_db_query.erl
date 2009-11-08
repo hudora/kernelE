@@ -128,7 +128,7 @@ find_floor_units_for_product(Product) ->
     [X || X <- mypl_db_util:do(qlc:q([X || X <- mnesia:table(unit),
                                            X#unit.product =:= Product, unit_floor_helper(X)]))].
 
--spec unit_floor_helper(#unit{}) -> boolean().
+-spec unit_floor_helper(#unit{}) -> bool().
 unit_floor_helper(Unit) ->
     case mypl_db_util:unit_moving(Unit) of
         no ->

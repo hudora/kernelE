@@ -151,13 +151,13 @@ runmany/3, runmany/4]).
 
 % @doc Same semantics as in module
 % <a href="http://www.erlang.org/doc/man/lists.html">lists</a>.
-% @spec (Fun, List) -> boolean()
+% @spec (Fun, List) -> bool()
 all(Fun, List) ->
     all(Fun, List, 1).
 
 % @doc Same semantics as in module
 % <a href="http://www.erlang.org/doc/man/lists.html">lists</a>.
-% @spec (Fun, List, Malt) -> boolean()
+% @spec (Fun, List, Malt) -> bool()
 all(Fun, List, Malt) ->
     try runmany(fun (L) ->
 			B = lists:all(Fun, L),
@@ -179,13 +179,13 @@ all(Fun, List, Malt) ->
 
 % @doc Same semantics as in module
 % <a href="http://www.erlang.org/doc/man/lists.html">lists</a>.
-% @spec (Fun, List) -> boolean()
+% @spec (Fun, List) -> bool()
 any(Fun, List) ->
     any(Fun, List, 1).
 
 % @doc Same semantics as in module
 % <a href="http://www.erlang.org/doc/man/lists.html">lists</a>.
-% @spec (Fun, List, Malt) -> boolean()
+% @spec (Fun, List, Malt) -> bool()
 any(Fun, List, Malt) ->
     try runmany(fun (L) ->
 			B = lists:any(Fun, L),

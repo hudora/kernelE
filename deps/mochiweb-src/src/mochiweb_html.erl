@@ -43,8 +43,8 @@
 %% @type html_node() = {string(), [html_attr()], [html_node() | string()]}
 %% @type html_attr() = {string(), string()}
 %% @type html_token() = html_data() | start_tag() | end_tag() | inline_html() | html_comment() | html_doctype()
-%% @type html_data() = {data, string(), Whitespace::boolean()}
-%% @type start_tag() = {start_tag, Name, [html_attr()], Singleton::boolean()}
+%% @type html_data() = {data, string(), Whitespace::bool()}
+%% @type start_tag() = {start_tag, Name, [html_attr()], Singleton::bool()}
 %% @type end_tag() = {end_tag, Name}
 %% @type html_comment() = {comment, Comment}
 %% @type html_doctype() = {doctype, [Doctype]}

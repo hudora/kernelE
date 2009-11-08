@@ -52,10 +52,10 @@
 
 -spec(start_link/0 :: () ->
               ({'ok', pid()} | 'ignore' | {'error', any()})).
--spec(register/5 :: (pid(), boolean(), atom(), atom(), list()) -> 'ok').
--spec(report_memory/3 :: (pid(), non_neg_integer(), boolean()) -> 'ok').
+-spec(register/5 :: (pid(), bool(), atom(), atom(), list()) -> 'ok').
+-spec(report_memory/3 :: (pid(), non_neg_integer(), bool()) -> 'ok').
 -spec(info/0 :: () -> [{atom(), any()}]).
--spec(conserve_memory/2 :: (pid(), boolean()) -> 'ok').
+-spec(conserve_memory/2 :: (pid(), bool()) -> 'ok').
 
 -endif.
 

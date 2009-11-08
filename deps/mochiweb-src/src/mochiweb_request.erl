@@ -318,7 +318,7 @@ ok({ContentType, ResponseHeaders, Body}) ->
             end
     end.
 
-%% @spec should_close() -> boolean()
+%% @spec should_close() -> bool()
 %% @doc Return true if the connection must be closed. If false, using
 %%      Keep-Alive should be safe.
 should_close() ->

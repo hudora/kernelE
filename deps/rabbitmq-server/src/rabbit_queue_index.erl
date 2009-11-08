@@ -134,13 +134,13 @@
                             }).
 
 -spec(init/1 :: (string()) -> {non_neg_integer(), qistate()}).
--spec(write_published/4 :: (msg_id(), seq_id(), boolean(), qistate())
+-spec(write_published/4 :: (msg_id(), seq_id(), bool(), qistate())
       -> qistate()).
 -spec(write_delivered/2 :: (seq_id(), qistate()) -> qistate()).
 -spec(write_acks/2 :: ([seq_id()], qistate()) -> qistate()).
--spec(flush_journal/1 :: (qistate()) -> {boolean(), qistate()}).
+-spec(flush_journal/1 :: (qistate()) -> {bool(), qistate()}).
 -spec(read_segment_entries/2 :: (seq_id(), qistate()) ->
-             {( [{msg_id(), seq_id(), boolean(), boolean()}]
+             {( [{msg_id(), seq_id(), bool(), bool()}]
               | 'not_found'), qistate()}).
 -spec(next_segment_boundary/1 :: (seq_id()) -> seq_id()).
 -spec(segment_size/0 :: () -> non_neg_integer()).

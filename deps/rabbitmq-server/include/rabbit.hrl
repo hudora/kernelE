@@ -109,15 +109,15 @@
                   read      :: regexp()}).
 -type(amqqueue() ::
       #amqqueue{name          :: queue_name(),
-                durable       :: boolean(),
-                auto_delete   :: boolean(),
+                durable       :: bool(),
+                auto_delete   :: bool(),
                 arguments     :: amqp_table(),
                 pid           :: maybe(pid())}).
 -type(exchange() ::
       #exchange{name        :: exchange_name(),
                 type        :: exchange_type(),
-                durable     :: boolean(),
-                auto_delete :: boolean(),
+                durable     :: bool(),
+                auto_delete :: bool(),
                 arguments   :: amqp_table()}).
 -type(binding() ::
       #binding{exchange_name    :: exchange_name(),
@@ -151,11 +151,11 @@
                      routing_key    :: routing_key(),
                      content        :: content(),
                      guid           :: guid(),
-                     is_persistent  :: boolean()}).
+                     is_persistent  :: bool()}).
 -type(message() :: basic_message()).
 -type(delivery() ::
-      #delivery{mandatory :: boolean(),
-                immediate :: boolean(),
+      #delivery{mandatory :: bool(),
+                immediate :: bool(),
                 txn       :: maybe(txn()),
                 sender    :: pid(),
                 message   :: message()}).
