@@ -14,7 +14,7 @@ Kommissionieraufträge
 `GET /kommiauftrag` - Liste aller anstehenden Kommiaufträge
 -----------------------------------------------------------
 
-Listet alle im myPL anstehenden Kommiauftrge aus.
+Listet alle im myPL anstehenden Kommiauftärge auf.
 
 ::
 
@@ -58,6 +58,38 @@ Neuen Kommiauftrag in das System spielen - TBD
 Kommischeine
 ============
 
+`GET /kommischein` - Liste aller anstehenden Kommischeine
+---------------------------------------------------------
+
+Listet alle im myPL anstehenden Kommischeine auf.
+
+::
+
+  $ curl http://hurricane.local.hudora.biz:8000/kommischein
+  ["p08444175","p08462027","p08545200","p08545244","r08545285"]
+
+
+`GET /kommischein/{oid}` - Daten zu einem Kommischein
+-----------------------------------------------------
+
+Liefert Informationen zu einem Kommischein.
+
+::
+
+  $ curl http://hurricane.local.hudora.biz:8000/kommischein/p08545200
+  {"id":"p08545200", "type":"picklist", "provpipeline_id":"3099178", "destination":"AUSLAG", "parts":1,
+   "created_at":"2009-11-06T10:53:14.000000Z", "provisioning_ids":["P08545198"]}
+
+
+`POST /kommischein/{oid}` - Kommischein zurückmelden
+----------------------------------------------------
+
+Meldet einen Kommischein zurück. Übergeben wird ein (möglicherweise leeres) JSON Dict mit Audit-Informationen.
+
+::
+
+  $ curl -X POST -d '{}' http://hurricane.local.hudora.biz:8000/kommischein/p08545200
+  
 
 Units
 =====
@@ -213,13 +245,20 @@ Hiermit kann ein KOmissioniervorschlag für eine bestimmte Menge eines Artikels 
 
 - menge
 
-Falls keine passenden Mengen gefunden werden können - z.B. wil erst noch eine Umlagerung durchgeführt werden muss oder der Artikel nicht am lager ist - wird der Statuscide 404 zurückgegeben.
+Falls keine passenden Mengen gefunden werden können - z.B. wil erst noch eine Umlagerung durchgeführt werden muss - wird der Statuscode 404 zurückgegeben. Sollte das LAger weniger Bestand, als gefordert, haben, wird 
+der Statuscode 403 zurukgegeben.
 
 ::
 
-  $ curl -X POST -d '{"menge":5}' http://hurricane.local.hudora.biz:8000/product/10118
+  $ curl -X POST -d '{"menge":10}' http://hurricane.local.hudora.biz:8000/product/10118
+  {"retrievals":[],"picks":[{"menge":10,"mui":"340059981002381621"}]}
+  $ curl -X POST -d '{"menge":16}' http://hurricane.local.hudora.biz:8000/product/10118
+  {"retrievals":["340059981002381621"],"picks":[]}
+  $ curl -X POST -d '{"menge":17}' http://hurricane.local.hudora.biz:8000/product/10118
+  "Nicht genug Bestand am Lager"
 
-Diese funktion wird nicht per Get aufgerufen, weil sie *nicht* idempotent ist. Ein aufruf dieser URL verändert das interene Scheduling im kernel.
+
+Diese Funktion wird nicht per GET aufgerufen, weil sie *nicht* idempotent ist. Ein aufruf dieser URL verändert das interene Scheduling im kernel.
 
 
 Picks

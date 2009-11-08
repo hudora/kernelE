@@ -131,6 +131,14 @@ loop(Req, _DocRoot) ->
                         unknown -> send_json(Req, 404, <<"unknown Kommischein">>);
                         Info -> send_json(Req, Info)
                     end;
+                'POST' ->
+                    case mypl_prov_query:provisioninglist_info2(KommischeinNr) of
+                        unknown ->
+                            send_json(Req, 404, <<"unknown Kommischein">>);
+                        _Info ->
+                            DoneStatus = mypl_provpipeline:commit_anything(KommischeinNr, []),
+                            send_json(Req, 200, mypl_util:ensure_binary(DoneStatus))
+                    end;
                 _ ->
                     Req:respond({501, [], []})
             end;
