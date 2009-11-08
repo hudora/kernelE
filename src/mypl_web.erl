@@ -265,10 +265,13 @@ loop(Req, _DocRoot) ->
                     {Props} = myjson:decode(Body),
                     Menge = proplists:get_value(<<"menge">>, Props, 1),
                     case mypl_choose:find_provisioning_candidates(Menge, Product, {[]}) of
+                        {error,not_enough} ->
+                            send_json(Req, 403, <<"Nicht genug Bestand am Lager">>);
                         {error, no_fit} ->
                             send_json(Req, 404, <<"Kann zur Zeit nicht erfuellt werden">>);
                         {ok, Retrievals, Picks} ->
-                            send_json(Req, 200, {[{retrievals, Retrievals}, {picks, Picks}]})
+                            send_json(Req, 200, {[{retrievals, [mypl_util:ensure_binary(Mui) || Mui <- Retrievals]},
+                                                  {picks, [{[{menge, Mng}, {mui, mypl_util:ensure_binary(Mui)}]} || {Mng, Mui} <- Picks]}]})
                     end;
                 _ ->
                     Req:respond({501, [], []})

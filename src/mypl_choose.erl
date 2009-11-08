@@ -161,7 +161,7 @@ find_retrieval_candidates(Quantity, Product, {Props}, Units) when is_integer(Qua
                     % this really shouldn't happen. Something is deeply broken - or isn't it?
                     mypl_zwitscherserver:zwitscher("~s: Nicht genug Ware fuer Retrieval ~w mal ~s am Lager #error",
                                                    [proplists:get_value(kommiauftragnr, Props, "???????"),
-                                                   Quantity, Product, FullQuantity]),
+                                                   Quantity, Product]),
                     {error, not_enough};
                 true ->
                     {error, not_enough}
