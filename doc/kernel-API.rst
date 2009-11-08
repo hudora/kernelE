@@ -49,10 +49,14 @@ Dies ist nur möglich, bei Kommiaufträgen, bei denen noch kein Kommischein erze
 https://cybernetics.hudora.biz/intern/trac/browser/projects/myPLfrontend/trunk/myplfrontend/bin/mypl_rueckmelde_server?rev=6904
 
 
-`POST /kommiauftrag/{oid}`
+`PUT /kommiauftrag/{oid}`
 --------------------------
 
+Neuen Kommiauftrag in das System spielen - TBD
 
+
+Kommischeine
+============
 
 
 Units
@@ -192,12 +196,30 @@ Products
 `GET /product/{artnr}` - liefert Informationen zu einem Artikel im Lager
 ------------------------------------------------------------------------
 
+Liefert Daten zu einem Artikel am Lager.
+
 ::
 
   $ curl http://hurricane.local.hudora.biz:8000/product/10118
   {"artnr":"10118",
   "full_quantity":16,"available_quantity":16,"pick_quantity":0,"movement_quantity":0,
   "muis":["340059981002381621"]}
+
+
+`POST /product/{artnr}` - Lasst das Lager einen Kommissioniervorschalg erstellen
+--------------------------------------------------------------------------------
+
+Hiermit kann ein KOmissioniervorschlag für eine bestimmte Menge eines Artikels erstellt werden. Im Body wird ein JSON directory übergeben, dass nur folgende Keys beinhalten darf:
+
+- menge
+
+Falls keine passenden Mengen gefunden werden können - z.B. wil erst noch eine Umlagerung durchgeführt werden muss oder der Artikel nicht am lager ist - wird der Statuscide 404 zurückgegeben.
+
+::
+
+  $ curl -X POST -d '{"menge":5}' http://hurricane.local.hudora.biz:8000/product/10118
+
+Diese funktion wird nicht per Get aufgerufen, weil sie *nicht* idempotent ist. Ein aufruf dieser URL verändert das interene Scheduling im kernel.
 
 
 Picks

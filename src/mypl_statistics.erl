@@ -63,6 +63,7 @@ get_age_for_pick(PickId) ->
 get_number_of_units() ->
     length(mnesia:dirty_all_keys(unit)).
 
+-spec statistics() -> [{atom(), any()}, ...].
 statistics() ->
     [{empty_pickable_locations, mypl_movements:count_empty_floor_locations()},
      {multi_floorunits,         length(mypl_movements:more_than_one_floorunit())},

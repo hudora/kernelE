@@ -128,7 +128,7 @@ find_floor_units_for_product(Product) ->
     [X || X <- mypl_db_util:do(qlc:q([X || X <- mnesia:table(unit),
                                            X#unit.product =:= Product, unit_floor_helper(X)]))].
 
--spec unit_floor_helper(#unit{}) -> bool().
+-spec unit_floor_helper(#unit{}) -> boolean().
 unit_floor_helper(Unit) ->
     case mypl_db_util:unit_moving(Unit) of
         no ->
@@ -140,9 +140,9 @@ unit_floor_helper(Unit) ->
     Loc#location.floorlevel =:= true.
     
 
-%% @spec unit_list() -> [mypl_db:muiId()]
+%% @spec unit_list() -> [mypl_db:muID()]
 %% @doc Get a list of all unit IDs
--spec unit_list() -> [[]|mypl_db:muiID()].
+-spec unit_list() -> [[]|mypl_db:muID()].
 unit_list() ->
     {atomic, Ret} = mnesia:transaction(fun() -> mnesia:all_keys(unit) end),
     Ret.
@@ -150,7 +150,7 @@ unit_list() ->
 
 %% @spec unit_info(muiID()) -> tuple()
 %% @doc gets a tuple with information concerning a unit
--spec unit_info(mypl_db:muiID()) -> {ok, mypl_db:attributes()}|{'error', any(), any()}.
+-spec unit_info(mypl_db:muID()) -> {ok, mypl_db:attributes()}|{'error', any(), any()}.
 unit_info(Mui) -> 
     Fun = fun() ->
         case mypl_db_util:mui_to_unit(Mui) of
@@ -182,12 +182,12 @@ unit_info(Mui) ->
     mypl_db_util:transaction(Fun).
     
 
+-spec unit_info2(string()) -> unknown|{[{atom(), any()}, ...]}.
 unit_info2(Mui) -> 
     Fun = fun() ->
         case mnesia:read({unit, Mui}) of
             [Unit] ->
-                {Proplist} = format_unit_record2(Unit),
-                {Proplist};
+                format_unit_record2(Unit);
             [] ->
                 unknown
         end
@@ -247,6 +247,8 @@ location_info(Locname) ->
     {atomic, Ret} = mnesia:transaction(Fun),
     Ret.
     
+
+-spec location_info2(string()) -> unknown|{[{atom(), any()}, ...]}.
 location_info2(Locname) -> 
     Fun = fun() ->
         case mnesia:read({location, Locname}) of
@@ -280,7 +282,7 @@ movement_list() ->
 %% @doc gets a tuple with information concerning a movement.
 %%
 %% Attributes returned are id, mui, from_location, to_location, attributes, created_at, quantity and product.
--spec movement_info(mypl_db:movementId()) -> {ok, mypl_db:attributes()}|{'error', 'unknown_movement', term()}.
+-spec movement_info(mypl_db:movementID()) -> {ok, mypl_db:attributes()}|{'error', 'unknown_movement', term()}.
 movement_info(MovementId) -> 
     Fun = fun() ->
         case mnesia:read({movement, MovementId}) of
@@ -313,12 +315,12 @@ movement_info_helper(Movement) ->
     ].
 
 
+-spec movement_info2(string()) -> unknown|{[{atom, any()}, ...]}.
 movement_info2(MovementId) -> 
     Fun = fun() ->
         case mnesia:read({movement, MovementId}) of
             [Movement] ->
-                {Proplist} = format_movement_record2(Movement),
-                {Proplist ++ [{status, open}]};
+                {Proplist} = [{status, open}|format_movement_record2(Movement)];
             [] ->
                 unknown
         end

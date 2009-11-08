@@ -10,7 +10,7 @@
 % dies stellt einen Lagerplatz im Regal dar.
 -record(location, {name :: nonempty_string(),           % platznummer
                    height :: pos_integer(),             % platzhöhe in mm
-                   floorlevel :: bool(),                % kann der platz ohne Stapler bedient werden?
+                   floorlevel :: boolean(),                % kann der platz ohne Stapler bedient werden?
                    allocated_by :: [nonempty_string()], % liste der muis, die diesen platz belegen
                    reserved_for :: [nonempty_string()], % liste der muis, die auf dem weg zu diesem platz sind
                    preference :: 0..9,                  % plätze mit höherer preference werden bevorzugt befüllt, sollte zwischen 0-9 liegen

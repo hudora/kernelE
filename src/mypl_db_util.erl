@@ -79,7 +79,7 @@ get_mui_location(Mui) ->
 %% @private
 %% @doc returns the Unit identified by a Mui
 %% This expect to be called within a transaction
--spec mui_to_unit(mypl_db:muiID()) -> #unit{}|{'error', 'unknown_mui', term()}.
+-spec mui_to_unit(mypl_db:muID()) -> #unit{}|{'error', 'unknown_mui', term()}.
 mui_to_unit(Mui) ->
     case mnesia:read({unit, Mui}) of
         [Unit] ->
@@ -92,7 +92,7 @@ mui_to_unit(Mui) ->
     
 
 %% @doc this calles mui_to_unit/1 with a sorrunding transaction
--spec mui_to_unit_trans(mypl_db:muiID()) -> #unit{}|{'error', 'unknown_mui', term()}.
+-spec mui_to_unit_trans(mypl_db:muID()) -> #unit{}|{'error', 'unknown_mui', term()}.
 mui_to_unit_trans(Mui) ->
     Fun = fun() ->
         mui_to_unit(Mui)
@@ -283,7 +283,7 @@ best_locations(higherlevel, Units) ->
 %% @private
 %% @doc reads a Location record
 %% expects to be called within a mnesia transaction
--spec read_location(mypl_db:location()) -> unknown_location|#location{}.
+-spec read_location(mypl_db:locationName()) -> unknown_location|#location{}.
 read_location(Locname) when is_list(Locname)->
     case mnesia:read({location, Locname}) of
         [] ->
@@ -323,7 +323,7 @@ find_empty_location(Height) ->
 
 
 %% @deprecated
--spec find_empty_location_nice(mypl_db:heigthMM()) -> mypl_db:location().
+-spec find_empty_location_nice(mypl_db:heigthMM()) -> mypl_db:locationName().
 find_empty_location_nice(Height) ->
     Fun = fun() ->
         [X#location.name || X <- find_empty_location(Height)]

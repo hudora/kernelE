@@ -260,8 +260,16 @@ loop(Req, _DocRoot) ->
                                      {pick_quantity,PickQuantity},
                                      {movement_quantity,MovementQuantity},
                                      {muis, [mypl_util:ensure_binary(X) || X <- Muis]}]});
-                
-                
+                'POST' ->
+                    Body = Req:recv_body(),
+                    {Props} = myjson:decode(Body),
+                    Menge = proplists:get_value(<<"menge">>, Props, 1),
+                    case mypl_choose:find_provisioning_candidates(Menge, Product, {[]}) of
+                        {error, no_fit} ->
+                            send_json(Req, 404, <<"Kann zur Zeit nicht erfuellt werden">>);
+                        {ok, Retrievals, Picks} ->
+                            send_json(Req, 200, {[{retrievals, Retrievals}, {picks, Picks}]})
+                    end;
                 _ ->
                     Req:respond({501, [], []})
             end;

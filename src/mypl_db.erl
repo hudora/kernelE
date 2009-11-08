@@ -183,7 +183,7 @@ backup() ->
 %% Locations can be created at any time - even when the myPL bristles with activity..
 %% There is no way of deleting Locations. Set their preference to 0 and let them rot.
 %% returns {ok, created|updated
--spec init_location(locationName(),heigthMM(),bool(),0..9,string()|binary(),attributes()) ->
+-spec init_location(locationName(),heigthMM(),boolean(),0..9,string()|binary(),attributes()) ->
     {'ok',#location{}} | {'error','unknown_attributes',any()}.
 init_location(Name, Height, Floorlevel, Preference, Info, Attributes)
     when is_integer(Height), is_boolean(Floorlevel), is_integer(Preference), 
@@ -218,7 +218,7 @@ init_location(Name, Height, Floorlevel, Preference, Info, Attributes)
     
 
 %% @deprecated
--spec init_location(locationName(),heigthMM(),bool(),0..9,attributes()) ->
+-spec init_location(locationName(),heigthMM(),boolean(),0..9,attributes()) ->
     {'ok',#location{}} | {'error','unknown_attributes',{[any(),...]}}.
 init_location(Name, Height, Floorlevel, Preference, Attributes) -> 
     init_location(Name, Height, Floorlevel, Preference, "", Attributes).

@@ -15,7 +15,8 @@
 -include_lib("stdlib/include/qlc.hrl").
 -include("mypl.hrl").
 
--export([find_provisioning_candidates_multi/2,
+-export([find_provisioning_candidates/3,
+         find_provisioning_candidates_multi/2,
          init_provisionings_multi/3]).
 
 
@@ -121,7 +122,7 @@ find_pickable_units(Product) ->
 %% TODO: shouldn't this return yes or no?
 %% @doc Checks is a unit is pickable
 %% expects to be called within a transaction
--spec unit_pickable_helper(#unit{}) -> bool().
+-spec unit_pickable_helper(#unit{}) -> boolean().
 unit_pickable_helper(Unit) ->
      Loc = mypl_db_util:get_mui_location(Unit#unit.mui),
      (not(lists:member({no_picks}, Loc#location.attributes))) 
@@ -234,9 +235,9 @@ find_oldest_units_of(Quantities, Units) when is_list(Quantities), is_list(Units)
 %%
 %% By using find_retrieval_candidates/2 and find_pick_candidates/3 the best combination
 %% to get a certain amound of goods out of the warehouse is analysed.
-%% Returns {error, no_fit} or {ok, retrievals, picks}
+%% Returns {error, no_fit} or {ok, Retrievals, Picks}
 -spec find_provisioning_candidates(non_neg_integer(),nonempty_string(),{list()})
-    -> {ok, [mypl_db:muiID()], [{Quantiy::integer(), mypl_db:muiID()}]}.
+    -> {ok, [mypl_db:muID()], [{Quantiy::integer(), mypl_db:muID()}]}.
 find_provisioning_candidates(Quantity, Product, {Props}) ->
     Priority = proplists:get_value(priority, Props, "X"),
     % check for full MUIs which can be retrieved
@@ -318,7 +319,7 @@ deduper(L) ->
 %% @TODO: scheinbar wird diese funktion immer zweimal aufgerufen
 
 -spec find_provisioning_candidates_multi([{Quantiy::integer(),Product::string()}], {list()}) -> 
-    {'error','no_fit'} | {'ok',[mypl_db:muiID()],[{integer(), mypl_db:muiID()}]}.
+    {'error','no_fit'} | {'ok',[mypl_db:muID()],[{integer(), mypl_db:muID()}]}.
 find_provisioning_candidates_multi(L1, {Props}) ->
     % multipleoccurances of the same Article in L1 are aggregated into a single occurance
     L = deduper(L1),
