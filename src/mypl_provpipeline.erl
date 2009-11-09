@@ -49,6 +49,7 @@
          get_picklists/0, get_retrievallists/0, get_movementlist/0,
          % mark work as done
          commit_picklist/1, commit_retrievallist/1,
+         commit_anything/3,
          delete_provisioninglist/1,
          is_provisioned/1, run_me_once/0,
          cleanup/0, cleanup2/0]).
