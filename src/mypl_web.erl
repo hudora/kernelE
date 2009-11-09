@@ -166,7 +166,7 @@ loop(Req, _DocRoot) ->
                 Method when Method =:= 'GET'; Method =:= 'HEAD' ->
                     case mypl_db_query:movement_info2(MovementId) of
                         unknown -> send_json(Req, 404, <<"unknown movement">>);
-                        Info -> send_json(Req, Info)
+                        Info -> erlang:display(Info), send_json(Req, Info)
                     end;
                 'DELETE' ->
                     % fuehrt ein Rollback aus

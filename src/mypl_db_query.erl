@@ -214,7 +214,7 @@ format_unit_record2(Unit) ->
                                          {created_at, Unit#unit.created_at}
                                         ] ++ mypl_util:proplist_cleanup(Unit#unit.attributes)}),
     % mypl_util:proplist_cleanup_binary2 cant handle lists, so special-case them
-    {Proplist ++ [{picks, PickIds}, {movements, Movements}]}.
+    {lists:merge(Proplist, [{picks, PickIds}, {movements, Movements}])}.
 
 
 %% @doc Get a list of all location names
@@ -270,8 +270,9 @@ format_location_record2(Location) ->
                                          {info, Location#location.info}
                                         ] ++ Location#location.attributes}),
     % mypl_util:proplist_cleanup_binary2 cant handle lists, so special-case them 
-    {Proplist ++ [{allocated_by, [mypl_util:ensure_binary(X) || X <- Location#location.allocated_by]},
-                  {reserved_for, [mypl_util:ensure_binary(X) || X <- Location#location.reserved_for]}]}. 
+    {lists:merge(Proplist, 
+                 [{allocated_by, [mypl_util:ensure_binary(X) || X <- Location#location.allocated_by]},
+                  {reserved_for, [mypl_util:ensure_binary(X) || X <- Location#location.reserved_for]}])}. 
 
 %% @doc gets a List with all movement IDs
 -spec movement_list() -> [[]|mypl_db:movementID()].
@@ -320,7 +321,8 @@ movement_info2(MovementId) ->
     Fun = fun() ->
         case mnesia:read({movement, MovementId}) of
             [Movement] ->
-                {Proplist} = [{status, open}|format_movement_record2(Movement)];
+                {Proplist} = format_movement_record2(Movement),
+                {lists:merge(Proplist, [{status, open}])};
             [] ->
                 unknown
         end
@@ -394,7 +396,7 @@ pick_info2(PickId) ->
         case mnesia:read({pick, PickId}) of
             [Pick] ->
                 {Proplist} = format_pick_record2(Pick),
-                {Proplist ++ [{status, open}]};
+                {lists:merge(Proplist, [{status, open}])};
             [] ->
                 unknown
         end
