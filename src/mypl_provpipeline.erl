@@ -417,8 +417,11 @@ refill_pipeline(_Type, []) -> no_fit;
 refill_pipeline(Type, [Entry|CandidatesTail]) ->
     Orderlines = [{Quantity, Product} || {Quantity, Product, _Attributes} <- Entry#provpipeline.orderlines],
     Priority = mypl_prov_util:sort_provpipeline_helper(Entry),
-    Props = {[{kommiauftragnr, Entry#provpipeline.id}]},
-    case mypl_choose:find_provisioning_candidates_multi(Orderlines, Priority, Props) of
+    Props = {[{kommiauftragnr, Entry#provpipeline.id},
+              {prioritysort, Priority}]},
+    % TODO: readd Priority
+    Candidates =  mypl_choose:find_provisioning_candidates_multi(Orderlines, Props),
+    case Candidates of
         {error, no_fit} ->
             % update number of tries
             mypl_db_util:transaction(fun() ->
@@ -436,7 +439,8 @@ refill_pipeline(Type, [Entry|CandidatesTail]) ->
                     {ok, RetrievalIds, PickIds} = mypl_choose:init_provisionings_multi(Orderlines,
                                                          {[{kernel_provpipeline_id, Entry#provpipeline.id},
                                                            {kernel_allocated_at, calendar:universal_time()}]},
-                                                         {[{priority, Priority},
+                                                         {[{priority, Priority}, % TODO: remove
+                                                           {prioritysort, Priority},
                                                            {kommiauftragnr, Entry#provpipeline.id}]}),
                     Fun = fun() ->
                         case RetrievalIds of
