@@ -190,15 +190,20 @@ find_retrieval_candidates(Quantity, Product, {Props}) when is_integer(Quantity),
 %% @private
 %% @spec find_retrievable_units(string()) -> [mypl_db:unitRecord()]
 %% @doc returns a list of all units for a product which can be retrieved.
-%%
-%% (no no_picks attribute on location and no open movements)
 -spec find_retrievable_units(_) -> any().
 find_retrievable_units(Product) ->
     Fun = fun() ->
-        [X || X <- mypl_db_util:find_movable_units(Product), unit_pickable_helper(X)]
+        [X || X <- mypl_db_util:find_movable_units(Product), unit_retrievable(X)]
     end,
     mypl_db_util:transaction(Fun).
     
+
+-spec unit_retrievable(#unit{}) -> bool().
+unit_retrievable(Unit) ->
+     Loc = mypl_db_util:get_mui_location(Unit#unit.mui),
+     (not(lists:member({no_picks}, Loc#location.attributes)))
+      and (mypl_db_util:unit_moving(Unit) =:= no).
+
 
 %% @private
 -spec find_oldest_unit_of(Quantity::non_neg_integer(),[#unit{}],[#unit{}]) -> #unit{}.
