@@ -306,5 +306,5 @@ send_json(Req, Code, Headers, Value) ->
         {"Content-Type", "application/json"},
         {"Cache-Control", "must-revalidate"}
     ],
-    Req:respond({Code, DefaultHeaders ++ Headers, myjson:encode(Value) ++ "\n"}).
+    Req:respond({Code, DefaultHeaders ++ Headers, [myjson:encode(Value), "\n"]}).
 
