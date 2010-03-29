@@ -168,6 +168,12 @@ loop(Req, _DocRoot) ->
                         unknown -> send_json(Req, 404, <<"unknown movement">>);
                         Info -> send_json(Req, Info)
                     end;
+                'POST' ->
+                    % fuehrt ein Commit aus
+                    case mypl_db:commit_movement(MovementId) of
+                        {error, _} -> send_json(Req, 404, <<"error while committing movement">>);
+                        {ok, _} -> send_json(Req, 204, <<"ok">>)
+                    end;
                 'DELETE' ->
                     % fuehrt ein Rollback aus
                     case mypl_db:rollback_movement(MovementId) of
