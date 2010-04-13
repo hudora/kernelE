@@ -156,6 +156,11 @@ loop(Req, _DocRoot) ->
                             send_json(Req, 404, <<"nothing available">>);
                         MovementId ->
                             % TODO: add location header
+                            % Host = mochiweb_headers:get_header_value("host"),
+                            % Req:respond({201, [{"Content-Type", "application/json; charset=utf-8"},
+                            %                   {"Location", ,
+                            %                    Location = "http://" ++ Host  ++ "/movement/" ++ MovementId,}],
+                            %              mypl_db_query:movement_info2(MovementId)})
                             send_json(Req, 201, mypl_db_query:movement_info2(MovementId))
                     end;
                 _ ->
