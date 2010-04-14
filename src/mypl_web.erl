@@ -80,6 +80,12 @@ loop(Req, _DocRoot) ->
                 Method when Method =:= 'GET'; Method =:= 'HEAD' ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                 myjson:encode([list_to_binary(X) || X <- mypl_prov_query:provpipeline_list()])});
+                'POST' ->
+                    Message = Req:recv_body(),
+                    case mypl_provpipeline:insert_pipeline(Message) of
+                        {error, cant_reinsert_already_open, {CId, ExistingEntry}} -> error; % TODO: FEHLER!
+                        _ -> ok; % TODO: hat alles geklappt
+                    end;
                 _ ->
                     Req:respond({501, [], []})
             end;
@@ -189,6 +195,11 @@ loop(Req, _DocRoot) ->
                     Req:respond({501, [], []})
             end;
         
+        % TODO:
+        % "retrieval" ->
+        %    Req:respond({501, [], []});
+        %[$r,$e,$t,$r,$i,$e,$v,$a,$l,$/|RetrievalId] ->
+        %    Req:respond({501, [], []});
         "pick" ->
             case Req:get(method) of
                 Method when Method =:= 'GET'; Method =:= 'HEAD' ->
@@ -203,7 +214,10 @@ loop(Req, _DocRoot) ->
                     case mypl_db_query:pick_info2(PickId) of
                         unknown -> send_json(Req, 404, <<"unknown Pick">>);
                         Info -> send_json(Req, Info)
-                    end; 
+                    end;
+                'POST' ->
+                    % commit_picklist!!!
+                    Req:respond({501, [], []})
                 _ ->
                     Req:respond({501, [], []})
             end;
