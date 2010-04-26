@@ -13,7 +13,7 @@ clean:
 .PHONY: deps
 deps:
 	(cd deps/rabbitmq-erlang-client/ ; $(MAKE))
-	(cd deps/deps/mochiweb-src/ ; $(MAKE))
+	(cd deps/mochiweb-src/ ; $(MAKE))
 
 
 .PHONY: doc
