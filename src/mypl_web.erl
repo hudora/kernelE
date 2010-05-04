@@ -215,7 +215,7 @@ loop(Req, _DocRoot) ->
                     {Attributes, Orderlines} = myjson:decode(Body),
                     case mypl_provpipeline:commit_anything(RetrievalId, Attributes, Orderlines) of
                         {ok, _} -> send_json(Req, 200, <<"committed retrievallist">>);
-                        _ -> Req:respond({501, [], []}) % XXX: Gibt es den Fall?
+                        _ -> Req:respond({500, [], []}) % XXX: Gibt es den Fall?
                     end;
                 _ ->
                     Req:respond({501, [], []})
@@ -241,7 +241,7 @@ loop(Req, _DocRoot) ->
                     Body = Req:recv_body(),
                     {Attributes, Orderlines} = myjson:decode(Body),
                     case mypl_provpipeline:commit_anything(PickId, Attributes, Orderlines) of
-                        {error, _} -> Req:respond({501, [], []});
+                        {error, _} -> Req:respond({500, [], []});
                         {ok, _} -> send_json(Req, 200, <<"committed picklist">>)
                     end;
                 _ ->
@@ -334,6 +334,15 @@ loop(Req, _DocRoot) ->
                     end;
                 _ ->
                     Req:respond({501, [], []})
+            end;
+        "init_movement_to_good_location" ->
+            case Req:get(method) of
+                Method when Method =:= 'POST' ->
+                    Body = Req:recv_body(),
+                    {Mui} = myjson:decode(Body),
+                    mypl_db:init_movement_to_good_location(Mui);
+                _ ->
+                    Req:respond({501}, [], [])
             end;
         _ ->
             Req:respond({404, [], []})
