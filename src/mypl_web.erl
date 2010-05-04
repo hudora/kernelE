@@ -209,9 +209,13 @@ loop(Req, _DocRoot) ->
             case Req:get(method) of
                 Method when Method =:= 'GET'; Method =:= 'HEAD' ->
                     send_json(Req, 200, list_to_binary("Info about " ++ RetrievalId));
-                'POST' ->
-                    case mypl_provpipeline:commit_retrieval(RetrievalId) of
-                        _ -> error;
+                'POST' -> % Commit a retrievallist
+                    % extract (Order-)Lines from body
+                    Body = Req:recv_body(),
+                    {Attributes, Orderlines} = myjson:decode(Body),
+                    case mypl_provpipeline:commit_anything(RetrievalId, Attributes, Orderlines) of
+                        {ok, _} -> send_json(Req, 200, <<"committed retrievallist">>);
+                        _ -> Req:respond({501, [], []}) % XXX: Gibt es den Fall?
                     end;
                 _ ->
                     Req:respond({501, [], []})
