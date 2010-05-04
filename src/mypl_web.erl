@@ -83,8 +83,9 @@ loop(Req, _DocRoot) ->
                 'POST' ->
                     Message = Req:recv_body(),
                     case mypl_provpipeline:insert_pipeline(Message) of
-                        {error, cant_reinsert_already_open, {CId, ExistingEntry}} -> error; % TODO: FEHLER!
-                        _ -> ok; % TODO: hat alles geklappt
+                        {error, cant_reinsert_already_open, _} ->
+                            send_json(Req, 403, <<"Kommiauftrag already in processing">>);
+                        _ -> ok % TODO: hat alles geklappt
                     end;
                 _ ->
                     Req:respond({501, [], []})
@@ -195,11 +196,27 @@ loop(Req, _DocRoot) ->
                     Req:respond({501, [], []})
             end;
         
-        % TODO:
-        % "retrieval" ->
-        %    Req:respond({501, [], []});
-        %[$r,$e,$t,$r,$i,$e,$v,$a,$l,$/|RetrievalId] ->
-        %    Req:respond({501, [], []});
+        "retrieval" ->
+            case Req:get(method) of
+                Method when Method =:= 'GET'; Method =:= 'HEAD' ->
+                    % TODO: mypl_provpipeline:get_retrievallists()
+                    send_json(Req, 200, <<"ok">>);
+                _ ->
+                    Req:respond({501, [], []})
+            end;
+        
+        [$r,$e,$t,$r,$i,$e,$v,$a,$l,$/|RetrievalId] ->
+            case Req:get(method) of
+                Method when Method =:= 'GET'; Method =:= 'HEAD' ->
+                    send_json(Req, 200, list_to_binary("Info about " ++ RetrievalId));
+                'POST' ->
+                    case mypl_provpipeline:commit_retrieval(RetrievalId) of
+                        _ -> error;
+                    end;
+                _ ->
+                    Req:respond({501, [], []})
+            end;
+        
         "pick" ->
             case Req:get(method) of
                 Method when Method =:= 'GET'; Method =:= 'HEAD' ->
@@ -215,11 +232,16 @@ loop(Req, _DocRoot) ->
                         unknown -> send_json(Req, 404, <<"unknown Pick">>);
                         Info -> send_json(Req, Info)
                     end;
-                'POST' ->
-                    % commit_picklist!!!
-                    Req:respond({501, [], []})
+                'POST' -> % Commit a picklist
+                    % extract (Order-)Lines from body
+                    Body = Req:recv_body(),
+                    {Attributes, Orderlines} = myjson:decode(Body),
+                    case mypl_provpipeline:commit_anything(PickId, Attributes, Orderlines) of
+                        {error, _} -> Req:respond({501, [], []});
+                        {ok, _} -> send_json(Req, 200, <<"committed picklist">>)
+                    end;
                 _ ->
-                    Req:respond({501, [], []})
+                     Req:respond({501, [], []})
             end;
         
         "unit" ->
