@@ -233,6 +233,12 @@ loop(Req, _DocRoot) ->
                 Method when Method =:= 'GET'; Method =:= 'HEAD' ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                 myjson:encode([list_to_binary(X) || X <- mypl_db_query:pick_list()])});
+                'POST' -> % Get a picklist
+                    Body - Req:recv_body(),
+                    {Props} = myjson:decode(Body),
+                    case mypl_provpipeline:get_picklists(Props) of
+                        nothing_available -> send_json(Req, 404, <<"nothing available">>);
+                        Picklist -> send_json(Req, 201, mypl_db_query:pick_info2(Picklist));
                 _ ->
                     Req:respond({501, [], []})
             end;
