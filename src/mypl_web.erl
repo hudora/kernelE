@@ -22,7 +22,7 @@ start(Options) ->
 -spec stop() -> any().
 stop() ->
     mochiweb_http:stop(?MODULE).
-    
+
 
 -spec loop(atom(),_) -> any().
 loop(Req, _DocRoot) ->
@@ -85,7 +85,7 @@ loop(Req, _DocRoot) ->
                     case mypl_provpipeline:insert_pipeline(Message) of
                         {error, cant_reinsert_already_open, _} ->
                             send_json(Req, 403, <<"Kommiauftrag already in processing">>);
-                        _ -> ok % TODO: hat alles geklappt
+                        _ -> send_json(Req, 204, <<"ok">>)
                     end;
                 _ ->
                     Req:respond({501, [], []})
@@ -95,7 +95,7 @@ loop(Req, _DocRoot) ->
                 Method when Method =:= 'GET'; Method =:= 'HEAD' ->
                     case mypl_prov_query:provpipeline_info(KommiauftragNr) of
                         unknown -> send_json(Req, 404, <<"unknown Kommiauftrag">>);
-                        Info -> send_json(Req, Info)
+                        Info -> send_json(Req, 200, Info)
                     end;
                 'DELETE' ->
                     Message = Req:recv_body(),
@@ -104,7 +104,7 @@ loop(Req, _DocRoot) ->
                         cant_delete_already_open -> send_json(Req, 403, <<"Kommiauftrag already in processing">>);
                         ok -> send_json(Req, 204, <<"ok">>)
                     end;
-                'POST' ->
+                'POST' -> % Laut Doku ja 'PUT'
                     RPath = lists:reverse(KommiauftragNr),
                     [$y,$t,$i,$r,$o,$i,$r,$p,$/|KommiauftragNrReverse] = RPath,
                     KommiauftragNrStripped = lists:reverse(KommiauftragNrReverse),
@@ -123,6 +123,7 @@ loop(Req, _DocRoot) ->
                     Req:respond({501, [], []})
             end;
         
+        % kommischein (XXX)
         "kommischein" ->
             case Req:get(method) of
                 Method when Method =:= 'GET'; Method =:= 'HEAD' ->
@@ -150,12 +151,13 @@ loop(Req, _DocRoot) ->
                     Req:respond({501, [], []})
             end;
         
+        % movement (Umlagerung im Lager)
         "movement" ->
             case Req:get(method) of
                 Method when Method =:= 'GET'; Method =:= 'HEAD' ->
                     Req:respond({200, [{"Content-Type", "application/json; charset=utf-8"}],
                                  myjson:encode([list_to_binary(X) || X <- mypl_db_query:movement_list()])});
-                'POST' ->
+                'POST' -> % automatisches Erzeugen von Movements
                     Body = Req:recv_body(),
                     {Props} = myjson:decode(Body),
                     case mypl_movements:create_automatic_movement(mypl_util:proplist_cleanup(Props)) of
@@ -196,11 +198,16 @@ loop(Req, _DocRoot) ->
                     Req:respond({501, [], []})
             end;
         
+        % retrieval (XXX)
         "retrieval" ->
             case Req:get(method) of
-                Method when Method =:= 'GET'; Method =:= 'HEAD' ->
-                    % TODO: mypl_provpipeline:get_retrievallists()
-                    send_json(Req, 200, <<"ok">>);
+                Method when Method =:= 'POST' ->
+                    Body = Req:recv_body(),
+                    Attributes = myjson:decode(Body),
+                    case mypl_provpipeline:get_retrievallists(Attributes) of
+                        nothing_available -> send_json(Req, 404, <<"nothing available">>);
+                        Retrieval -> send_json(Req, 201, Retrieval) % XXX
+                    end;
                 _ ->
                     Req:respond({501, [], []})
             end;
@@ -335,12 +342,16 @@ loop(Req, _DocRoot) ->
                 _ ->
                     Req:respond({501, [], []})
             end;
+        
         "init_movement_to_good_location" ->
             case Req:get(method) of
                 Method when Method =:= 'POST' ->
                     Body = Req:recv_body(),
                     {Mui} = myjson:decode(Body),
-                    mypl_db:init_movement_to_good_location(Mui);
+                    case mypl_db:init_movement_to_good_location(Mui) of
+                        no_location_available -> send_json(Req, 404, <<"Keine Location verfuegbar">>);
+                        _ -> send_json(Req, 200, <<"ok">>)
+                    end;
                 _ ->
                     Req:respond({501}, [], [])
             end;
