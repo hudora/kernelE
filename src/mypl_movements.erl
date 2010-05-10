@@ -12,8 +12,8 @@
 %%
 %% Strategies for choosing a move:
 %% <ul>
-%% <li>Any mofes to clean up something, remove goods from unwanted locations etc.</li>
-%% <li>Goods where recently needed but not available. (Available via {@link mypl_requesttracker}) are
+%% <li>Any moves to clean up something, remove goods from unwanted locations etc.</li>
+%% <li>Goods were recently needed but not available. (Available via {@link mypl_requesttracker}) are
 %%     moved to floorlevel. The current implementation never moves more than one Unit at a time.
 %%     (To floorlevel)</li>
 %% <li>Goods which are classified A by {@link mypl_abcserver} and of which no unit is at floorlevel
@@ -422,7 +422,7 @@ create_automatic_movements(Attributes) ->
     init_automovements(Attributes).
 
 
-%% @doc create ONLY one movement which make the warehouse a better place ...
+%% @doc create ONLY one movement which makes the warehouse a better place ...
 create_automatic_movement(Attributes) ->
     case create_automatic_movements(Attributes) of
         {ok, []} ->

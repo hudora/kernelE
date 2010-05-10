@@ -8,9 +8,9 @@
 %% Data enters the system by beeing written in the provpipeline via insert_pipeline/1
 %% with status new.
 %%
-%% Then refill_pipeline() generates Picks and Retrievals for an provpipeline Entry,
+%% Then refill_pipeline() generates Picks and Retrievals for a provpipeline Entry,
 %% writes the Picks and Retrievals into the pickpipeline/retrievalpipeline and sets
-%% the status of the provpipeline Entry to "processing". The provpipeline also gets 
+%% the status of the provpipeline Entry to "processing". The provpipeline Entry also gets 
 %% two attributes 'kernel_retrievals' and 'kernel_picks' which store the respective
 %% pick and retrieval ids.
 %% The Picks and Retrievals get an Attribute 'kernel_provpipeline_id' which references
@@ -47,6 +47,10 @@
          % get work to do
          get_picklists/1, get_retrievallists/1, get_movementlist/1,
          get_picklists/0, get_retrievallists/0, get_movementlist/0,
+         
+         % new code that returns json serializable data structures
+         get_picklists2/0, get_picklists2/1,
+         
          % mark work as done
          commit_picklist/1, commit_retrievallist/1,
          commit_anything/3,
@@ -171,11 +175,7 @@ insert_pipeline_helper(CId, Orderlines, Priority, Customer, Weigth, Volume, Attr
                                                  Orderlines)},
     mnesia:write(PPline),
     PPline.
-    
 
-%% @spec get_picklists() -> PicklistList|nothing_available
-get_picklists() ->
-    get_picklists([]).
 
 %% @spec get_picklist(Attributes) -> PicklistList|nothing_available
 %%      PicklistList = [{Id::string(), CId::string(), Destination::string(), Attributes, Parts::integer(),
@@ -185,11 +185,11 @@ get_picklists() ->
 %%
 %% @doc gets the next Picklist to be processed.
 %%
-%% If there is noting to pick at the moment it returns `nothing_available'.
+%% If there is nothing to pick at the moment it returns `nothing_available'.
 %% Else it returns a List of Picklist Tuples. These Tuples each represent a "Kommissionierbeleg" and
 %% consist of an Id to be used in {@link commit_picklist/1}, the CId which was
-%% used in the call to {@link insert_pipeline/7}, a Destination, where the Picked gods should be dropped of,
-%% a list of arrtributes provided to {@link add/7}. Parts indicates in how many parts this Order is divided.
+%% used in the call to {@link insert_pipeline/7}, a Destination, where the Picked goods should be dropped of,
+%% a list of attributes provided to {@link add/7}. Parts indicates in how many parts this Order is divided into.
 %% So far only the values 1 for Pick only and 2 for Pick and Retrieval are used.
 %%
 %% The Picklist ends with a list of "Orderlines" consisting of the Location where to get the goods, a
@@ -260,16 +260,20 @@ generate_picklist(PPEntry, Id, PickIds, Attributes, NumParts) ->
                                           pickids=PickIds, retrievalids=[]}),
     mnesia:write(PPEntry#provpipeline{provisioninglists=[Picklist#provisioninglist.id|PPEntry#provpipeline.provisioninglists]}),
     Picklist.
-    
+
+
+%% @spec get_picklists() -> PicklistList|nothing_available
+get_picklists() ->
+    get_picklists([]).
 
 get_picklists(Attributes) when is_list(Attributes) ->
     case get_picklist(Attributes) of
         nothing_available -> nothing_available;
-	Picklist -> [format_provisioninglist(Picklist)]
+        Picklist -> [format_provisioninglist(Picklist)]
     end.
 
 
-%% @doc formats a picklist entry according to the return value of get_picklists/0 and get_retrievallists/0
+%% @doc formats a provisioninglist entry according to the return value of get_picklists/0 and get_retrievallists/0
 %% @see get_picklists/0
 format_provisioninglist(PList) ->
     {PList#provisioninglist.id,
@@ -278,14 +282,44 @@ format_provisioninglist(PList) ->
      PList#provisioninglist.attributes,
      PList#provisioninglist.parts,
      PList#provisioninglist.provisionings}.
-    
+
+
+get_picklists2() ->
+    get_picklists2([]).
+
+get_picklists2(Attributes) when is_list(Attributes) ->
+    case get_picklist(Attributes) of
+        nothing_available -> nothing_available;
+        Picklist -> [format_provisioninglist2(Picklist)]
+    end.
+
+
+format_provisioning(Provisioning) ->
+    {Id, FromUnit, Product, Quantity, FromLocation, Attributes} = Provisioning,
+    [{id, Id},
+     {from_unit, FromUnit},
+     {product, Product},
+     {quantity, Quantity},
+     {from_location, FromLocation},
+     {attributes, Attributes}
+    ].
+
+format_provisioninglist2(PList) ->
+    [{id, PList#provisioninglist.id},
+     {cid, PList#provisioninglist.provpipeline_id},
+     {location_to, PList#provisioninglist.destination},
+     {attributes, PList#provisioninglist.attributes},
+     {parts, PList#provisioninglist.parts},
+     {provisionings, lists:map(fun(Provisioning) -> format_provisioning(Provisioning) end, PList#provisioninglist.provisionings)}
+    ].
+
 
 get_retrievallists() ->
     get_retrievallists([]).
 %% @doc this returns the same as get_picklist but uses retrievals, not picks.
 %% @see get_picklists/0
 get_retrievallists(Attributes) when is_list(Attributes) ->
-    % check if we have picks available
+    % check if we have retrievals available
     case mypl_db_util:transaction(fun() -> mnesia:first(provpipeline) end) of
         '$end_of_table' ->
             nothing_available;
@@ -405,7 +439,7 @@ refill_retrievalpipeline() ->
     
 
 refill_pipeline(Type) ->
-    % check provisinings until we find one which would generate picks
+    % check provisionings until we find one which would generate picks
     Candidates = [X || X <- mypl_db_util:transaction(fun() -> 
                                                  mnesia:match_object(#provpipeline{status = new, _ = '_'})
                                                end),
@@ -477,10 +511,10 @@ get_movementlist() ->
 %% @spec get_movementlist(attributes()) -> MovementlistList|nothing_available
 %%      MovementlistList = [{Id::string(), CId::string(), Destination::string(), Attributes, Parts::integer(),
 %%                          [{LineId::string(), Location::string(), Product::string()}]}]
-%% @see get_picks/0
+%% @see get_picklists/0
 %% @doc gets the next Movements/Retrievals to be processed.
 %%
-%% This function is very simmilar to {@link get_picks/1} but returns a List of Retrievals. Occasionally the
+%% This function is very simmilar to {@link get_picklists/1} but returns a List of Retrievals. Occasionally the
 %% System decides to prefer that a internal Movement is done to optimize the Warehouse instead of a Retrieval
 %% for actually fullfilling an order. In such cases the `CId == ""'.
 get_movementlist(Attributes) when is_list(Attributes) ->
@@ -491,7 +525,7 @@ commit_picklist(Id) ->
 
 %% @spec commit_picklist(Id::string(), Attributes, [{LineId::string(), Quantity::integer()}]) -> provisioned|unfinished
 %%      Attributes = [{name, value}]
-%% @doc commit a Picklist you got from get_picks/0
+%% @doc commit a Picklist you got from get_picklists/0
 %% 
 %% Attributes can be used for later statistics. It is suggested you add at least something like
 %% `[{"picker", "biondo"}]'.
@@ -504,7 +538,7 @@ commit_picklist(Id, Attributes, Lines) when is_list(Attributes) ->
 commit_retrievallist(Id) -> commit_retrievallist(Id, [], []).
 %% @spec commit_retrievallist(Id::string(), Attributes, [{LineId::string(), Quantity::integer()}]) -> provisioned|unfinished
 %%      Attributes = [{name, value}]
-%% @doc commit a Picklist you got from get_picks/0
+%% @doc commit a Retrievallist you got from get_retrievallists/0
 %% @TODO: fixme
 commit_retrievallist(Id, Attributes, Lines) when is_list(Attributes) ->
     commit_anything(Id, Attributes, Lines).

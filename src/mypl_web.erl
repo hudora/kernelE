@@ -203,10 +203,11 @@ loop(Req, _DocRoot) ->
             case Req:get(method) of
                 Method when Method =:= 'POST' ->
                     Body = Req:recv_body(),
-                    Attributes = myjson:decode(Body),
-                    case mypl_provpipeline:get_retrievallists(Attributes) of
+                    {Props} = myjson:decode(Body),
+                    case mypl_provpipeline:get_retrievallists(mypl_util:proplist_cleanup(Props)) of
                         nothing_available -> send_json(Req, 404, <<"nothing available">>);
-                        Retrieval -> send_json(Req, 201, Retrieval) % XXX
+                        Retrieval -> Req:respond({201, [], rfc4627:encode(Retrieval)})
+                        % Retrieval -> send_json(Req, 201, Retrieval) % XXX
                     end;
                 _ ->
                     Req:respond({501, [], []})
@@ -235,10 +236,10 @@ loop(Req, _DocRoot) ->
                                 myjson:encode([list_to_binary(X) || X <- mypl_db_query:pick_list()])});
                 'POST' -> % Get a picklist
                     Body = Req:recv_body(),
-                    {Props} = myjson:decode(Body),
-                    case mypl_provpipeline:get_picklists(Props) of    
+                    {Props} = myjson:decode(Body),                    
+                    case mypl_provpipeline:get_picklists2() of  %%% mypl_util:proplist_cleanup(Props)) of    
                         nothing_available -> send_json(Req, 404, <<"nothing available">>);
-                        Picklist -> Req:respond({201, [], rfc4627:encode(Picklist)})
+                        Picklist -> send_json(Req, 201, myjson:encode(Picklist))
                     end;
                 _ ->
                     Req:respond({501, [], []})
