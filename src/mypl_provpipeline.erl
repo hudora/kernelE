@@ -50,6 +50,7 @@
          
          % new code that returns json serializable data structures
          get_picklists2/0, get_picklists2/1,
+         format_provisioninglist2/1,
          
          % mark work as done
          commit_picklist/1, commit_retrievallist/1,
@@ -296,21 +297,23 @@ get_picklists2(Attributes) when is_list(Attributes) ->
 
 format_provisioning(Provisioning) ->
     {Id, FromUnit, Product, Quantity, FromLocation, Attributes} = Provisioning,
-    [{id, Id},
-     {from_unit, FromUnit},
-     {product, Product},
-     {quantity, Quantity},
-     {from_location, FromLocation},
-     {attributes, Attributes}
-    ].
+    mypl_util:proplist_cleanup([
+        {id, Id},
+        {from_unit, FromUnit},
+        {product, Product},
+        {quantity, Quantity},
+        {from_location, FromLocation},
+        {attributes, Attributes}
+    ]).
 
 format_provisioninglist2(PList) ->
-    [{id, PList#provisioninglist.id},
-     {cid, PList#provisioninglist.provpipeline_id},
-     {location_to, PList#provisioninglist.destination},
-     {attributes, PList#provisioninglist.attributes},
-     {parts, PList#provisioninglist.parts},
-     {provisionings, lists:map(fun(Provisioning) -> format_provisioning(Provisioning) end, PList#provisioninglist.provisionings)}
+    [
+        {id, list_to_binary(PList#provisioninglist.id)},
+        {cid, list_to_binary(PList#provisioninglist.provpipeline_id)},
+        {location_to, list_to_binary(PList#provisioninglist.destination)},
+        {attributes, PList#provisioninglist.attributes},
+        {parts, PList#provisioninglist.parts},
+        {provisionings, lists:map(fun(Provisioning) -> format_provisioning(Provisioning) end, PList#provisioninglist.provisionings)}
     ].
 
 

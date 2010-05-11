@@ -239,7 +239,7 @@ loop(Req, _DocRoot) ->
                     {Props} = myjson:decode(Body),                    
                     case mypl_provpipeline:get_picklists2() of  %%% mypl_util:proplist_cleanup(Props)) of    
                         nothing_available -> send_json(Req, 404, <<"nothing available">>);
-                        Picklist -> send_json(Req, 201, myjson:encode(Picklist))
+                        Picklist -> send_json(Req, 201, list_to_binary(myjson:encode(Picklist)))
                     end;
                 _ ->
                     Req:respond({501, [], []})
